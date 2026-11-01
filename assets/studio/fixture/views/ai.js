@@ -106,7 +106,7 @@ export default function render(content) {
       <div class="chat__log" data-chat-log aria-live="polite" aria-relevant="additions text">
         ${content.messages.map(message).join("")}
 
-        <article class="msg" data-role="assistant" data-stream-msg hidden>
+        <article class="msg" data-role="assistant" data-stream-msg hidden style="display:none">
           <div class="msg__who">
             <span class="msg__avatar" data-role="assistant">${icon("spark")}</span>
             <span>Northwind 助理</span>

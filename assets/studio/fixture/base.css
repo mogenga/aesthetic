@@ -606,6 +606,8 @@ select.field-control {
 .chat { display: flex; flex-direction: column; gap: var(--s-4); max-width: var(--chat-max); }
 .chat__log { display: flex; flex-direction: column; gap: var(--s-5); }
 .msg { display: flex; flex-direction: column; gap: var(--s-2); max-width: var(--ai-bubble-max); }
+/* hidden 要能压过 display:flex，否则未触发的流式消息会留一个空壳 */
+.msg[hidden] { display: none; }
 .msg[data-role="user"] { align-self: flex-end; align-items: flex-end; }
 .msg__who { display: flex; align-items: center; gap: var(--s-2); color: var(--fg-muted); font-size: var(--fs-xs); }
 .msg__avatar {

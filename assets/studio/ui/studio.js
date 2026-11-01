@@ -35,8 +35,7 @@ async function request(method, path, body) {
   let data = null;
   try { data = await res.json(); } catch { /* 非 JSON 错误页 */ }
   if (!res.ok) {
-    const detail = Array.isArray(data?.detail)
-      ? `\n· ${data.detail.slice(0, 6).join('\n· ')}` : '';
+    const detail = Array.isArray(data?.detail) ? `\n· ${data.detail.slice(0, 6).join('\n· ')}` : '';
     throw new Error(`${data?.message || `请求失败（HTTP ${res.status}）`}${detail}`);
   }
   return data;
@@ -46,11 +45,10 @@ const post = (path, body) => request('POST', path, body);
 const get = (path) => request('GET', path);
 
 // === 颜色 ===
-// oklch() → hex 交给浏览器自己做（canvas fillStyle 往返），这样得到的就是
-// 平台真实渲染值，包含 CSS Color 4 的 gamut mapping，不用手写转换公式。
+// oklch() → hex 交给浏览器自己做：canvas fillStyle 往返拿到的就是平台真实渲染值，
+// 已包含 CSS Color 4 的 gamut mapping，不用手写转换公式。
 
 const swatchCtx = document.createElement('canvas').getContext('2d');
-/** 浏览器做颜色转换：先设黑底再设 oklch()，读回的就是平台真实 hex（含 gamut mapping）。 */
 function toHex(oklch) {
   swatchCtx.fillStyle = '#000000';
   swatchCtx.fillStyle = oklch;
@@ -58,10 +56,9 @@ function toHex(oklch) {
 }
 
 const fmtOklch = ({ L, C, H }) => `oklch(${Number(L.toFixed(3))} ${Number(C.toFixed(3))} ${Number(H.toFixed(1))})`;
-const toColor = (L, C, H) => {
-  const oklch = fmtOklch({ L, C, H });
-  return { oklch, hex: toHex(oklch), l: Number(L.toFixed(4)) };
-};
+const toColor = (L, C, H) => ({
+  oklch: fmtOklch({ L, C, H }), hex: toHex(fmtOklch({ L, C, H })), l: Number(L.toFixed(4)),
+});
 
 const hexToRgb = (hex) => [0, 2, 4].map((i) => parseInt(hex.replace('#', '').slice(i, i + 2), 16) / 255);
 const toLinear = (c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
@@ -96,14 +93,11 @@ const state = {
   direction: { director: 'self', mode: 'Operate', keywords: ['克制', '工业', '清晰'],
     references: ['瑞士铁路时刻表', '像 Braun 但更轻'], anti: ['糖水渐变'] },
   weightLadder: { family: 'system-ui', available: [300, 400, 500, 600, 700] },
-  styleCard: 'minimalism', styleVariant: 'minimalism',
   overrides: [], artifacts: { committed: false, tokens: false, injected: false }, fixture: 'unknown',
 };
 
 const STEP = [0.010, 0.015, 0.017];
-const VIEWS = {
-  desktop: [1440, 900], tablet: [834, 1000], mobile: [390, 844],
-};
+const VIEWS = { desktop: [1440, 900], tablet: [834, 1000], mobile: [390, 844] };
 const FIXTURE_ROUTE = { home: 'dashboard', settings: 'settings', form: 'form', ai: 'ai' };
 const neutralHue = () => ((250 + (85 - 250) * (state.neutral / 100)) + 360) % 360;
 const tempLabel = () => (state.neutral < 33 ? '冷' : state.neutral > 66 ? '暖' : '近中性');
@@ -174,7 +168,7 @@ function cssVars(theme) {
 
 let statusTimer = null;
 
-/** kind: ok | warn | error；ms<=0 表示不自动关闭（错误提示常驻）。 */
+/** kind: ok | warn | error；ms<=0 表示常驻（错误提示不自动消失）。 */
 function setStatus(kind, message, ms = 7000) {
   const box = $('#status');
   box.hidden = false;
@@ -284,9 +278,8 @@ function loadFrame() {
   $('#frame-url').textContent = fixtureSrc().replace('/studio/fixture', '');
 }
 
-// === 色板 / 阶梯 / 校验 ===
+// === 色板 / 层级阶梯 / 校验读数 ===
 
-/** 色板 / 层级阶梯 / 校验读数：三者共用同一份 colorSet，一次渲染。 */
 function renderPanels() {
   const light = colorSet(state.theme);
   const dark = colorSet('dark');
@@ -306,14 +299,15 @@ function renderPanels() {
     const e = light[name];
     const dl = i === 0 ? null : Math.round(Math.abs(e.l - light[order[i - 1]].l) * 1000) / 1000;
     const bad = dl !== null && (dl < 0.010 || dl > 0.030);
-    const delta = el('span', {
-      class: dl === null ? 'dl' : `dl ${bad ? 'bad' : 'ok'}`,
-      text: dl === null ? 'Δ —' : `Δ ${dl.toFixed(3)}`,
-      title: bad ? 'ΔL 超出 [0.010, 0.030]' : dl === null ? '' : 'ΔL 在允许区间内',
-    });
-    ladder.append(el('li', {}, el('span', { class: 'chip', style: { background: e.oklch } }),
+    ladder.append(el('li', {},
+      el('span', { class: 'chip', style: { background: e.oklch } }),
       el('span', { class: 'name', text: name }),
-      el('span', { text: `L ${e.l.toFixed(3)}  ${e.hex}` }), delta));
+      el('span', { text: `L ${e.l.toFixed(3)}  ${e.hex}` }),
+      el('span', {
+        class: dl === null ? 'dl' : `dl ${bad ? 'bad' : 'ok'}`,
+        text: dl === null ? 'Δ —' : `Δ ${dl.toFixed(3)}`,
+        title: bad ? 'ΔL 超出 [0.010, 0.030]' : dl === null ? '' : 'ΔL 在允许区间内',
+      })));
   });
 
   // 可读性：表面 ΔL 不能代替对比度检查。
@@ -376,7 +370,6 @@ function buildDecisions() {
     },
     direction: ensureDirection(),
     translation: structuredClone(state.translation),
-    style: { card: state.styleCard, variant: state.styleVariant },
     color: { light: clean(colorSet('light')), dark: clean(colorSet('dark')) },
     surfaceLadder: { step: STEP },
     weightLadder: state.weightLadder,
@@ -479,95 +472,41 @@ function setContent(content) {
 // === 画廊（空壳：变体 CSS 尚未生成，批次 6 之前不出候选）===
 
 let galleryBuilt = false;
-let galleryIndex = null;
 
-async function loadStyleIndex() {
-  if (galleryIndex) return galleryIndex;
-  try {
-    const res = await fetch('/studio/styles/style-index.json', { credentials: 'same-origin' });
-    const idx = await res.json();
-    galleryIndex = { variants: idx.variants || [] };
-  } catch {
-    galleryIndex = { variants: [] };
-  }
-  return galleryIndex;
-}
-
-/** 画廊按逻辑卡计数：玻璃卡三个变体都列，其余每卡一个。 */
-function galleryCandidates(variants) {
-  const seen = new Set();
-  const out = [];
-  for (const v of variants) {
-    if (v.card !== 'glassmorphism') {
-      if (seen.has(v.card)) continue;
-      seen.add(v.card);
-    }
-    out.push(v);
-  }
-  return out;
-}
-
-async function renderGallery() {
+function renderGallery() {
   const grid = $('#gallery-grid');
   const load = $('#gallery-load')?.checked;
   if (galleryBuilt && grid.dataset.load === String(load)) return;
-
-  const { variants } = await loadStyleIndex();
   galleryBuilt = true;
   grid.dataset.load = String(load);
+  grid.dataset.count = String(load ? 3 : 1);
   grid.textContent = '';
 
-  if (!variants.length) {
-    grid.dataset.count = '1';
+  if (!load) {
     grid.append(el('div', { class: 'gallery-card' },
-      el('header', {}, el('span', { class: 'g-num', text: '—' }), el('span', { text: '风格变体未生成' })),
-      el('div', { class: 'g-body', html: '读不到 <code>assets/studio/styles/style-index.json</code>。'
-        + '请确认 Studio 由 <code>scripts/studio.mjs</code> 启动。' }),
-    ));
+      el('header', {}, el('span', { class: 'g-num', text: '01–06' }), el('span', { text: '风格变体未生成' })),
+      el('div', { class: 'g-body', html: '自导模式未启用（需先完成批次 6 的 12 个风格变体）。'
+        + '当前请使用导演层定方向。<br><code>assets/studio/styles/style-index.json</code> '
+        + '与变体 CSS 完成后，这里会并排渲染最多 6 个候选并支持同步滚动。' })));
     return;
   }
 
-  let list = galleryCandidates(variants);
-  if (!load) list = list.slice(0, 3);
-  list = list.slice(0, 6);
-  grid.dataset.count = String(list.length);
-
+  // 夹具预览：只验证并排尺寸与同步滚动，不代表任何风格差异。
   const frames = [];
-  list.forEach((variant, i) => {
+  for (let i = 0; i < 3; i++) {
     const frame = el('iframe', {
-      title: `${variant.name} 候选 ${i + 1}`,
-      src: `/studio/proxy/${variant.id}/index.html#/${FIXTURE_ROUTE[state.content] || 'dashboard'}`,
+      title: `候选 ${i + 1}`, src: fixtureSrc(),
       style: { width: `${VIEWS[state.view][0]}px`, height: `${VIEWS[state.view][1]}px` },
     });
-    const head = el('header', {},
-      el('span', { class: 'g-num', text: String(i + 1).padStart(2, '0') }),
-      el('span', { class: 'g-name', text: variant.name }));
-    if (variant.engine === 'chromium-only') {
-      head.append(el('span', { class: 'g-note', text: '仅 Chromium 折射' }));
-    }
-    head.append(el('button', {
-      type: 'button', class: 'g-pick', dataset: { pick: variant.id }, text: '选择',
-    }));
-    grid.append(el('div', { class: 'gallery-card', dataset: { variant: variant.id } }, head, frame));
+    grid.append(el('div', { class: 'gallery-card' },
+      el('header', {}, el('span', { class: 'g-num', text: String(i + 1).padStart(2, '0') }),
+        el('span', { text: '夹具（无变体）' })), frame));
     frames.push(frame);
-  });
-
-  for (const btn of $$('#gallery-grid .g-pick')) {
-    btn.addEventListener('click', () => {
-      const v = list.find((x) => x.id === btn.dataset.pick);
-      if (!v) return;
-      state.styleCard = v.card;
-      state.styleVariant = v.id;
-      for (const card of $$('#gallery-grid .gallery-card')) {
-        card.classList.toggle('is-picked', card.dataset.variant === v.id);
-      }
-      setStatus('ok', `已选 ${v.name}（${v.id}）。点「写入 decisions」保存。`);
-    });
   }
 
   // 同步滚动：滚动一个，其余按比例跟随。
   let syncing = false;
-  const scroller = (frame) => frame.contentDocument?.scrollingElement || frame.contentDocument?.documentElement;
+  const scroller = (f) => f.contentDocument?.scrollingElement || f.contentDocument?.documentElement;
   for (const frame of frames) {
     frame.addEventListener('load', () => {
       frame.contentDocument?.addEventListener('scroll', () => {
