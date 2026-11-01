@@ -1,0 +1,68 @@
+/*
+ * tokens.css — 由 decisions.json 派生，请勿手改。
+ * sourceHash: sha256:f9e40363655ff3b29194d9966c809868e3f888db14a609b038b8dce5298c6209
+ * generatedAt: 2026-11-01T00:00:00Z
+ * generatorVersion: aesthetic-v2
+ */
+
+:root {
+  /* color */
+  --bg: oklch(0.985 0.002 85); /* #FBFAF9 */
+  --surface-1: oklch(0.975 0.002 85); /* #F6F5F4 */
+  --surface-2: oklch(0.96 0.002 85); /* #F1F0EF */
+  --surface-3: oklch(0.943 0.002 85); /* #ECEBEA */
+  --surface-sunken: oklch(0.968 0.002 85); /* #F4F3F2 */
+  --fg: oklch(0.217 0.002 106.6); /* #1A1A19 */
+  --fg-muted: oklch(0.52 0.004 85); /* #757371 */
+  --accent: oklch(0.52 0.09 250); /* #2F6690 */
+  --line-1: oklch(0.9 0.002 85); /* #E0DFDD */
+  --line-inset: oklch(0.86 0.002 85); /* #D2D1CF */
+
+  /* space — 8pt 结构值 */
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px;
+  --s-5: 24px; --s-6: 32px; --s-7: 48px; --s-8: 64px;
+
+  /* radius */
+  --r-sm: 4px; --r-md: 8px; --r-lg: 16px; --r-full: 999px;
+
+  /* line — 光学值 */
+  --line-hair: 1px solid var(--line-1);
+  --line-inset: color-mix(in oklab, var(--fg) 8%, transparent);
+  --label-gap: 8px;
+  --icon-shift: -0.125em;
+  --focus-ring: 3px;
+
+  /* type */
+  --fs-xs: 12px; --fs-sm: 13px; --fs-md: 15px; --fs-lg: 18px;
+  --fs-xl: 24px; --fs-2xl: 32px; --fs-3xl: 44px;
+  --lh-tight: 1.15; --lh-snug: 1.35; --lh-body: 1.65;
+
+  /* motion */
+  --dur-fast: 120ms; --dur-base: 200ms; --dur-slow: 320ms;
+  --ease-out: cubic-bezier(.2,.7,.2,1);
+  --ease-inout: cubic-bezier(.4,0,.2,1);
+
+  /* type weight — R5 基准 */
+  --fw-body: 400;
+  --fw-strong: 600;
+  --fw-display: 700;
+}
+
+:root[data-theme="dark"] {
+  /* color */
+  --bg: oklch(0.18 0.002 85); /* #161514 */
+  --surface-1: oklch(0.202 0.002 85); /* #1D1C1B */
+  --surface-2: oklch(0.226 0.002 85); /* #232221 */
+  --surface-3: oklch(0.252 0.002 85); /* #2A2928 */
+  --surface-sunken: oklch(0.16 0.002 85); /* #121110 */
+  --fg: oklch(0.94 0.002 85); /* #EDECEB */
+  --fg-muted: oklch(0.72 0.004 85); /* #ACABA9 */
+  --accent: oklch(0.72 0.09 250); /* #7FB3D6 */
+  --line-1: oklch(0.3 0.002 85); /* #3B3A39 */
+  --line-inset: oklch(0.34 0.002 85); /* #464544 */
+
+  /* type weight — R5 降一档 */
+  --fw-body: 350;
+  --fw-strong: 500;
+  --fw-display: 600;
+}

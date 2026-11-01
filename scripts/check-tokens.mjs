@@ -296,10 +296,13 @@ function checkDarkWeights(data, file, report) {
     if (role === 'body' && v < 300) {
       report.error('R5', file, 0, `weights.dark.body = ${v}，低于护栏 300。`);
     }
-    if (Array.isArray(weights) && weights.length && !weights.includes(v)) {
+    // A variable font can hit any weight; a static family can only hit the
+    // discrete values it ships. Only the latter needs a mapping record.
+    const isVariable = data.weightLadder?.variable === true;
+    if (!isVariable && Array.isArray(weights) && weights.length && !weights.includes(v)) {
       report.warn('R5', file, 0,
-        `weights.dark.${role} = ${v} 不在 weightLadder.available 里。`,
-        `可用值：${weights.join(' / ')}。应映射到最近可用值并记录 actualWeight。`);
+        `weights.dark.${role} = ${v} 不在 weightLadder.available 里（静态字重）。`,
+        `可用值：${weights.join(' / ')}。应映射到最近可用值并在 tokens.json 记 actualWeight。`);
     }
   }
   const lightW = data.weights?.light;

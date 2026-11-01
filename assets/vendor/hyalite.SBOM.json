@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-11-01T00:00:00Z",
+  "dependencies": [
+    {
+      "name": "hyalite",
+      "version": "0.5.0",
+      "license": "MIT",
+      "source": "https://github.com/VII-Cae/hyalite--liquid-glass",
+      "file": "assets/vendor/hyalite.js",
+      "bytes": 51559,
+      "vendoredAt": "2026-11-01",
+      "verifiedAt": "2026-11-01",
+      "purpose": "液态玻璃折射引擎（SDF → 位移图 → feDisplacementMap → backdrop-filter: url()）",
+      "notes": "单文件、无 WebGL、无构建、零依赖。仅 Chromium 真渲染折射，其他引擎走毛玻璃降级。"
+    }
+  ]
+}

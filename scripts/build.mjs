@@ -19,7 +19,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import {
-  parseOklch, oklchToHex, formatOklch,
+  parseOklch, oklchToHex, formatOklch, contrastHex,
 } from './lib/oklch.mjs';
 import { hashDecisions } from './check-consistency.mjs';
 
@@ -208,100 +208,300 @@ function buildTokensCss(tokens, decisions) {
 // contract.md
 // ---------------------------------------------------------------------------
 
-function fill(template, vars) {
-  return template.replace(/\{\{([A-Za-z0-9_一-龥]+)\}\}/g, (m, key) => {
-    return Object.prototype.hasOwnProperty.call(vars, key) ? String(vars[key]) : m;
+/**
+ * The template is a shell of headings + `<!-- BLOCK:name -->` slots.
+ * Every variable piece of content is a block, so no `{{…}}` ever survives
+ * into an artifact. Simple scalars use {{NAME}} and must be declared in VARS.
+ */
+function fillScalars(template, vars) {
+  return template.replace(/\{\{([A-Z0-9_]+)\}\}/g, (m, key) => {
+    if (Object.prototype.hasOwnProperty.call(vars, key)) return String(vars[key]);
+    throw new Error(`模板占位符未赋值：{{${key}}}`);
   });
+}
+
+function putBlock(text, name, body) {
+  const marker = new RegExp(`<!--\\s*BLOCK:${name}\\s*-->`);
+  if (!marker.test(text)) {
+    throw new Error(`模板缺少 BLOCK:${name} 插槽`);
+  }
+  return text.replace(marker, () => body);
 }
 
 function buildContract(decisions, tokens) {
   if (!fs.existsSync(TEMPLATE)) {
     throw new Error(`找不到模板：${TEMPLATE}`);
   }
+  const d = decisions;
   const tpl = fs.readFileSync(TEMPLATE, 'utf8');
 
-  const d = decisions;
-  const tr = d.translation || {};
-  const wl = d.weights?.light || {};
-  const wd = d.weights?.dark || {};
-  const light = d.color?.light || {};
-  const dark = d.color?.dark || {};
-
-  const s8 = extractSection8FromDecisions(d);
-
-  const vars = {
-    项目名: d.projectName || d.meta?.project || '（未命名项目）',
+  let out = fillScalars(tpl, {
     HASH: tokens.sourceHash.replace('sha256:', ''),
     ISO: tokens.generatedAt,
-    '已定稿 / 已定稿，待实现 / 已实现': d.status || '已定稿',
-    风格: d.style?.card || '—',
-    导演层: directorLabel(d.direction?.director),
-    页面模式: d.direction?.mode || '—',
-    主题: d.meta?.theme || 'light-dark',
-    YYYYMMDD: (tokens.generatedAt || '').slice(0, 10),
-    'YYYY-MM-DD': (tokens.generatedAt || '').slice(0, 10),
-    一句话气质: d.direction?.tone || '（未填写）',
-    '…': '—',
-    '—': '—',
-    '✓': '✓',
-    '700': wl.display ?? '700',
-    '600': wl.strong ?? '600',
-    '400': wl.body ?? '400',
-    '350': wd.body ?? '350',
-    '500': wd.strong ?? '500',
-    '6': '6',
-    '10': '10',
-    '16': '16',
-    '999': '999',
-    '300 / 400 / 500 / 600 / 700': (d.weightLadder?.available || []).join(' / ') || '—',
-    '350 → 400，与 --fw-body 同档；已在 tokens.json 记 actualWeight': actualWeightNote(d),
-    '工业感': tr.radius?.from || '—',
-    '像瑞士铁路时刻表': tr.neutralTemp?.from || '—',
-    '不要糖水感': tr.chromaCap?.from || '—',
-    '像图纸': tr.border?.from || '—',
-    '不要大字报': tr.weight?.from || '—',
-    '44': pickPx(s8, '组间', 44),
-    '54': pickPx(s8, '行高', 54),
-    '8': pickPx(s8, '标签→输入', 8),
-    '24': pickPx(s8, '字段→字段', 24),
-    '30': pickPx(s8, '错峰', 30),
-    '120ms': (d.translation?.motion?.value || '120ms'),
-    '200ms': '200ms',
-    '280ms': '280ms',
-    '12px': '12px',
-    '（未填写）': '（未填写）',
-  };
+    PROJECT: d.projectName || d.meta?.project || '（未命名项目）',
+    STATUS: d.status || '已定稿',
+  });
 
-  const color = light.bg ? `oklch(${stripOklch(tokens.color.light.bg.oklch)})` : 'oklch(…)';
-  vars['oklch(…)'] = color;
-
-  let out = fill(tpl, vars);
-
-  // Replace the whole §8 block with the derived one (source of truth).
-  out = replaceSection8(out, s8);
-
-  // Replace the color table with real values.
-  out = replaceColorTable(out, tokens);
-  out = replaceWeights(out, wl, wd);
-  out = replaceOverrideTable(out, d.overrides || []);
+  out = putBlock(out, 'overview', blockOverview(d));
+  out = putBlock(out, 'translation', blockTranslation(d));
+  out = putBlock(out, 'color-table', blockColorTable(tokens));
+  out = putBlock(out, 'contrast', blockContrast(tokens));
+  out = putBlock(out, 'gamut', blockGamut(tokens));
+  out = putBlock(out, 'overrides', blockOverrides(d.overrides || []));
+  out = putBlock(out, 'type', blockType(d));
+  out = putBlock(out, 'radius', blockRadius(d));
+  out = putBlock(out, 'non-negotiable', extractSection8FromDecisions(d));
+  out = putBlock(out, 'consistency', blockConsistency(d));
 
   return out;
 }
 
-function stripOklch(s) {
-  const m = String(s).match(/^oklch\((.*)\)$/);
-  return m ? m[1] : s;
+// -- blocks -----------------------------------------------------------------
+
+function blockOverview(d) {
+  const dir = d.direction || {};
+  const mode = dir.mode || '—';
+  const kw = (dir.keywords || []).join(' / ') || '—';
+  const refs = (dir.references || []).map((r) => `「${r}」`).join('、') || '—';
+  const anti = (dir.anti || []).map((r) => `「${r}」`).join('、') || '—';
+  const tone = dir.tone || kw;
+
+  return [
+    '| 项 | 值 |',
+    '|---|---|',
+    `| 项目 | ${d.projectName || d.meta?.project || '（未命名项目）'} |`,
+    `| 导演层 | ${directorLabel(dir.director)} |`,
+    `| 页面模式 | ${mode} |`,
+    `| 风格 | ${d.style?.card || '—'} / ${d.style?.variant || '—'} |`,
+    `| 主题 | ${d.meta?.theme || 'light-dark'} |`,
+    `| 日期 | ${(d.meta?.generatedAt || '').slice(0, 10) || '—'} |`,
+    `| 一句话气质 | ${tone} |`,
+    '',
+    `**方向关键词**：${kw}`,
+    '',
+    `**参照物**：${refs}`,
+    '',
+    `**明确不要**：${anti}`,
+  ].join('\n');
+}
+
+function blockTranslation(d) {
+  const tr = d.translation || {};
+  const dims = [
+    ['neutralTemp', '中性色温度'],
+    ['chromaCap', '彩度上限'],
+    ['radius', '圆角'],
+    ['border', '边框'],
+    ['shadow', '阴影'],
+    ['weight', '字重'],
+    ['motion', '动效'],
+  ];
+  const fmtVal = (v) => (Array.isArray(v) ? v.join(' / ') : String(v));
+  const rows = dims.map(([key, label]) => {
+    const dim = tr[key];
+    if (!dim) return `| ${label} | — | — | 缺失 |`;
+    const from = dim.from == null ? '`null`（规则默认）' : `「${dim.from}」`;
+    return `| ${label} | ${dim.value != null ? fmtVal(dim.value) : '—'} | ${from} |`;
+  });
+
+  const missing = dims.filter(([k]) => !tr[k]).map(([, l]) => l);
+  const nulls = dims.filter(([k]) => tr[k] && tr[k].from == null).map(([, l]) => l);
+
+  const lines = [
+    '> 这一节是"导演层 → 编译层"的可追溯链。每个数字都应有出处；没有出处就写 `null`，表示取的是规则默认。',
+    '',
+    '| 维度 | 取值 | 依据 |',
+    '|---|---|---|',
+    ...rows,
+  ];
+  if (missing.length) lines.push('', `⚠ 缺失维度：${missing.join('、')}。G2 不算通过。`);
+  if (nulls.length) lines.push('', `> 无方向依据、按规则取默认：${nulls.join('、')}。这也是信息——日后改方向时这几维不会被推翻。`);
+  return lines.join('\n');
+}
+
+function blockColorTable(tokens) {
+  const order = ['bg', 'surface-1', 'surface-2', 'surface-3', 'surface-sunken',
+    'fg', 'fg-muted', 'accent', 'line-1', 'line-inset'];
+  const names = new Set();
+  for (const theme of Object.keys(tokens.color)) {
+    for (const n of Object.keys(tokens.color[theme])) names.add(n);
+  }
+  const sorted = [...names].sort((a, b) => {
+    const ia = order.indexOf(a), ib = order.indexOf(b);
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+  });
+
+  const lightLadder = tokens.surfaceLadder.filter((l) => l.theme === 'light');
+  const darkLadder = tokens.surfaceLadder.filter((l) => l.theme === 'dark');
+  const dl = new Map();
+  for (const l of (lightLadder.length ? lightLadder : darkLadder)) {
+    dl.set(l.to, l.deltaL.toFixed(3));
+  }
+
+  const purposeOf = {
+    bg: '页面底', fg: '正文', 'fg-muted': '次要', accent: '强调',
+    'line-1': '细线', 'line-inset': '输入框内环', 'surface-sunken': '输入框凹陷底',
+  };
+
+  const rows = sorted.map((n) => {
+    const li = tokens.color.light?.[n];
+    const da = tokens.color.dark?.[n];
+    const cell = (e) => (e
+      ? `\`${e.oklch}\`<br>\`${e.hex}\`${e.clipped ? ' ⚠' : ''}`
+      : '—');
+    const purpose = purposeOf[n]
+      || `表面 ${n.replace(/[^\d]/g, '')}`;
+    return `| \`--${n}\` | ${cell(li)} | ${cell(da)} | ${purpose} | ${dl.get(n) || '—'} |`;
+  });
+
+  const lines = [
+    '| Token | 浅色 | 暗色 | 用途 | ΔL |',
+    '|---|---|---|---|---|',
+    ...rows,
+    '',
+    '> `ΔL = |L₁ − L₂|`，OKLCH L 通道绝对差值，取值区间 `[0.010, 0.030]`。"1%–3%"只是通俗叫法。',
+  ];
+  if (darkLadder.length) {
+    lines.push(`> 表中 ΔL 为浅色主题；暗色主题为 ${darkLadder
+      .map((l) => `${l.to} ${l.deltaL.toFixed(3)}`).join(' / ')}。`);
+  }
+  if (tokens.color.light && Object.values(tokens.color.light).some((e) => e.clipped)) {
+    lines.push('> ⚠ 标记表示该色超出 sRGB，已按 CSS Color 4 做 gamut mapping（降 C，保 L 与 H）。');
+  }
+  return lines.join('\n');
+}
+
+function blockContrast(tokens) {
+  const rows = [];
+  const base = tokens.color.light;
+  const darkBase = tokens.color.dark;
+  const checks = [
+    ['fg', 4.5, '正文'],
+    ['fg-muted', 4.5, '次要文本'],
+    ['accent', 3.0, '焦点/非文本'],
+    ['line-inset', 3.0, '控件边界'],
+  ];
+  for (const [name, min, label] of checks) {
+    const cell = (themeBase) => {
+      const fg = themeBase?.[name];
+      const bg = themeBase?.bg;
+      if (!fg || !bg) return '—';
+      const r = contrastHex(fg.hex, bg.hex);
+      const ok = r >= min ? '✓' : '✗';
+      return `${r.toFixed(2)}:1 ${ok}`;
+    };
+    rows.push(`| \`--${name}\` / \`--bg\` | ${cell(base)} | ${cell(darkBase)} | ${min}:1 | ${label} |`);
+  }
+  return [
+    '| 前景 / 背景 | 浅色 | 暗色 | 阈值 | 用途 |',
+    '|---|---|---|---|---|',
+    ...rows,
+    '',
+    '> 表面 ΔL 不能替代可读性检查。四类分别验收：正文、次要文本、焦点指示、非文本控件。',
+  ].join('\n');
+}
+
+function blockGamut(tokens) {
+  const clipped = [];
+  for (const theme of Object.keys(tokens.color)) {
+    for (const [name, e] of Object.entries(tokens.color[theme])) {
+      if (e.clipped) clipped.push(`${theme}.${name}（${e.hex}）`);
+    }
+  }
+  if (!clipped.length) {
+    return '所有 `oklch()` 均落在 sRGB 色域内，无需映射。';
+  }
+  return [
+    '以下 token 超出 sRGB，已按 CSS Color 4 做 gamut mapping（降低 C 直到进入色域，保持 L 与 H）：',
+    '',
+    ...clipped.map((c) => `- ${c}`),
+    '',
+    '`tokens.json` 中对应条目带 `gamutClipped: true`。',
+  ].join('\n');
+}
+
+function blockOverrides(overrides) {
+  if (!overrides.length) return '本次无 override。';
+  const fmt = (v) => (typeof v === 'object' ? JSON.stringify(v) : String(v));
+  return [
+    '| 规则 | 范围 | 请求值 | 生效值 | 原因 | 批准人 | 验证方式 | 到期 |',
+    '|---|---|---|---|---|---|---|---|',
+    ...overrides.map((o) => `| ${o.rule} | ${o.scope} | \`${fmt(o.requestedValue)}\` | \`${fmt(o.effectiveValue)}\` | ${o.reason} | ${o.approvedBy} | ${o.verification} | ${o.expiresAt || '无'} |`),
+    '',
+    '> 九字段缺一即视为未登记覆盖，G4 不通过。',
+  ].join('\n');
+}
+
+function blockType(d) {
+  const wl = d.weights?.light || {};
+  const wd = d.weights?.dark || {};
+  const avail = d.weightLadder?.available || [];
+  const family = d.weightLadder?.family || '（未指定）';
+  const variable = d.weightLadder?.variable;
+
+  return [
+    '| 项 | 浅色 | 暗色 |',
+    '|---|---|---|',
+    '| 显示字族 | 见下 | 同 |',
+    '| 正文字族 | 见下 | 同 |',
+    `| \`--fw-display\` | ${wl.display ?? '—'} | ${wd.display ?? '—'} |`,
+    `| \`--fw-strong\` | ${wl.strong ?? '—'} | ${wd.strong ?? '—'} |`,
+    `| \`--fw-body\` | ${wl.body ?? '—'} | ${wd.body ?? '—'} |`,
+    '',
+    `**字族**：${family}${variable === true ? '（可变字体）' : variable === false ? '（静态字重）' : ''}`,
+    '',
+    `**可用字重阶梯**：${avail.length ? avail.join(' / ') : '（未指定）'}`,
+    '',
+    `**映射记录**：${actualWeightNote(d)}`,
+  ].join('\n');
+}
+
+function blockRadius(d) {
+  const r = d.translation?.radius?.value;
+  if (Array.isArray(r) && r.length >= 3) {
+    return [
+      '| Token | 值 |',
+      '|---|---|',
+      `| \`--r-sm\` | ${r[0]}px |`,
+      `| \`--r-md\` | ${r[1]}px |`,
+      `| \`--r-lg\` | ${r[2]}px |`,
+      `| \`--r-full\` | ${r[3] ?? 999}px |`,
+      '',
+      '> 四级必须不同（除非全 0）。`sm = md = lg` 等于放弃形状层级。',
+    ].join('\n');
+  }
+  return '圆角取值未在转写表中定义。';
+}
+
+function blockConsistency(d) {
+  const tr = d.translation || {};
+  const dir = d.direction || {};
+  const derived = [];
+  const fromDirector = [];
+
+  const rows = [];
+  rows.push(`| 色彩基调 | ${dir.director === 'self' ? '自导' : '导演层'} | ${dir.director === 'self' ? '来自 Studio 画廊所选卡' : '来自 `PRODUCT.md` / `DESIGN.md`，未改动'} |`);
+  rows.push(`| 字体选择 | ${dir.director === 'self' ? '自导' : '导演层'} | — |`);
+  rows.push(`| 层级阶梯 | aesthetic 补足 | 导演层未定义，由 R2 生成 |`);
+  rows.push(`| 暗色映射 | aesthetic 补足 | — |`);
+  rows.push('| 动效 | 规则默认 | 方向里无依据，`translation.motion.from` 为 null |');
+  if (d.style?.card) {
+    rows.push(`| 风格卡 | ${dir.director === 'self' ? '自导' : '导演层'} | \`${d.style.card}\` → \`${d.style.variant}\` |`);
+  }
+  void derived; void fromDirector;
+
+  return [
+    '| 项 | 来源 | 说明 |',
+    '|---|---|---|',
+    ...rows,
+    '',
+    '> 后续 agent：**"刻意偏离"是决策，不是错误。** 不要"修正"回导演层的值。',
+    `> ${Object.values(tr).filter((v) => v && v.from == null).length} 个维度无方向依据，按规则取默认——改方向时这些不会被推翻。`,
+  ].join('\n');
 }
 
 function directorLabel(id) {
   return { impeccable: 'impeccable', 'frontend-design': 'frontend-design', self: '自导（Studio 画廊）' }[id] || '—';
-}
-
-function pickPx(section, needle, fallback) {
-  if (!section) return fallback;
-  const re = new RegExp(`${needle}[^\\d]{0,8}(\\d+)`);
-  const m = section.match(re);
-  return m ? m[1] : fallback;
 }
 
 function actualWeightNote(d) {
@@ -341,99 +541,6 @@ function extractSection8FromDecisions(d) {
     lines.push(`> 已登记 ${s.length} 条 override，详见 §3.4。`);
   }
   return lines.join('\n');
-}
-
-function replaceSection8(text, body) {
-  const lines = text.split('\n');
-  const start = lines.findIndex((l) => /^##\s*8\./.test(l.trim()));
-  if (start < 0) return text;
-  let end = lines.length;
-  for (let i = start + 1; i < lines.length; i++) {
-    if (/^##\s*\d+\./.test(lines[i].trim())) { end = i; break; }
-  }
-  const next = [
-    ...lines.slice(0, start + 1),
-    '',
-    '> 这一节是注入块（`DESIGN.md` 的 marker 块）的唯一来源。**改这里不会生效——改 `decisions.json`。**',
-    '',
-    body,
-    '',
-    ...lines.slice(end),
-  ];
-  return next.join('\n');
-}
-
-function replaceColorTable(text, tokens) {
-  const rows = [];
-  const names = new Set();
-  for (const theme of Object.keys(tokens.color)) {
-    for (const n of Object.keys(tokens.color[theme])) names.add(n);
-  }
-  const order = ['bg', 'surface-1', 'surface-2', 'surface-3', 'fg', 'fg-muted', 'accent', 'line-1', 'line-inset'];
-  const sorted = [...names].sort((a, b) => {
-    const ia = order.indexOf(a), ib = order.indexOf(b);
-    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
-  });
-
-  const dl = new Map();
-  for (const l of tokens.surfaceLadder) dl.set(l.to, l.deltaL.toFixed(3));
-
-  for (const n of sorted) {
-    const li = tokens.color.light?.[n];
-    const da = tokens.color.dark?.[n];
-    const cell = (e) => (e ? `\`${e.oklch}\` / \`${e.hex}\`` : '—');
-    const purpose = {
-      bg: '页面底', fg: '正文', 'fg-muted': '次要', accent: '强调',
-      'line-1': '细线', 'line-inset': '输入框内环',
-    }[n] || `表面 ${n.replace(/\D/g, '')}`;
-    rows.push(`| \`--${n}\` | ${cell(li)} | ${cell(da)} | ${purpose} | ${dl.get(n) || '—'} |`);
-  }
-
-  const block = [
-    '| Token | 浅色 | 暗色 | 用途 | ΔL |',
-    '|---|---|---|---|---|',
-    ...rows,
-  ].join('\n');
-
-  return replaceBetweenMarker(text, '### 3.1 令牌表', '### 3.2', block);
-}
-
-function replaceWeights(text, wl, wd) {
-  const block = [
-    '| 项 | 浅色 | 暗色 |',
-    '|---|---|---|',
-    `| \`--fw-body\` | ${wl.body ?? '—'} | ${wd.body ?? '—'} |`,
-    `| \`--fw-strong\` | ${wl.strong ?? '—'} | ${wd.strong ?? '—'} |`,
-    `| \`--fw-display\` | ${wl.display ?? '—'} | ${wd.display ?? '—'} |`,
-  ].join('\n');
-  return replaceBetweenMarker(text, '## 4. 字体', '**字重阶梯**', block);
-}
-
-function replaceOverrideTable(text, overrides) {
-  const rows = overrides.length
-    ? overrides.map((o) => `| ${o.rule} | ${o.scope} | \`${fmt(o.requestedValue)}\` | \`${fmt(o.effectiveValue)}\` | ${o.reason} | ${o.approvedBy} | ${o.verification} |`)
-    : ['| — | — | — | — | 无 override | — | — |'];
-  const block = [
-    '| 规则 | 范围 | 请求值 | 生效值 | 原因 | 批准人 | 验证方式 |',
-    '|---|---|---|---|---|---|---|',
-    ...rows,
-  ].join('\n');
-  return replaceBetweenMarker(text, '### 3.4 override 登记', '---', block);
-}
-
-const fmt = (v) => (typeof v === 'object' ? JSON.stringify(v) : String(v));
-
-/** Replace the body between a heading line and the next marker line. */
-function replaceBetweenMarker(text, startMarker, endMarker, body) {
-  const lines = text.split('\n');
-  const start = lines.findIndex((l) => l.trim().startsWith(startMarker) || l.trim() === startMarker);
-  if (start < 0) return text;
-  let end = lines.length;
-  for (let i = start + 1; i < lines.length; i++) {
-    if (lines[i].trim().startsWith(endMarker) || lines[i].trim() === endMarker) { end = i; break; }
-  }
-  const next = [...lines.slice(0, start + 1), '', body, '', ...lines.slice(end)];
-  return next.join('\n');
 }
 
 // ---------------------------------------------------------------------------

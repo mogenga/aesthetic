@@ -1,0 +1,205 @@
+{
+  "meta": {
+    "schemaVersion": 1,
+    "theme": "light-dark",
+    "generatedAt": "2026-11-01T00:00:00Z",
+    "generatorVersion": "aesthetic-v2"
+  },
+  "direction": {
+    "director": "impeccable",
+    "mode": "Operate",
+    "keywords": [
+      "工业",
+      "克制",
+      "图纸感"
+    ],
+    "references": [
+      "瑞士铁路时刻表",
+      "像 Braun 但更轻"
+    ],
+    "anti": [
+      "糖水渐变",
+      "大圆角"
+    ]
+  },
+  "translation": {
+    "neutralTemp": {
+      "value": "H 250, C 0.003",
+      "from": "像瑞士铁路时刻表"
+    },
+    "chromaCap": {
+      "value": 0.09,
+      "from": "不要糖水感"
+    },
+    "radius": {
+      "value": [
+        0,
+        2,
+        4,
+        999
+      ],
+      "from": "工业感"
+    },
+    "border": {
+      "value": "1px / fg 8%",
+      "from": "像图纸"
+    },
+    "shadow": {
+      "value": "仅浮层",
+      "from": null
+    },
+    "weight": {
+      "value": [
+        400,
+        500,
+        600
+      ],
+      "from": "不要大字报"
+    },
+    "motion": {
+      "value": "100-140ms ease-out",
+      "from": null
+    }
+  },
+  "style": {
+    "card": "minimalism",
+    "variant": "minimalism"
+  },
+  "color": {
+    "light": {
+      "bg": {
+        "oklch": "oklch(0.985 0.002 85)",
+        "hex": "#FBFAF9",
+        "l": 0.985
+      },
+      "surface-1": {
+        "oklch": "oklch(0.975 0.002 85)",
+        "hex": "#F6F5F4",
+        "l": 0.975
+      },
+      "surface-2": {
+        "oklch": "oklch(0.960 0.002 85)",
+        "hex": "#F1F0EF",
+        "l": 0.96
+      },
+      "surface-3": {
+        "oklch": "oklch(0.943 0.002 85)",
+        "hex": "#ECEBEA",
+        "l": 0.943
+      },
+      "surface-sunken": {
+        "oklch": "oklch(0.968 0.002 85)",
+        "hex": "#F4F3F2",
+        "l": 0.968
+      },
+      "fg": {
+        "oklch": "oklch(0.2174 0.0019 106.6)",
+        "hex": "#1A1A19",
+        "l": 0.2174
+      },
+      "fg-muted": {
+        "oklch": "oklch(0.520 0.004 85)",
+        "hex": "#757371",
+        "l": 0.52
+      },
+      "accent": {
+        "oklch": "oklch(0.520 0.090 250)",
+        "hex": "#2F6690",
+        "l": 0.52
+      },
+      "line-1": {
+        "oklch": "oklch(0.900 0.002 85)",
+        "hex": "#E0DFDD",
+        "l": 0.9
+      },
+      "line-inset": {
+        "oklch": "oklch(0.860 0.002 85)",
+        "hex": "#D2D1CF",
+        "l": 0.86
+      }
+    },
+    "dark": {
+      "bg": {
+        "oklch": "oklch(0.180 0.002 85)",
+        "hex": "#161514",
+        "l": 0.18
+      },
+      "surface-1": {
+        "oklch": "oklch(0.202 0.002 85)",
+        "hex": "#1D1C1B",
+        "l": 0.202
+      },
+      "surface-2": {
+        "oklch": "oklch(0.226 0.002 85)",
+        "hex": "#232221",
+        "l": 0.226
+      },
+      "surface-3": {
+        "oklch": "oklch(0.252 0.002 85)",
+        "hex": "#2A2928",
+        "l": 0.252
+      },
+      "surface-sunken": {
+        "oklch": "oklch(0.160 0.002 85)",
+        "hex": "#121110",
+        "l": 0.16
+      },
+      "fg": {
+        "oklch": "oklch(0.940 0.002 85)",
+        "hex": "#EDECEB",
+        "l": 0.94
+      },
+      "fg-muted": {
+        "oklch": "oklch(0.720 0.004 85)",
+        "hex": "#ACABA9",
+        "l": 0.72
+      },
+      "accent": {
+        "oklch": "oklch(0.720 0.090 250)",
+        "hex": "#7FB3D6",
+        "l": 0.72
+      },
+      "line-1": {
+        "oklch": "oklch(0.300 0.002 85)",
+        "hex": "#3B3A39",
+        "l": 0.3
+      },
+      "line-inset": {
+        "oklch": "oklch(0.340 0.002 85)",
+        "hex": "#464544",
+        "l": 0.34
+      }
+    }
+  },
+  "surfaceLadder": {
+    "step": [
+      0.01,
+      0.015,
+      0.017
+    ]
+  },
+  "weightLadder": {
+    "family": "Inter Variable",
+    "variable": true,
+    "available": [
+      300,
+      400,
+      500,
+      600,
+      700
+    ]
+  },
+  "weights": {
+    "light": {
+      "body": 400,
+      "strong": 600,
+      "display": 700
+    },
+    "dark": {
+      "body": 350,
+      "strong": 500,
+      "display": 600
+    }
+  },
+  "overrides": []
+}
