@@ -1,0 +1,160 @@
+/* ==========================================================================
+   neumorphism.css —— 新拟态 · 变体 03/12
+   --------------------------------------------------------------------------
+   签名：明暗双阴影把控件「挤」出或「压进」表面；零边框。
+   代价：对比度天然不足，只适合大控件——所以本变体把 --fg 压到 L 0.34，
+         并强制 `forced-colors` 与焦点态必须有 1px 实边。
+
+   加载方式：<html data-style="neumorphism">
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. TOKEN OVERRIDE
+   -------------------------------------------------------------------------- */
+
+:root[data-style="neumorphism"] {
+  /* H 250 / C 0.004 —— 冷灰；材料感偏塑料/硅胶，暖灰会读成纸板 */
+  --bg: oklch(0.940 0.004 250);              /* #E9EBEE  浅色取暗向，不是白底 */
+  --surface-1: oklch(0.930 0.004 250);       /* #E6E8EA  ΔL 0.010 */
+  --surface-2: oklch(0.920 0.004 250);       /* #E3E5E7  ΔL 0.010 */
+  --surface-3: oklch(0.910 0.004 250);       /* #DFE1E4  ΔL 0.010 */
+  --surface-sunken: oklch(0.925 0.004 250);
+  --fg: oklch(0.340 0.010 250);              /* #34383D  9.9:1 */
+  --fg-muted: oklch(0.435 0.008 250);        /* #4E5255  6.7:1 */
+  --accent: oklch(0.492 0.075 200);          /* #1C6E72  5.0:1 */
+  --accent-hover: oklch(0.450 0.080 200);
+  --line-1: oklch(0.878 0.004 250);          /* #D5D7D9 */
+  --line-inset: color-mix(in oklab, var(--fg) 10%, transparent);
+
+  /* 圆角比常规大 1.5–2 倍 */
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 22px;
+  --r-full: 999px;
+
+  /* 双色成对投影：亮边在左上、暗边在右下 */
+  --shadow-1: 6px 6px 12px rgb(0 0 0 / 0.10), -6px -6px 12px rgb(255 255 255 / 0.90);
+  --shadow-2: 10px 10px 20px rgb(0 0 0 / 0.12), -10px -10px 20px rgb(255 255 255 / 0.95);
+  --shadow-3: 16px 16px 32px rgb(0 0 0 / 0.16), -16px -16px 32px rgb(255 255 255 / 0.95);
+  /* 下沉：inset 版，输入框用 */
+  --shadow-field-outer: none;
+  --shadow-field-inner: inset 3px 3px 6px rgb(0 0 0 / 0.12), inset -3px -3px 6px rgb(255 255 255 / 0.90);
+
+  --fw-body: 500;
+  --fw-strong: 600;
+  --fw-display: 700;
+
+  --dur-fast: 140ms;
+  --dur-base: 180ms;
+
+  --border-w: 0px;
+  --control-h: 44px;
+  --btn-h: 42px;
+}
+
+:root[data-style="neumorphism"][data-theme="dark"] {
+  --bg: oklch(0.280 0.006 250);              /* #27292C */
+  --surface-1: oklch(0.290 0.006 250);       /* #292C2E  ΔL 0.010 */
+  --surface-2: oklch(0.300 0.006 250);       /* #2C2E31  ΔL 0.010 */
+  --surface-3: oklch(0.310 0.006 250);       /* #2E3133  ΔL 0.010 */
+  --surface-sunken: oklch(0.265 0.006 250);
+  --fg: oklch(0.930 0.004 250);              /* #E6E8EA  11.9:1 */
+  --fg-muted: oklch(0.760 0.006 250);        /* #AEB1B5  6.8:1 */
+  --accent: oklch(0.780 0.095 200);          /* #64CACF  7.6:1 */
+  --accent-hover: oklch(0.830 0.085 200);
+  --line-1: oklch(0.345 0.006 250);          /* #37393C */
+  --line-inset: color-mix(in oklab, var(--fg) 8%, transparent);
+
+  /* 暗色下高光换成更暗的一档，不是白色 */
+  --shadow-1: 6px 6px 12px rgb(0 0 0 / 0.40), -6px -6px 12px rgb(255 255 255 / 0.04);
+  --shadow-2: 10px 10px 20px rgb(0 0 0 / 0.48), -10px -10px 20px rgb(255 255 255 / 0.05);
+  --shadow-3: 16px 16px 32px rgb(0 0 0 / 0.55), -16px -16px 32px rgb(255 255 255 / 0.05);
+  --shadow-field-inner: inset 3px 3px 6px rgb(0 0 0 / 0.45), inset -3px -3px 6px rgb(255 255 255 / 0.04);
+
+  --fw-body: 450;
+  --fw-strong: 550;
+  --fw-display: 650;
+}
+
+/* --------------------------------------------------------------------------
+   2. SIGNATURE
+   -------------------------------------------------------------------------- */
+
+/* 卡片：凸起 */
+:root[data-style="neumorphism"] .card,
+:root[data-style="neumorphism"] .surface {
+  border: none;
+  background: var(--bg);
+  box-shadow: var(--shadow-1);
+}
+:root[data-style="neumorphism"] .surface-layer[data-surface="1"] { background: var(--surface-1); }
+:root[data-style="neumorphism"] .surface-layer[data-surface="2"] { background: var(--surface-2); }
+:root[data-style="neumorphism"] .surface-layer[data-surface="3"] { background: var(--surface-3); }
+
+/* 按钮：凸起，按下时翻成下沉 */
+:root[data-style="neumorphism"] .btn {
+  border: none;
+  background: var(--bg);
+  color: var(--fg);
+  box-shadow: var(--shadow-1);
+  transition: box-shadow var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+:root[data-style="neumorphism"] .btn:hover { box-shadow: var(--shadow-2); }
+:root[data-style="neumorphism"] .btn:active,
+:root[data-style="neumorphism"] .btn[data-state="active"] {
+  box-shadow: var(--shadow-field-inner);
+  transform: none;
+}
+:root[data-style="neumorphism"] .btn[data-variant="primary"] {
+  background: var(--bg);
+  color: var(--accent);
+  font-weight: var(--fw-display);
+}
+
+/* 输入框：下沉 */
+:root[data-style="neumorphism"] .field-control {
+  border: none;
+  background: var(--bg);
+  box-shadow: var(--shadow-field-inner), inset 0 0 0 1px var(--line-inset);
+}
+:root[data-style="neumorphism"] .field-control:focus-visible {
+  box-shadow: var(--shadow-field-inner), inset 0 0 0 1px var(--accent), var(--focus-ring);
+}
+
+/* 开关轨道下沉 */
+:root[data-style="neumorphism"] .switch__track {
+  box-shadow: var(--shadow-field-inner);
+  border: none;
+}
+
+/* 侧栏选中态用下沉而不是填充 */
+:root[data-style="neumorphism"] .nav-link[aria-current="page"] {
+  box-shadow: var(--shadow-field-inner);
+  background: var(--bg);
+}
+
+/* --------------------------------------------------------------------------
+   3. CONSTRAINT
+   -------------------------------------------------------------------------- */
+
+/* 强制可见边界：新拟态的零边框在 forced-colors 下会完全消失 */
+@media (forced-colors: active) {
+  :root[data-style="neumorphism"] .btn,
+  :root[data-style="neumorphism"] .field-control,
+  :root[data-style="neumorphism"] .card,
+  :root[data-style="neumorphism"] .switch__track {
+    border: 1px solid CanvasText !important;
+  }
+}
+
+/* 焦点必须有可见实边——不能只靠阴影 */
+:root[data-style="neumorphism"] :focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* 不允许玻璃、不允许硬偏移阴影（那是粗野的语言） */
+:root[data-style="neumorphism"] .glass { backdrop-filter: none; }
+
+/* 动效只允许 box-shadow 与背景色；位移最多 1px */
+:root[data-style="neumorphism"] * { transition-property: box-shadow, background-color, color; }

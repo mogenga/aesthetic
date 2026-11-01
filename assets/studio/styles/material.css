@@ -1,0 +1,202 @@
+/* ==========================================================================
+   material.css —— 材料设计 · 变体 08/12
+   --------------------------------------------------------------------------
+   签名：三档高度语义 + 状态层 + 大圆角。
+   代价：撞脸风险最高——所以本变体三重「不用默认」：
+         不用默认紫蓝、不用默认阴影、不用 Material 2 的 4px 圆角。
+
+   加载方式：<html data-style="material">
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. TOKEN OVERRIDE
+   -------------------------------------------------------------------------- */
+
+:root[data-style="material"] {
+  /* H 45 / C 0.008 —— 暖中性；Material 默认是冷灰或纯白，换暖是为脱离系统模板 */
+  --bg: oklch(0.975 0.008 45);               /* #FCF5F2 */
+  --surface-1: oklch(0.958 0.008 45);        /* #F6F0ED  ΔL 0.017 */
+  --surface-2: oklch(0.938 0.008 45);        /* #EFE9E6  ΔL 0.020 */
+  --surface-3: oklch(0.915 0.008 45);        /* #E8E1DF  ΔL 0.023 */
+  --surface-sunken: oklch(0.948 0.008 45);
+  --fg: oklch(0.220 0.012 45);               /* #201916  16.1:1 */
+  --fg-muted: oklch(0.455 0.012 45);         /* #5D5551  6.8:1 */
+
+  /* 强调色：青绿，不是 Material 默认紫蓝 */
+  --accent: oklch(0.455 0.085 175);          /* #036654  6.5:1 */
+  --accent-hover: oklch(0.415 0.090 175);
+  --line-1: oklch(0.880 0.008 45);           /* #DCD6D3 */
+  --line-inset: color-mix(in oklab, var(--fg) 10%, transparent);
+
+  /* 不是 Material 2 的 4px */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 28px;                              /* 28 是「模态」专用超大圆角 */
+  --r-full: 999px;
+
+  /* 三档 elevation：全部重调，带 1px 边缘暗线（Material 默认为纯投影） */
+  --shadow-1: 0 1px 2px -1px rgb(60 40 30 / 0.14), 0 1px 3px rgb(60 40 30 / 0.08),
+              inset 0 0 0 1px rgb(60 40 30 / 0.04);
+  --shadow-2: 0 2px 6px -2px rgb(60 40 30 / 0.20), 0 6px 16px -6px rgb(60 40 30 / 0.14),
+              inset 0 0 0 1px rgb(60 40 30 / 0.05);
+  --shadow-3: 0 8px 24px -8px rgb(60 40 30 / 0.24), 0 24px 48px -24px rgb(60 40 30 / 0.20),
+              inset 0 0 0 1px rgb(60 40 30 / 0.06);
+  --shadow-field-outer: 0 1px 2px -1px rgb(60 40 30 / 0.14);
+  --shadow-field-inner: inset 0 1px 2px rgb(60 40 30 / 0.06);
+
+  /* Material 默认类型系统依赖 500，暗色必须降 */
+  --fw-body: 400;
+  --fw-strong: 500;
+  --fw-display: 600;
+
+  --dur-fast: 100ms;
+  --dur-base: 250ms;
+  --dur-slow: 300ms;
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --ease-inout: cubic-bezier(0.2, 0, 0, 1);
+
+  --control-h: 48px;
+  --btn-h: 40px;
+}
+
+:root[data-style="material"][data-theme="dark"] {
+  --bg: oklch(0.175 0.010 45);               /* #140F0D */
+  --surface-1: oklch(0.198 0.010 45);        /* #1A1412  ΔL 0.023 */
+  --surface-2: oklch(0.222 0.010 45);        /* #1F1A17  ΔL 0.024 */
+  --surface-3: oklch(0.248 0.010 45);        /* #25201D  ΔL 0.026 */
+  --surface-sunken: oklch(0.160 0.010 45);
+  --fg: oklch(0.930 0.008 45);               /* #EDE6E3  15.4:1 */
+  --fg-muted: oklch(0.720 0.010 45);         /* #AAA39F  7.6:1 */
+  --accent: oklch(0.790 0.105 175);          /* #68D1B7  10.3:1 */
+  --accent-hover: oklch(0.840 0.095 175);
+  --line-1: oklch(0.320 0.010 45);           /* #37312F */
+  --line-inset: color-mix(in oklab, var(--fg) 8%, transparent);
+
+  --shadow-1: 0 1px 3px rgb(0 0 0 / 0.32), inset 0 0 0 1px rgb(255 255 255 / 0.05);
+  --shadow-2: 0 3px 10px -3px rgb(0 0 0 / 0.42), 0 8px 20px -8px rgb(0 0 0 / 0.30),
+              inset 0 0 0 1px rgb(255 255 255 / 0.06);
+  --shadow-3: 0 10px 32px -10px rgb(0 0 0 / 0.52), 0 28px 56px -28px rgb(0 0 0 / 0.36),
+              inset 0 0 0 1px rgb(255 255 255 / 0.07);
+  --shadow-field-outer: 0 2px 6px -2px rgb(0 0 0 / 0.40);
+  --shadow-field-inner: inset 0 1px 2px rgb(0 0 0 / 0.28);
+
+  --fw-body: 350;
+  --fw-strong: 450;
+  --fw-display: 550;
+}
+
+/* --------------------------------------------------------------------------
+   2. SIGNATURE —— elevation 语义
+   -------------------------------------------------------------------------- */
+
+/* 卡片 = elevation 1，圆角用 --r-md */
+:root[data-style="material"] .card,
+:root[data-style="material"] .surface {
+  border: none;
+  border-radius: var(--r-md);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-1);
+  transition: box-shadow var(--dur-base) var(--ease-out);
+}
+:root[data-style="material"] .card:hover { box-shadow: var(--shadow-2); }
+
+/* 浮层 = elevation 2，模态 = elevation 3 + 超大圆角 */
+:root[data-style="material"] .popover,
+:root[data-style="material"] .dropdown { box-shadow: var(--shadow-2); border-radius: var(--r-md); }
+:root[data-style="material"] [role="dialog"],
+:root[data-style="material"] .modal { box-shadow: var(--shadow-3); border-radius: var(--r-lg); }
+
+/* 按钮：状态层用 ::before，不改底色 */
+:root[data-style="material"] .btn {
+  position: relative;
+  border: none;
+  border-radius: var(--r-full);
+  background: transparent;
+  color: var(--accent);
+  box-shadow: none;
+  font-weight: var(--fw-strong);
+  letter-spacing: 0.01em;
+  padding: 0 var(--s-5);
+  overflow: hidden;
+  isolation: isolate;
+}
+:root[data-style="material"] .btn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out);
+  z-index: -1;
+}
+:root[data-style="material"] .btn:hover::before { opacity: 0.08; }
+:root[data-style="material"] .btn:active::before { opacity: 0.16; }
+:root[data-style="material"] .btn[data-variant="primary"] {
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: var(--shadow-1);
+}
+:root[data-style="material"] .btn[data-variant="primary"]::before { background: white; }
+:root[data-style="material"] .btn[data-variant="secondary"] {
+  background: transparent;
+  border: 1px solid var(--line-1);
+  color: var(--fg);
+}
+
+/* 输入框：filled 变体——2px 底部指示线，顶部圆角 */
+:root[data-style="material"] .field-control {
+  border: none;
+  border-bottom: 2px solid var(--line-1);
+  border-radius: var(--r-sm) var(--r-sm) 0 0;
+  background: var(--surface-sunken);
+  box-shadow: none;
+  transition: border-color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
+}
+:root[data-style="material"] .field-control:hover { background: var(--surface-2); }
+:root[data-style="material"] .field-control:focus-visible {
+  outline: none;
+  border-bottom-color: var(--accent);
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+/* 开关：Material 轨道 + 滑块抬升 */
+:root[data-style="material"] .switch__track {
+  border-radius: var(--r-full);
+  background: var(--surface-3);
+}
+:root[data-style="material"] .switch__track[aria-checked="true"],
+:root[data-style="material"] .switch[aria-checked="true"] .switch__track {
+  background: color-mix(in oklab, var(--accent) 55%, transparent);
+}
+
+/* 侧栏选中态：pill */
+:root[data-style="material"] .nav-link {
+  border-radius: var(--r-full);
+  padding-inline: var(--s-4);
+}
+:root[data-style="material"] .nav-link[aria-current="page"] {
+  background: color-mix(in oklab, var(--accent) 14%, transparent);
+  color: var(--accent);
+}
+
+/* --------------------------------------------------------------------------
+   3. CONSTRAINT
+   -------------------------------------------------------------------------- */
+
+/* elevation 变化不做动画——连续重绘阴影会掉帧 */
+:root[data-style="material"] .card { transition: box-shadow var(--dur-base) var(--ease-out); }
+@media (prefers-reduced-motion: reduce) {
+  :root[data-style="material"] .card { transition: none; }
+}
+
+/* 不用 Material 默认的 FAB / 顶栏阴影语言 */
+:root[data-style="material"] .topbar { box-shadow: none; border-bottom: 1px solid var(--line-1); }
+
+/* 不用玻璃 */
+:root[data-style="material"] .glass { backdrop-filter: none; }
+
+/* 不用默认紫蓝：任何紫色一律落到暖色系 */
+:root[data-style="material"] [data-tone="info"] {
+  color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 12%, transparent);
+}

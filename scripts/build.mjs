@@ -169,15 +169,29 @@ function buildTokensCss(tokens, decisions) {
       L.push('');
       L.push('  /* line — 光学值 */');
       L.push('  --line-hair: 1px solid var(--line-1);');
-      L.push('  --line-inset: color-mix(in oklab, var(--fg) 8%, transparent);');
+      if (!('line-2' in tokens.color[theme])) {
+        L.push('  --line-2: color-mix(in oklab, var(--fg) 16%, transparent);');
+      }
+      if (!('line-inset' in tokens.color[theme])) {
+        L.push('  --line-inset: color-mix(in oklab, var(--fg) 8%, transparent);');
+      }
       L.push('  --label-gap: 8px;');
       L.push('  --icon-shift: -0.125em;');
       L.push('  --focus-ring: 3px;');
+      L.push('');
+      L.push('  /* layout — R8/R9 的结构值 */');
+      L.push('  --row-h: 52px;');       // R8 行高下沿；54 由内容撑出，不写成 min-height
+      L.push('  --gap-group: 44px;');  // R8 组间留白；--s-6(40)/--s-7(48) 之间的推荐值
+      L.push('  --field-gap: var(--s-5);');
       L.push('');
       L.push('  /* type */');
       L.push('  --fs-xs: 12px; --fs-sm: 13px; --fs-md: 15px; --fs-lg: 18px;');
       L.push('  --fs-xl: 24px; --fs-2xl: 32px; --fs-3xl: 44px;');
       L.push('  --lh-tight: 1.15; --lh-snug: 1.35; --lh-body: 1.65;');
+      if (!('danger' in tokens.color[theme])) {
+        L.push('  /* 状态色：decisions.json 未定义时取 R3 允许的默认值 */');
+        L.push('  --danger: oklch(0.530 0.160 27);');
+      }
       L.push('');
       L.push('  /* motion */');
       L.push('  --dur-fast: 120ms; --dur-base: 200ms; --dur-slow: 320ms;');
@@ -192,6 +206,9 @@ function buildTokensCss(tokens, decisions) {
       L.push(`  --fw-body: ${w.body};`);
       L.push(`  --fw-strong: ${w.strong};`);
       L.push(`  --fw-display: ${w.display};`);
+      // 小字专用档：<16px 的护栏要求 ≥400，暗色降档时这一档不跟着降
+      const small = Math.max(400, w.body);
+      L.push(`  --fw-small: ${small};`);
     }
 
     L.push('}');

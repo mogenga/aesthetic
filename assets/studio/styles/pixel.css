@@ -1,0 +1,222 @@
+/* ==========================================================================
+   pixel.css —— 像素风 · 变体 07/12
+   --------------------------------------------------------------------------
+   签名：8px 网格、硬边、无抗锯齿、二次元配色。
+   代价：正文不可用——本变体强制正文回落到衬线/无衬线，像素字只做标题与标签。
+
+   R3 例外：像素风允许 #000 用于 2px/4px 描边（8-bit 调色板的固有颜色）。
+
+   加载方式：<html data-style="pixel">
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. TOKEN OVERRIDE
+   -------------------------------------------------------------------------- */
+
+:root[data-style="pixel"] {
+  /* H 95 / C 0.030 —— 暖米黄，取自早期掌机的底色；读的是「屏幕发黄」 */
+  --bg: oklch(0.930 0.030 95);               /* #EEE8D2 */
+  --surface-1: oklch(0.912 0.030 95);        /* #E8E2CC  ΔL 0.018 */
+  --surface-2: oklch(0.892 0.030 95);        /* #E1DCC6  ΔL 0.020 */
+  --surface-3: oklch(0.870 0.030 95);        /* #DAD4BF  ΔL 0.022 */
+  --surface-sunken: oklch(0.900 0.030 95);
+  --fg: oklch(0.200 0.020 280);              /* #14151F  14.8:1 */
+  --fg-muted: oklch(0.405 0.030 280);        /* #464759  7.4:1 */
+  --accent: oklch(0.515 0.175 27);           /* #B72D29  红，5.0:1 */
+  --accent-hover: oklch(0.470 0.180 27);
+  --line-1: oklch(0.200 0.020 280);          /* 描边用墨色 */
+  --line-inset: oklch(0.200 0.020 280);
+
+  /* 零圆角；假圆角走 clip-path */
+  --r-sm: 0px;
+  --r-md: 0px;
+  --r-lg: 0px;
+  --r-full: 0px;
+
+  --shadow-1: 4px 4px 0 var(--fg);
+  --shadow-2: 8px 8px 0 var(--fg);
+  --shadow-3: 0 8px 0 var(--fg);
+  --shadow-field-outer: 4px 4px 0 var(--fg);
+  --shadow-field-inner: none;
+
+  /* 像素字体通常单字重，"降一档"落在同一值上，记 actualWeight */
+  --fw-body: 400;
+  --fw-strong: 700;
+  --fw-display: 700;
+
+  /* base.css 消费 --font-sans；像素风把正文也换成等宽，标题另用像素字 */
+  --font-sans: "Chivo Mono", "Cascadia Mono", "SF Mono", monospace;
+  --font-display: "Press Start 2P", "Silkscreen", "Chivo Mono", monospace;
+  --font-mono: "Chivo Mono", "Cascadia Mono", monospace;
+
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-md: 14px;
+  --fs-lg: 16px;
+  --fs-xl: 20px;
+  --fs-2xl: 28px;
+  --fs-3xl: 36px;
+
+  --lh-tight: 1.2;
+  --lh-snug: 1.45;
+  --lh-body: 1.75;
+
+  --dur-fast: 60ms;
+  --dur-base: 90ms;
+  --ease-out: steps(1, end);
+  --ease-inout: steps(1, end);
+
+  --border-w: 2px;
+  --border-w-strong: 4px;
+  --px: 4px;                                  /* 像素单元 */
+}
+
+:root[data-style="pixel"][data-theme="dark"] {
+  /* 夜间掌机：蓝紫底，不是浅色反转 */
+  --bg: oklch(0.170 0.020 280);              /* #0E0E18 */
+  --surface-1: oklch(0.194 0.020 280);       /* #13141E  ΔL 0.024 */
+  --surface-2: oklch(0.218 0.020 280);       /* #181923  ΔL 0.024 */
+  --surface-3: oklch(0.243 0.020 280);       /* #1E1F29  ΔL 0.025 */
+  --surface-sunken: oklch(0.155 0.020 280);
+  --fg: oklch(0.940 0.020 90);               /* #F0EBDC */
+  --fg-muted: oklch(0.700 0.020 90);         /* #A39E91  7.2:1 */
+  --accent: oklch(0.830 0.140 90);           /* #EBC34D  黄，11.3:1 */
+  --accent-hover: oklch(0.880 0.130 90);
+  --line-1: oklch(0.940 0.020 90);
+  --line-inset: oklch(0.940 0.020 90);
+
+  --shadow-field-outer: 4px 4px 0 var(--fg);
+}
+
+/* --------------------------------------------------------------------------
+   2. SIGNATURE
+   -------------------------------------------------------------------------- */
+
+/* 所有元素硬边，像素网格对齐 */
+:root[data-style="pixel"] .card,
+:root[data-style="pixel"] .surface,
+:root[data-style="pixel"] .surface-layer {
+  border: var(--border-w-strong) solid var(--fg);
+  border-radius: 0;
+  box-shadow: var(--shadow-2);
+  background: var(--surface-1);
+  image-rendering: pixelated;
+}
+
+/* 按钮：厚边 + 硬投影 + 按下位移 */
+:root[data-style="pixel"] .btn {
+  border: var(--border-w-strong) solid var(--fg);
+  border-radius: 0;
+  box-shadow: var(--shadow-1);
+  font-family: var(--font-sans);
+  font-weight: var(--fw-strong);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+:root[data-style="pixel"] .btn:hover { background: var(--surface-2); }
+:root[data-style="pixel"] .btn:active,
+:root[data-style="pixel"] .btn[data-state="active"] {
+  transform: translate(var(--px), var(--px));
+  box-shadow: 0 0 0 var(--fg);
+}
+:root[data-style="pixel"] .btn[data-variant="primary"] {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+/* 输入框：厚边 + 硬阴影 */
+:root[data-style="pixel"] .field-control {
+  border: var(--border-w-strong) solid var(--fg);
+  border-radius: 0;
+  background: var(--surface-1);
+  box-shadow: var(--shadow-field-outer);
+  font-family: var(--font-sans);
+}
+:root[data-style="pixel"] .field-control:focus-visible {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-field-outer), 0 0 0 var(--px) var(--fg);
+}
+
+/* 标题用像素字，但字号阶梯已经缩紧——避免大像素字块不可读 */
+:root[data-style="pixel"] .view-head h1,
+:root[data-style="pixel"] .card__title,
+:root[data-style="pixel"] .settings-group__title {
+  font-family: var(--font-display);
+  letter-spacing: 0.02em;
+  line-height: var(--lh-tight);
+}
+:root[data-style="pixel"] .view-head h1 {
+  font-size: var(--fs-2xl);
+}
+
+/* 徽章做成像素块 */
+:root[data-style="pixel"] .badge,
+:root[data-style="pixel"] .tag {
+  border: var(--border-w) solid var(--fg);
+  border-radius: 0;
+  background: var(--surface-1);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  line-height: 1;
+  padding: 2px var(--px);
+}
+
+/* 状态点改成方块 */
+:root[data-style="pixel"] .dot {
+  border-radius: 0;
+  width: var(--px);
+  height: var(--px);
+}
+
+/* 假圆角：像素化的 45° 切角，只用 clip-path，不进 token */
+:root[data-style="pixel"] .avatar,
+:root[data-style="pixel"] .brand-mark {
+  border-radius: 0;
+  clip-path: polygon(
+    0 25%, 25% 25%, 25% 0, 75% 0, 75% 25%, 100% 25%,
+    100% 75%, 75% 75%, 75% 100%, 25% 100%, 25% 75%, 0 75%
+  );
+}
+
+/* 进度条改像素块 */
+:root[data-style="pixel"] .switch__track {
+  border: var(--border-w) solid var(--fg);
+  border-radius: 0;
+}
+:root[data-style="pixel"] .switch__knob,
+:root[data-style="pixel"] .switch__track::after {
+  border-radius: 0;
+}
+
+/* --------------------------------------------------------------------------
+   3. CONSTRAINT
+   -------------------------------------------------------------------------- */
+
+/* 正文必须回落到可读字族——像素字不能承载长文 */
+:root[data-style="pixel"] .prose,
+:root[data-style="pixel"] .settings-row__desc,
+:root[data-style="pixel"] .field__help,
+:root[data-style="pixel"] .field__error,
+:root[data-style="pixel"] .msg__bubble p {
+  font-family: var(--font-sans);
+  line-height: var(--lh-body);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* 不允许抗锯齿化的软阴影、玻璃、渐变 */
+:root[data-style="pixel"] .glass { backdrop-filter: none; }
+:root[data-style="pixel"] .card,
+:root[data-style="pixel"] .surface { background-image: none; }
+
+/* 动效只做帧切换 */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-style="pixel"] * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}
+
+/* forced-colors：像素描边保留 */
+@media (forced-colors: active) {
+  :root[data-style="pixel"] .btn,
+  :root[data-style="pixel"] .card { border: 2px solid CanvasText !important; }
+}

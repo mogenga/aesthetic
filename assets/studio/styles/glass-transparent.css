@@ -1,0 +1,248 @@
+/* ==========================================================================
+   glass-transparent.css —— 透明玻璃 · 变体 12/12
+   --------------------------------------------------------------------------
+   判定法：遮住背景只留纯色块——背景「只是被染了一层色」= 透明玻璃。
+
+   技术栈：不模糊，只染色 + 亮边。
+   ⚠ 风险：背后内容不可控 → 对比度不可控。
+     所以本变体**强制要求受控背景资产**，且正文一律加实底遮罩。
+
+   加载方式：<html data-style="glass-transparent">
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. TOKEN OVERRIDE
+   -------------------------------------------------------------------------- */
+
+:root[data-style="glass-transparent"] {
+  /* 与 frosted 同一色相家族，但整体更暗一档——透明玻璃需要更深的底才立得住 */
+  --bg: oklch(0.950 0.016 265);              /* #E7EDF9 */
+  --surface-1: oklch(0.930 0.016 265);       /* #DFE6F4  ΔL 0.020 */
+  --surface-2: oklch(0.906 0.016 265);       /* #D7DFEF  ΔL 0.024 */
+  --surface-3: oklch(0.880 0.016 265);       /* #CED7E9  ΔL 0.026 */
+  --surface-sunken: oklch(0.920 0.016 265);
+  --fg: oklch(0.220 0.022 265);              /* #141926  16.0:1 */
+  --fg-muted: oklch(0.445 0.022 265);        /* #4B5163  7.1:1 */
+  --accent: oklch(0.520 0.150 275);          /* #4F5BBC  4.9:1 */
+  --accent-hover: oklch(0.475 0.155 275);
+  --line-1: oklch(0.870 0.022 265);          /* #CBD3E4 */
+  --line-inset: color-mix(in oklab, var(--fg) 12%, transparent);
+
+  --r-sm: 10px;
+  --r-md: 16px;
+  --r-lg: 26px;
+  --r-full: 999px;
+
+  --shadow-1: 0 2px 8px -2px rgb(20 30 60 / 0.12);
+  --shadow-2: 0 8px 32px -8px rgb(20 30 60 / 0.24);
+  --shadow-3: 0 16px 48px -16px rgb(20 30 60 / 0.34);
+  --shadow-field-outer: 0 1px 2px -1px rgb(20 30 60 / 0.16);
+  --shadow-field-inner: inset 0 1px 2px rgb(20 30 60 / 0.10);
+
+  --fw-body: 400;
+  --fw-strong: 500;
+  --fw-display: 600;
+
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+
+  /* 透明玻璃参数：染色率极低，靠亮边立形 */
+  --tint-alpha: 10%;
+  --tint-blur: 0px;
+  --edge-border: rgb(255 255 255 / 0.28);
+  --edge-top: rgb(255 255 255 / 0.38);
+  --edge-bottom: rgb(10 15 30 / 0.10);
+  /* 文字遮罩：正文必须有实底，不能直接压在半透明面上 */
+  --text-scrim: color-mix(in oklab, var(--surface-1) 86%, transparent);
+}
+
+:root[data-style="glass-transparent"][data-theme="dark"] {
+  --bg: oklch(0.180 0.028 270);              /* #0D1220 */
+  --surface-1: oklch(0.205 0.028 270);       /* #121828  ΔL 0.025 */
+  --surface-2: oklch(0.230 0.028 270);       /* #181E2F  ΔL 0.025 */
+  --surface-3: oklch(0.255 0.028 270);       /* #1E2436  ΔL 0.025 */
+  --surface-sunken: oklch(0.165 0.028 270);
+  --fg: oklch(0.935 0.012 270);              /* #E6EAF3  15.7:1 */
+  --fg-muted: oklch(0.735 0.018 270);        /* #A5AAB8  8.0:1 */
+  --accent: oklch(0.800 0.110 280);          /* #B6BCFF  10.2:1 */
+  --accent-hover: oklch(0.850 0.100 280);
+  --line-1: oklch(0.335 0.028 270);          /* #31384B */
+  --line-inset: color-mix(in oklab, var(--fg) 9%, transparent);
+
+  --shadow-1: 0 2px 10px -2px rgb(0 0 0 / 0.45);
+  --shadow-2: 0 12px 40px -12px rgb(0 0 0 / 0.60);
+  --shadow-3: 0 24px 64px -24px rgb(0 0 0 / 0.72);
+  --shadow-field-outer: 0 2px 6px -2px rgb(0 0 0 / 0.55);
+  --shadow-field-inner: inset 0 1px 2px rgb(0 0 0 / 0.36);
+
+  --fw-body: 350;
+  --fw-strong: 450;
+  --fw-display: 550;
+
+  --tint-alpha: 14%;
+  --edge-border: rgb(255 255 255 / 0.16);
+  --edge-top: rgb(255 255 255 / 0.20);
+  --edge-bottom: rgb(0 0 0 / 0.30);
+  --text-scrim: color-mix(in oklab, var(--surface-1) 90%, transparent);
+}
+
+/* --------------------------------------------------------------------------
+   2. SIGNATURE
+   -------------------------------------------------------------------------- */
+
+/* 受控背景资产：固定渐变网格。这是透明玻璃成立的前提，不是装饰 */
+:root[data-style="glass-transparent"] body {
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(120deg,
+      color-mix(in oklab, var(--accent) 38%, transparent) 0%,
+      transparent 42%),
+    linear-gradient(-40deg,
+      color-mix(in oklab, var(--accent) 22%, var(--bg)) 0%,
+      transparent 55%),
+    repeating-linear-gradient(90deg,
+      rgb(255 255 255 / 0.03) 0 1px, transparent 1px 48px),
+    repeating-linear-gradient(0deg,
+      rgb(255 255 255 / 0.03) 0 1px, transparent 1px 48px);
+  background-attachment: fixed;
+}
+
+/* 透明玻璃本体：只染色，不模糊 */
+:root[data-style="glass-transparent"] .card,
+:root[data-style="glass-transparent"] .surface {
+  position: relative;
+  isolation: isolate;
+  background: color-mix(in oklab, var(--surface-1) var(--tint-alpha), transparent);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border: 1px solid var(--edge-border);
+  border-radius: var(--r-lg);
+  box-shadow:
+    inset 0 1px 0 var(--edge-top),
+    inset 0 -1px 0 var(--edge-bottom),
+    var(--shadow-2);
+}
+
+/* 内容必须有实底遮罩 */
+:root[data-style="glass-transparent"] .card > *,
+:root[data-style="glass-transparent"] .surface > * {
+  position: relative;
+  z-index: 1;
+}
+:root[data-style="glass-transparent"] .card::before,
+:root[data-style="glass-transparent"] .surface::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--text-scrim);
+  z-index: 0;
+  pointer-events: none;
+  /* 只让遮罩落在内容区，边缘保持通透 */
+  mask-image: linear-gradient(to bottom, transparent 0, black 18%, black 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 18%, black 100%);
+}
+
+/* 顶栏：最典型的透明玻璃用法 */
+:root[data-style="glass-transparent"] .topbar {
+  background: color-mix(in oklab, var(--surface-1) var(--tint-alpha), transparent);
+  border-bottom: 1px solid var(--edge-border);
+  box-shadow: inset 0 1px 0 var(--edge-top);
+}
+
+/* 侧栏：同样只染色 */
+:root[data-style="glass-transparent"] .rail {
+  background: color-mix(in oklab, var(--surface-1) calc(var(--tint-alpha) + 6%), transparent);
+  border-right: 1px solid var(--edge-border);
+}
+
+/* 按钮：极薄的一层 */
+:root[data-style="glass-transparent"] .btn {
+  background: color-mix(in oklab, var(--surface-1) 16%, transparent);
+  border: 1px solid var(--edge-border);
+  border-radius: var(--r-full);
+  box-shadow: inset 0 1px 0 var(--edge-top);
+  color: var(--fg);
+}
+:root[data-style="glass-transparent"] .btn:hover {
+  background: color-mix(in oklab, var(--surface-1) 26%, transparent);
+  border-color: var(--edge-top);
+}
+:root[data-style="glass-transparent"] .btn[data-variant="primary"] {
+  background: color-mix(in oklab, var(--accent) 72%, transparent);
+  color: var(--on-accent);
+  border-color: var(--edge-top);
+}
+
+/* 输入框：实底 —— 透明玻璃不用于表单控件 */
+:root[data-style="glass-transparent"] .field-control {
+  background: color-mix(in oklab, var(--surface-1) 92%, transparent);
+  border: 1px solid var(--edge-border);
+  border-radius: var(--r-md);
+  box-shadow:
+    var(--shadow-field-outer),
+    inset 0 0 0 1px var(--line-inset);
+}
+:root[data-style="glass-transparent"] .field-control:focus-visible {
+  box-shadow:
+    var(--shadow-field-outer),
+    inset 0 0 0 1px var(--accent),
+    0 0 0 3px color-mix(in oklab, var(--accent) 22%, transparent);
+}
+
+/* 侧栏选中：亮一条边 */
+:root[data-style="glass-transparent"] .nav-link[aria-current="page"] {
+  background: color-mix(in oklab, var(--surface-1) 22%, transparent);
+  box-shadow: inset 2px 0 0 var(--accent), inset 0 1px 0 var(--edge-top);
+  border-radius: var(--r-sm);
+}
+
+/* --------------------------------------------------------------------------
+   3. CONSTRAINT
+   -------------------------------------------------------------------------- */
+
+/* 正文绝不直接压在透明面上 */
+:root[data-style="glass-transparent"] .prose,
+:root[data-style="glass-transparent"] .msg__bubble,
+:root[data-style="glass-transparent"] .settings,
+:root[data-style="glass-transparent"] .form {
+  background: var(--text-scrim);
+  border-radius: var(--r-md);
+}
+
+/* 透明玻璃下不允许再叠一层玻璃 */
+:root[data-style="glass-transparent"] .card .card,
+:root[data-style="glass-transparent"] .surface .surface {
+  background: var(--surface-2);
+  border-color: var(--line-1);
+  box-shadow: none;
+}
+
+/* 全屏不透明化：列表项与表格行不能透明，否则滚动时对比度乱跳 */
+:root[data-style="glass-transparent"] .settings-row,
+:root[data-style="glass-transparent"] .timeline__item,
+:root[data-style="glass-transparent"] .token-table__row {
+  background: color-mix(in oklab, var(--surface-1) 94%, transparent);
+}
+
+/* 受控背景是硬要求：没有它就不该用这个变体。用 @supports 兜底检测 mask */
+@supports not (mask-image: linear-gradient(to bottom, transparent, black)) {
+  :root[data-style="glass-transparent"] .card::before,
+  :root[data-style="glass-transparent"] .surface::before { display: none; }
+  :root[data-style="glass-transparent"] .card,
+  :root[data-style="glass-transparent"] .surface { background: var(--surface-1); }
+}
+
+/* forced-colors：透明感消失，实边接管 */
+@media (forced-colors: active) {
+  :root[data-style="glass-transparent"] .card,
+  :root[data-style="glass-transparent"] .surface,
+  :root[data-style="glass-transparent"] .btn {
+    background: Canvas !important;
+    border: 1px solid CanvasText !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-style="glass-transparent"] * { transition-duration: 0.01ms !important; }
+}

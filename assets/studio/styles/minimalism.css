@@ -1,0 +1,136 @@
+/* ==========================================================================
+   minimalism.css —— 极简主义 · 变体 01/12
+   --------------------------------------------------------------------------
+   签名：留白与字级建立秩序；阴影几乎不用；只有一条发丝线。
+   代价：容易没有性格——所以它的辨识度全部压在这几样上：极窄的间距节奏、
+         2/4/6 的三级圆角、以及「只有浮层才有阴影」这条纪律。
+
+   加载方式：<html data-style="minimalism">
+   只覆盖差异。结构、组件、布局全部由 base.css 提供。
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. TOKEN OVERRIDE
+   -------------------------------------------------------------------------- */
+
+:root[data-style="minimalism"] {
+  /* 中性色温度：H 85 / C 0.002 —— 微暖中性，不是纯灰 */
+  --bg: oklch(0.985 0.002 85);               /* #FBFAF9 */
+  --surface-1: oklch(0.975 0.002 85);        /* #F7F7F5  ΔL 0.010 */
+  --surface-2: oklch(0.960 0.002 85);        /* #F2F2F0  ΔL 0.015 */
+  --surface-3: oklch(0.943 0.002 85);        /* #EDECEB  ΔL 0.017 */
+  --surface-sunken: oklch(0.972 0.002 85);
+  --fg: oklch(0.2174 0.0019 106.6);          /* #1A1A19  R3 */
+  --fg-muted: oklch(0.520 0.004 85);         /* #6A6966  5.3:1 */
+  --accent: oklch(0.505 0.090 252);          /* #3C6797  5.6:1 */
+  --accent-hover: oklch(0.460 0.095 252);
+  --line-1: oklch(0.900 0.003 85);           /* #DFDEDC */
+  --line-inset: color-mix(in oklab, var(--fg) 8%, transparent);
+
+  /* 圆角：数字与全圆之间不要中间值 */
+  --r-sm: 2px;
+  --r-md: 4px;
+  --r-lg: 6px;
+  --r-full: 999px;
+
+  /* 阴影：除浮层外一律没有 */
+  --shadow-1: none;
+  --shadow-2: 0 1px 2px -1px rgb(0 0 0 / 0.06);
+  --shadow-3: 0 8px 24px -8px rgb(0 0 0 / 0.14), 0 24px 64px -24px rgb(0 0 0 / 0.16);
+  --shadow-field-outer: 0 1px 2px -1px rgb(0 0 0 / 0.12);
+  --shadow-field-inner: inset 0 1px 2px rgb(0 0 0 / 0.06);
+
+  /* 字重：靠牌面大小建立层级，不靠粗细 */
+  --fw-body: 400;
+  --fw-strong: 500;
+  --fw-display: 600;
+
+  /* 动效：只动颜色与透明度 */
+  --dur-fast: 100ms;
+  --dur-base: 160ms;
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  --border-w: 1px;
+}
+
+:root[data-style="minimalism"][data-theme="dark"] {
+  --bg: oklch(0.180 0.002 85);               /* #121111 */
+  --surface-1: oklch(0.202 0.002 85);        /* #171615  ΔL 0.022 */
+  --surface-2: oklch(0.226 0.002 85);        /* #1C1C1B  ΔL 0.024 */
+  --surface-3: oklch(0.252 0.002 85);        /* #222221  ΔL 0.026 */
+  --surface-sunken: oklch(0.165 0.002 85);
+  --fg: oklch(0.940 0.002 85);               /* #ECEBEA */
+  --fg-muted: oklch(0.720 0.004 85);         /* #A6A4A2  7.6:1 */
+  --accent: oklch(0.740 0.095 252);          /* #7EAFE5  8.2:1 */
+  --accent-hover: oklch(0.790 0.085 252);
+  --line-1: oklch(0.300 0.003 85);           /* #2E2E2C */
+  --line-inset: color-mix(in oklab, var(--fg) 6%, transparent);
+
+  --shadow-1: none;
+  --shadow-2: 0 1px 3px -1px rgb(0 0 0 / 0.30);
+  --shadow-3: 0 12px 40px -12px rgb(0 0 0 / 0.60);
+  --shadow-field-outer: 0 2px 6px -2px rgb(0 0 0 / 0.40);
+  --shadow-field-inner: inset 0 1px 2px rgb(0 0 0 / 0.24);
+
+  /* R5：降一档 */
+  --fw-body: 350;
+  --fw-strong: 450;
+  --fw-display: 550;
+}
+
+/* --------------------------------------------------------------------------
+   2. SIGNATURE
+   -------------------------------------------------------------------------- */
+
+/* 标题用字号与字距说话，两级之间差一倍以上 */
+:root[data-style="minimalism"] .view-head h1,
+:root[data-style="minimalism"] .card__title {
+  letter-spacing: -0.018em;
+}
+:root[data-style="minimalism"] .view-head h1 {
+  font-size: var(--fs-2xl);
+  line-height: var(--lh-tight);
+}
+
+/* 卡片：只有一层发丝线，没有投影 */
+:root[data-style="minimalism"] .card,
+:root[data-style="minimalism"] .surface {
+  box-shadow: inset 0 0 0 1px var(--line-1);
+  background: transparent;
+}
+
+/* 按钮：secondary 用描边而非填充 */
+:root[data-style="minimalism"] .btn[data-variant="secondary"] {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--line-2);
+}
+
+/* 主按钮：纯色，无投影 */
+:root[data-style="minimalism"] .btn[data-variant="primary"] {
+  box-shadow: none;
+}
+
+/* 分组靠留白，不靠分割线堆叠 */
+:root[data-style="minimalism"] .settings-group {
+  border-top: 1px solid var(--line-1);
+  padding-top: var(--s-5);
+}
+
+/* --------------------------------------------------------------------------
+   3. CONSTRAINT
+   -------------------------------------------------------------------------- */
+
+/* 极简不允许玻璃、不允许大圆角、不允许装饰性渐变 */
+:root[data-style="minimalism"] .glass,
+:root[data-style="minimalism"] [class*="blur"] {
+  backdrop-filter: none;
+}
+:root[data-style="minimalism"] .badge {
+  border-radius: var(--r-sm);
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[data-style="minimalism"] * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

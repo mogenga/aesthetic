@@ -1,0 +1,189 @@
+/* ==========================================================================
+   tokens.css —— 夹具默认 token（中性 / minimalism 基线）
+   --------------------------------------------------------------------------
+   这是整个夹具里唯一允许出现颜色字面量的文件。
+   base.css / views 只消费 var(--…)，不得写 #、rgb()、oklch()。
+
+   表面阶梯按 OKLCH 生成，相邻 ΔL：
+     bg → surface-1  0.010
+     surface-1 → 2   0.015
+     surface-2 → 3   0.017
+   全部落在 R2 的 [0.010, 0.030] 内。每行附 sRGB hex 注释。
+
+   中性色温度：H 85 / C 0.002（中性偏暖，对应翻译表的"无倾向"默认）。
+   正文色：--fg = #1A1A19（R3；oklch(0.2174 0.0019 106.6)）。
+   ========================================================================== */
+
+:root {
+  color-scheme: light;
+
+  /* ---- 颜色 · 浅色 ------------------------------------------------------ */
+  --bg: oklch(0.985 0.002 85);              /* #FBFAF9  页面底 */
+  --surface-1: oklch(0.975 0.002 85);       /* #F7F7F5  ΔL 0.010  数据卡片 */
+  --surface-2: oklch(0.960 0.002 85);       /* #F2F2F0  ΔL 0.015  卡片内嵌块 */
+  --surface-3: oklch(0.943 0.002 85);       /* #EDECEB  ΔL 0.017  浮层 / 最上层 */
+  --surface-sunken: oklch(0.958 0.003 85);  /* #F2F1EF  下沉面（输入框、侧栏选中态） */
+  --fg: oklch(0.2174 0.0019 106.6);         /* #1A1A19  正文（R3 指定值） */
+  --fg-muted: oklch(0.460 0.006 85);        /* #595854  次要文本 */
+  --accent: oklch(0.480 0.090 250);         /* #32618E  强调色，C ≤ 0.09 */
+  --accent-hover: oklch(0.440 0.095 250);   /* #235585 */
+  --accent-soft: color-mix(in oklab, var(--accent) 12%, transparent);
+  --on-accent: oklch(0.990 0 0);            /* #FCFCFC  强调色上的文字 */
+  --danger: oklch(0.530 0.160 27);          /* #B63B35 */
+  --danger-hover: oklch(0.470 0.170 27);    /* #A51F1E */
+  --danger-soft: color-mix(in oklab, var(--danger) 10%, transparent);
+  --on-danger: oklch(0.990 0 0);            /* #FCFCFC */
+  --success: oklch(0.500 0.100 150);        /* #337344 */
+  --warning: oklch(0.550 0.120 70);         /* #9D6300 */
+
+  /* 描边不参与表面层级（R2），单独一条阶梯 */
+  --line-1: color-mix(in oklab, var(--fg) 9%, transparent);   /* 发丝分隔线 ≈ fg 9% */
+  --line-2: color-mix(in oklab, var(--fg) 16%, transparent);  /* 交互描边 */
+  --line-inset: color-mix(in oklab, var(--fg) 8%, transparent); /* R4 内环：比底色深 */
+
+  /* ---- 阴影 ------------------------------------------------------------- */
+  /* 带 alpha 的黑属于 R3 豁免范围：它们是透明度混合工具，不是纯黑色块 */
+  --shadow-1: 0 1px 2px -1px rgb(0 0 0 / 0.10), 0 2px 6px -2px rgb(0 0 0 / 0.08);
+  --shadow-2: 0 4px 12px -4px rgb(0 0 0 / 0.12), 0 12px 32px -12px rgb(0 0 0 / 0.16);
+  --shadow-3: 0 8px 24px -8px rgb(0 0 0 / 0.16), 0 24px 64px -24px rgb(0 0 0 / 0.22);
+
+  /* R4 三件套的前两件（第三件是 inset 内环 var(--line-inset)） */
+  --shadow-field-outer: 0 1px 2px -1px rgb(0 0 0 / 0.18);   /* 外投影：嵌入页面 */
+  --shadow-field-inner: inset 0 1px 2px rgb(0 0 0 / 0.10);  /* 内投影：上沿吃光 */
+
+  /* ---- 间距 · 8pt 基线 --------------------------------------------------- */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+
+  /* ---- 圆角 -------------------------------------------------------------- */
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 16px;
+  --r-full: 999px;
+
+  /* ---- 字体 -------------------------------------------------------------- */
+  --font-sans: "Inter", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+    system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "SF Mono", "Cascadia Mono", "Roboto Mono", "Consolas", monospace;
+
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-md: 15px;
+  --fs-lg: 18px;
+  --fs-xl: 24px;
+  --fs-2xl: 32px;
+  --fs-3xl: 44px;
+
+  --lh-tight: 1.15;
+  --lh-snug: 1.35;
+  --lh-body: 1.65;
+
+  --fw-body: 400;
+  --fw-strong: 600;
+  --fw-display: 700;
+
+  /* ---- 动效 -------------------------------------------------------------- */
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --dur-slow: 320ms;
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease-inout: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ---- 光学值（R1：允许偏离 8pt 网格，但必须走独立 token）----------------- */
+  --line-hair: 1px solid var(--line-1);   /* 1px 细线 */
+  --label-gap: 8px;                        /* 标签 → 输入，6–8px */
+  --icon-shift: -0.125em;                  /* 行内图标下移 1/8 字高 */
+  --focus-ring: 0 0 0 3px color-mix(in oklab, var(--accent) 26%, transparent);
+
+  /* ---- 布局结构值 -------------------------------------------------------- */
+  --content-max: 1120px;
+  --topbar-h: 56px;
+  --rail-w: 232px;
+  --rail-w-collapsed: 64px;
+  --row-h: 56px;        /* R8：设置行 52–56px */
+  /* R8 写的是上下 padding 12–14px，那对应单行行。
+     本夹具每行是「名称 + 说明」两行，52–56px 的总高优先，
+     所以垂直 padding 收到 8px；行高与组间距保持规则值。此偏离见交付说明。 */
+  --row-pad: var(--s-2);
+  --group-gap: 44px;    /* R8：设置组之间 44–48px */
+  --field-gap: var(--s-5); /* R9：字段之间 24px */
+  --ai-bubble-max: 640px;
+
+  /* 控件尺寸：视觉值走 token，结构计算留在 base.css */
+  --border-w: 1px;
+  --border-w-strong: 2px;
+  --control-h: 40px;
+  --btn-h: 38px;
+  --rail-item-h: 40px;
+  --switch-w: 44px;
+  --switch-h: 26px;
+  --switch-knob: 20px;
+  --avatar: 32px;
+  --badge-h: 22px;
+  --dot: 6px;
+  --icon-box: 20px;
+  --icon-sm: 14px;
+  --stat-value-size: var(--fs-2xl);
+
+  /* 内容宽度与媒体尺寸：视觉值，不是布局魔法数 */
+  --search-max: 360px;
+  --search-max-narrow: 220px;
+  --lede-max: 640px;
+  --settings-max: 760px;
+  --chat-max: 820px;
+  --prose-max: 44ch;
+  --textarea-min: 120px;
+  --composer-max: 160px;
+  --select-min: 176px;
+  --rail-w-phone: var(--s-6);
+  --search-icon-inset: 40px;
+  --marker-shift: 6px;
+}
+
+/* ==========================================================================
+   暗色：同一色相，L 阶梯镜像。字重按 R5 降一档。
+   表面阶梯仍是 0.010 / 0.015 / 0.017。
+   ========================================================================== */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: oklch(0.180 0.002 85);              /* #121111 */
+  --surface-1: oklch(0.190 0.002 85);       /* #141413  ΔL 0.010 */
+  --surface-2: oklch(0.205 0.002 85);       /* #181716  ΔL 0.015 */
+  --surface-3: oklch(0.222 0.002 85);       /* #1B1B1A  ΔL 0.017 */
+  --surface-sunken: oklch(0.165 0.003 85);  /* #0F0E0D */
+  --fg: oklch(0.930 0.003 85);              /* #E9E8E6 */
+  --fg-muted: oklch(0.700 0.006 85);        /* #A09E9A */
+  --accent: oklch(0.740 0.090 250);         /* #7FAFE2 */
+  --accent-hover: oklch(0.800 0.080 250);   /* #97C2F0 */
+  --accent-soft: color-mix(in oklab, var(--accent) 16%, transparent);
+  --on-accent: oklch(0.200 0.020 250);      /* #0F171F  暗色下强调按钮用深色字 */
+  --danger: oklch(0.700 0.120 27);          /* #DF8075 */
+  --danger-hover: oklch(0.760 0.110 27);    /* #EF958B */
+  --danger-soft: color-mix(in oklab, var(--danger) 14%, transparent);
+  --on-danger: oklch(0.200 0.020 27);       /* #2A1412 */
+  --success: oklch(0.720 0.090 150);        /* #7BB587 */
+  --warning: oklch(0.800 0.110 75);         /* #E7B369 */
+
+  --line-1: color-mix(in oklab, var(--fg) 12%, transparent);
+  --line-2: color-mix(in oklab, var(--fg) 22%, transparent);
+  /* R4：暗底上"变深"不可见，内环改用微亮边表示嵌入 */
+  --line-inset: color-mix(in oklab, var(--fg) 6%, transparent);
+
+  --shadow-1: 0 1px 2px -1px rgb(0 0 0 / 0.30), 0 2px 6px -2px rgb(0 0 0 / 0.24);
+  --shadow-2: 0 4px 12px -4px rgb(0 0 0 / 0.36), 0 12px 32px -12px rgb(0 0 0 / 0.40);
+  --shadow-3: 0 8px 24px -8px rgb(0 0 0 / 0.44), 0 24px 64px -24px rgb(0 0 0 / 0.52);
+  --shadow-field-outer: 0 2px 6px -2px rgb(0 0 0 / 0.45);
+  --shadow-field-inner: inset 0 1px 2px rgb(0 0 0 / 0.28);
+
+  /* R5：全站文字降一档（body 400→350，strong 600→500，display 700→600） */
+  --fw-body: 350;
+  --fw-strong: 500;
+  --fw-display: 600;
+}

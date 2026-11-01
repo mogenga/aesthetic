@@ -1,0 +1,245 @@
+/* ==========================================================================
+   glass-frosted.css —— 毛玻璃 · 变体 11/12
+   --------------------------------------------------------------------------
+   玻璃三支里的主力方案。几乎所有「玻璃感」产品真正用的是这个。
+
+   判定法：遮住背景只留纯色块——背景「糊了」= 毛玻璃。
+   技术栈：backdrop-filter: blur() + saturate()，全引擎可用。
+
+   加载方式：<html data-style="glass-frosted">
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. TOKEN OVERRIDE
+   -------------------------------------------------------------------------- */
+
+:root[data-style="glass-frosted"] {
+  /* H 265 / C 0.014 —— 冷紫灰；玻璃需要一点冷调才不像雾 */
+  --bg: oklch(0.965 0.014 265);              /* #EFF4FD */
+  --surface-1: oklch(0.948 0.014 265);       /* #E9EEF8  ΔL 0.017 */
+  --surface-2: oklch(0.928 0.014 265);       /* #E3E7F1  ΔL 0.020 */
+  --surface-3: oklch(0.905 0.014 265);       /* #DBE0E9  ΔL 0.023 */
+  --surface-sunken: oklch(0.940 0.014 265);
+  --fg: oklch(0.230 0.020 265);              /* #181D27  15.3:1 */
+  --fg-muted: oklch(0.455 0.020 265);        /* #515762  6.6:1 */
+  --accent: oklch(0.535 0.145 275);          /* #5762C0  4.8:1 */
+  --accent-hover: oklch(0.490 0.150 275);
+  --line-1: oklch(0.900 0.020 265);          /* #D7DEEC */
+  --line-inset: color-mix(in oklab, var(--fg) 10%, transparent);
+
+  /* 小圆角会在倒角处露出模糊断裂 */
+  --r-sm: 10px;
+  --r-md: 16px;
+  --r-lg: 26px;
+  --r-full: 999px;
+
+  /* 三段阴影：贴地 / 玻璃本体抬升 / 弹层 */
+  --shadow-1: 0 2px 8px -2px rgb(30 40 80 / 0.10);
+  --shadow-2: 0 8px 32px -8px rgb(30 40 80 / 0.28);
+  --shadow-3: 0 16px 48px -16px rgb(30 40 80 / 0.36);
+  --shadow-field-outer: 0 1px 2px -1px rgb(30 40 80 / 0.14);
+  --shadow-field-inner: inset 0 1px 2px rgb(30 40 80 / 0.08);
+
+  --fw-body: 400;
+  --fw-strong: 500;
+  --fw-display: 600;
+
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+
+  /* 玻璃参数：浅色 */
+  --glass-bg-alpha: 62%;
+  --glass-blur: 24px;
+  --glass-saturate: 180%;
+  --glass-edge-top: rgb(255 255 255 / 0.22);
+  --glass-edge-bottom: rgb(0 0 0 / 0.08);
+  --glass-border: rgb(255 255 255 / 0.14);
+  --glass-scrim: linear-gradient(to bottom, transparent, rgb(0 0 0 / 0.06) 100%);
+}
+
+:root[data-style="glass-frosted"][data-theme="dark"] {
+  --bg: oklch(0.170 0.025 270);              /* #0B0F1A */
+  --surface-1: oklch(0.195 0.025 270);       /* #101420  ΔL 0.025 */
+  --surface-2: oklch(0.220 0.025 270);       /* #161A26  ΔL 0.025 */
+  --surface-3: oklch(0.246 0.025 270);       /* #1C202D  ΔL 0.026 */
+  --surface-sunken: oklch(0.155 0.025 270);
+  --fg: oklch(0.940 0.010 270);              /* #E8EBF2  16.1:1 */
+  --fg-muted: oklch(0.740 0.015 270);        /* #A7ABB5  8.3:1 */
+  --accent: oklch(0.790 0.105 280);          /* #ADB3FD  10.0:1 */
+  --accent-hover: oklch(0.840 0.095 280);
+  --line-1: oklch(0.340 0.025 270);          /* #333845 */
+  --line-inset: color-mix(in oklab, var(--fg) 8%, transparent);
+
+  --shadow-1: 0 2px 10px -2px rgb(0 0 0 / 0.40);
+  --shadow-2: 0 12px 40px -12px rgb(0 0 0 / 0.55);
+  --shadow-3: 0 24px 64px -24px rgb(0 0 0 / 0.70);
+  --shadow-field-outer: 0 2px 6px -2px rgb(0 0 0 / 0.50);
+  --shadow-field-inner: inset 0 1px 2px rgb(0 0 0 / 0.32);
+
+  --fw-body: 350;
+  --fw-strong: 450;
+  --fw-display: 550;
+
+  /* 暗色整套重算：更低不透明度 + 更亮边缘光 + 更小模糊 */
+  --glass-bg-alpha: 42%;
+  --glass-blur: 20px;
+  --glass-saturate: 150%;
+  --glass-edge-top: rgb(255 255 255 / 0.16);
+  --glass-edge-bottom: rgb(0 0 0 / 0.24);
+  --glass-border: rgb(255 255 255 / 0.12);
+  --glass-scrim: linear-gradient(to bottom, transparent, rgb(0 0 0 / 0.18) 100%);
+}
+
+/* --------------------------------------------------------------------------
+   2. SIGNATURE —— 毛玻璃本体
+   -------------------------------------------------------------------------- */
+
+/* 页面底：一层柔和的彩色背景，否则玻璃无所依附 */
+:root[data-style="glass-frosted"] body {
+  background:
+    radial-gradient(60% 55% at 18% 12%, color-mix(in oklab, var(--accent) 22%, transparent), transparent 70%),
+    radial-gradient(50% 50% at 82% 78%, color-mix(in oklab, var(--accent) 12%, var(--bg)), transparent 72%),
+    var(--bg);
+  background-attachment: fixed;
+}
+
+/* 玻璃表面 */
+:root[data-style="glass-frosted"] .card,
+:root[data-style="glass-frosted"] .surface,
+:root[data-style="glass-frosted"] .rail,
+:root[data-style="glass-frosted"] .topbar {
+  /* 用页面基色的半透明版，不是纯白 —— 否则暗色模式下会发灰 */
+  background: color-mix(in oklab, var(--surface-1) var(--glass-bg-alpha), transparent);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-lg);
+  /* 两条 inset 阴影伪造厚度：上亮下暗 */
+  box-shadow:
+    inset 0 1px 0 var(--glass-edge-top),
+    inset 0 -1px 0 var(--glass-edge-bottom),
+    var(--shadow-2);
+}
+
+/* 顶栏与侧栏用较平的版本 */
+:root[data-style="glass-frosted"] .topbar {
+  border-radius: 0;
+  border-width: 0 0 1px;
+  box-shadow: inset 0 -1px 0 var(--glass-edge-bottom), var(--shadow-1);
+}
+:root[data-style="glass-frosted"] .rail {
+  border-radius: 0;
+  border-width: 0 1px 0 0;
+  box-shadow: none;
+}
+
+/* 玻璃上的文字需要内层遮罩，否则滚动内容经过时对比度会崩 */
+:root[data-style="glass-frosted"] .card::before,
+:root[data-style="glass-frosted"] .surface::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--glass-scrim);
+  pointer-events: none;
+  z-index: 0;
+}
+:root[data-style="glass-frosted"] .card,
+:root[data-style="glass-frosted"] .surface {
+  position: relative;
+  isolation: isolate;
+}
+:root[data-style="glass-frosted"] .card > *,
+:root[data-style="glass-frosted"] .surface > * { position: relative; z-index: 1; }
+
+/* 按钮：玻璃胶囊 */
+:root[data-style="glass-frosted"] .btn {
+  border: 1px solid var(--glass-border);
+  background: color-mix(in oklab, var(--surface-1) 48%, transparent);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  backdrop-filter: blur(12px) saturate(160%);
+  border-radius: var(--r-full);
+  box-shadow: inset 0 1px 0 var(--glass-edge-top), var(--shadow-1);
+  color: var(--fg);
+}
+:root[data-style="glass-frosted"] .btn:hover { background: color-mix(in oklab, var(--surface-1) 62%, transparent); }
+:root[data-style="glass-frosted"] .btn[data-variant="primary"] {
+  background: color-mix(in oklab, var(--accent) 78%, transparent);
+  color: var(--on-accent);
+  border-color: color-mix(in oklab, white 26%, transparent);
+}
+
+/* 输入框：表单控件不做玻璃，走实色 + R4 三件套 */
+:root[data-style="glass-frosted"] .field-control {
+  background: color-mix(in oklab, var(--surface-1) 86%, transparent);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-md);
+  box-shadow:
+    var(--shadow-field-outer),
+    inset 0 1px 0 var(--glass-edge-top),
+    inset 0 0 0 1px var(--line-inset);
+}
+:root[data-style="glass-frosted"] .field-control:focus-visible {
+  box-shadow:
+    var(--shadow-field-outer),
+    inset 0 1px 0 var(--glass-edge-top),
+    inset 0 0 0 1px var(--accent),
+    0 0 0 3px color-mix(in oklab, var(--accent) 22%, transparent);
+}
+
+/* 选中态：一层薄玻璃 */
+:root[data-style="glass-frosted"] .nav-link[aria-current="page"] {
+  background: color-mix(in oklab, var(--surface-1) 52%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  box-shadow: inset 0 1px 0 var(--glass-edge-top);
+  border-radius: var(--r-md);
+}
+
+/* --------------------------------------------------------------------------
+   3. CONSTRAINT
+   -------------------------------------------------------------------------- */
+
+/* 玻璃叠玻璃 = 一团糊：卡片内部的子表面一律实色 */
+:root[data-style="glass-frosted"] .card .card,
+:root[data-style="glass-frosted"] .surface .surface,
+:root[data-style="glass-frosted"] .card .surface-layer {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background: var(--surface-2);
+  border-color: var(--line-1);
+  box-shadow: none;
+}
+
+/* 大段正文不能直接放在玻璃上 */
+:root[data-style="glass-frosted"] .prose {
+  background: color-mix(in oklab, var(--surface-1) 92%, transparent);
+  border-radius: var(--r-md);
+  padding: var(--s-4);
+}
+
+/* 不做全屏玻璃 */
+:root[data-style="glass-frosted"] .main,
+:root[data-style="glass-frosted"] body { -webkit-backdrop-filter: none; backdrop-filter: none; }
+
+/* 不对 backdrop-filter 做过渡——会每帧重算模糊 */
+:root[data-style="glass-frosted"] * {
+  transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+}
+
+/* 不支持 backdrop-filter 时退回不透明实底，保住对比度 */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root[data-style="glass-frosted"] .card,
+  :root[data-style="glass-frosted"] .surface,
+  :root[data-style="glass-frosted"] .btn {
+    background: var(--surface-1);
+    border-color: var(--line-1);
+  }
+}
+
+/* forced-colors：玻璃消失，必须有实边 */
+@media (forced-colors: active) {
+  :root[data-style="glass-frosted"] .card,
+  :root[data-style="glass-frosted"] .surface,
+  :root[data-style="glass-frosted"] .btn { border: 1px solid CanvasText !important; }
+}

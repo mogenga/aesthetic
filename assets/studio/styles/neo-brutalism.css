@@ -1,0 +1,175 @@
+/* ==========================================================================
+   neo-brutalism.css —— 新粗野主义 · 变体 05/12
+   --------------------------------------------------------------------------
+   签名：零圆角 + 2px 实心描边 + 无模糊偏移硬阴影 + 两种撞色。
+   代价：信息密度必然下降——每条描边都在跟内容抢注意力。
+
+   R3 例外：本变体允许不透明 #000 用于 2px 描边与硬阴影（硬边需要无过渡）。
+            使用前必须在 decisions.json.overrides 登记：
+            rule R3 · scope neo-brutalism.border · verification impeccable-disable
+
+   加载方式：<html data-style="neo-brutalism">
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. TOKEN OVERRIDE
+   -------------------------------------------------------------------------- */
+
+:root[data-style="neo-brutalism"] {
+  /* H 90 / C 0.020 —— 暖米黄纸感，C 高一个量级因为底色要参与撞色 */
+  --bg: oklch(0.955 0.020 90);               /* #F5F0E1 */
+  --surface-1: oklch(0.940 0.020 90);        /* #F0EBDC  ΔL 0.015 */
+  --surface-2: oklch(0.922 0.020 90);        /* #EAE5D7  ΔL 0.018 */
+  --surface-3: oklch(0.902 0.020 90);        /* #E4DED0  ΔL 0.020 */
+  --surface-sunken: oklch(0.930 0.020 90);
+  --fg: oklch(0.190 0.010 90);               /* #15140F */
+  --fg-muted: oklch(0.400 0.020 90);         /* #4C473C  8.1:1 */
+  --accent: oklch(0.862 0.155 95);           /* #F2D045  亮黄，12.2:1 vs fg */
+  --accent-hover: oklch(0.900 0.150 95);
+  --on-accent: oklch(0.190 0.010 90);        /* 黄底配黑字 */
+  --line-1: oklch(0.190 0.010 90);           /* 描边用 fg 本身，不是浅灰 */
+  --line-2: oklch(0.190 0.010 90);
+  --line-inset: oklch(0.190 0.010 90);
+
+  /* 零圆角 */
+  --r-sm: 0px;
+  --r-md: 0px;
+  --r-lg: 0px;
+  --r-full: 999px;                            /* 仅头像/徽章 */
+
+  --shadow-1: 4px 4px 0 var(--fg);
+  --shadow-2: 6px 6px 0 var(--fg);
+  --shadow-3: 8px 8px 0 var(--fg);
+  --shadow-field-outer: 3px 3px 0 var(--fg);
+  --shadow-field-inner: none;                 /* R4 等价方案，见下 */
+
+  --fw-body: 400;
+  --fw-strong: 700;
+  --fw-display: 800;
+
+  --dur-fast: 80ms;
+  --dur-base: 100ms;
+  --dur-slow: 120ms;
+  --ease-out: linear;
+  --ease-inout: linear;
+
+  --border-w: 2px;
+  --border-w-strong: 3px;
+}
+
+:root[data-style="neo-brutalism"][data-theme="dark"] {
+  --bg: oklch(0.190 0.015 90);               /* #16140C */
+  --surface-1: oklch(0.212 0.015 90);        /* #1B1911  ΔL 0.022 */
+  --surface-2: oklch(0.236 0.015 90);        /* #211E16  ΔL 0.024 */
+  --surface-3: oklch(0.262 0.015 90);        /* #27241C  ΔL 0.026 */
+  --surface-sunken: oklch(0.175 0.015 90);
+  --fg: oklch(0.950 0.010 95);               /* #F0EEE7 */
+  --fg-muted: oklch(0.740 0.015 90);         /* #AEABA0  8.0:1 */
+  --accent: oklch(0.870 0.150 95);           /* #F3D350 */
+  --accent-hover: oklch(0.910 0.145 95);
+  --on-accent: oklch(0.190 0.015 90);
+  --line-1: oklch(0.950 0.010 95);
+  --line-2: oklch(0.950 0.010 95);
+  --line-inset: oklch(0.950 0.010 95);
+
+  --shadow-1: 4px 4px 0 var(--fg);
+  --shadow-2: 6px 6px 0 var(--fg);
+  --shadow-3: 8px 8px 0 var(--fg);
+  --shadow-field-outer: 3px 3px 0 var(--fg);
+  --shadow-field-inner: none;
+
+  --fw-body: 350;
+  --fw-strong: 650;
+  --fw-display: 750;
+}
+
+/* --------------------------------------------------------------------------
+   2. SIGNATURE
+   -------------------------------------------------------------------------- */
+
+/* 所有可交互元素都有 2px 实心描边，颜色是 fg 不是浅灰 */
+:root[data-style="neo-brutalism"] .btn,
+:root[data-style="neo-brutalism"] .field-control,
+:root[data-style="neo-brutalism"] .settings-select,
+:root[data-style="neo-brutalism"] .tag,
+:root[data-style="neo-brutalism"] .badge {
+  border: var(--border-w-strong) solid var(--fg);
+  border-radius: 0;
+}
+
+/* 按钮：硬阴影 + 按下位移 */
+:root[data-style="neo-brutalism"] .btn {
+  box-shadow: var(--shadow-1);
+  font-weight: var(--fw-strong);
+  letter-spacing: 0.01em;
+}
+:root[data-style="neo-brutalism"] .btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 5px 5px 0 var(--fg);
+}
+:root[data-style="neo-brutalism"] .btn:active,
+:root[data-style="neo-brutalism"] .btn[data-state="active"] {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 var(--fg);
+}
+:root[data-style="neo-brutalism"] .btn[data-variant="primary"] {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+/* 卡片：厚描边 + 硬阴影 */
+:root[data-style="neo-brutalism"] .card,
+:root[data-style="neo-brutalism"] .surface,
+:root[data-style="neo-brutalism"] .surface-layer {
+  border: var(--border-w-strong) solid var(--fg);
+  border-radius: 0;
+  box-shadow: var(--shadow-2);
+  background: var(--surface-1);
+}
+
+/* 输入框：R4 等价——硬边框 + 偏移硬阴影取代 inset 内环 */
+:root[data-style="neo-brutalism"] .field-control {
+  background: var(--surface-1);
+  box-shadow: 3px 3px 0 var(--fg);
+}
+:root[data-style="neo-brutalism"] .field-control:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 3px 3px 0 var(--fg), 0 0 0 2px var(--fg);
+}
+
+/* 超粗标题，允许溢出 */
+:root[data-style="neo-brutalism"] .view-head h1 {
+  font-size: clamp(var(--fs-2xl), 5vw, 56px);
+  font-weight: var(--fw-display);
+  letter-spacing: -0.03em;
+  line-height: 0.95;
+}
+
+/* 分组标题做成贴纸块 */
+:root[data-style="neo-brutalism"] .settings-group__title {
+  display: inline-block;
+  padding: 2px var(--s-2);
+  background: var(--accent);
+  color: var(--on-accent);
+  border: var(--border-w) solid var(--fg);
+  font-weight: var(--fw-strong);
+}
+
+/* --------------------------------------------------------------------------
+   3. CONSTRAINT
+   -------------------------------------------------------------------------- */
+
+/* 粗野不允许：柔和渐变、玻璃、模糊阴影、内圆角 */
+:root[data-style="neo-brutalism"] .glass,
+:root[data-style="neo-brutalism"] [class*="blur"] { backdrop-filter: none; }
+:root[data-style="neo-brutalism"] .card,
+:root[data-style="neo-brutalism"] .surface { background-image: none; }
+
+/* 焦点必须可见：外环 + 硬阴影同时存在 */
+:root[data-style="neo-brutalism"] :focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* 动效只做位移，不做淡入 */
+:root[data-style="neo-brutalism"] * { transition-property: transform, box-shadow, background-color; }

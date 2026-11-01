@@ -1,0 +1,195 @@
+/* ==========================================================================
+   gradient-aurora.css —— 渐变 / 弥散光 · 变体 09/12
+   --------------------------------------------------------------------------
+   签名：大色斑做氛围底；表面半透；边缘靠内高光而非描边。
+   代价：背景抢戏、文字压不住——所以表面一律 ≥ 0.92 不透明，
+         色斑只允许在「页面底」与「首屏区块」两层出现。
+
+   加载方式：<html data-style="gradient-aurora">
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. TOKEN OVERRIDE
+   -------------------------------------------------------------------------- */
+
+:root[data-style="gradient-aurora"] {
+  /* H 300 / C 0.012 —— 浅紫中性；再高表面会发脏 */
+  --bg: oklch(0.975 0.012 300);              /* #F8F5FE */
+  --surface-1: oklch(0.958 0.012 300);       /* #F2EFF8  ΔL 0.017 */
+  --surface-2: oklch(0.938 0.012 300);       /* #EBE9F2  ΔL 0.020 */
+  --surface-3: oklch(0.916 0.012 300);       /* #E4E2EA  ΔL 0.022 */
+  --surface-sunken: oklch(0.950 0.012 300);
+  --fg: oklch(0.240 0.030 290);              /* #1F1D2D  15.4:1 */
+  --fg-muted: oklch(0.465 0.030 290);        /* #595769  6.5:1 */
+  --accent: oklch(0.545 0.165 300);          /* #8053C0  5.0:1 */
+  --accent-hover: oklch(0.500 0.170 300);
+  --line-1: oklch(0.900 0.020 300);          /* #E0DBEA */
+  --line-inset: color-mix(in oklab, var(--fg) 8%, transparent);
+
+  /* 大圆角配合大色斑，形状语言统一为「软」 */
+  --r-sm: 10px;
+  --r-md: 16px;
+  --r-lg: 24px;
+  --r-full: 999px;
+
+  --shadow-1: 0 1px 2px -1px rgb(60 30 90 / 0.06);
+  --shadow-2: 0 8px 24px -12px rgb(60 30 90 / 0.16);
+  --shadow-3: 0 24px 64px -24px rgb(60 30 90 / 0.28);
+  --shadow-field-outer: 0 1px 2px -1px rgb(60 30 90 / 0.10);
+  --shadow-field-inner: inset 0 1px 2px rgb(60 30 90 / 0.06);
+
+  --fw-body: 400;
+  --fw-strong: 500;
+  --fw-display: 600;
+
+  --dur-base: 280ms;
+  --dur-slow: 360ms;
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  /* 色斑的三色：局部变量，不进 token 表 */
+  --aurora-1: oklch(0.780 0.150 300);
+  --aurora-2: oklch(0.820 0.130 200);
+  --aurora-3: oklch(0.860 0.120 40);
+  --aurora-blur: 80px;
+  --aurora-opacity: 0.55;
+}
+
+:root[data-style="gradient-aurora"][data-theme="dark"] {
+  --bg: oklch(0.160 0.030 285);              /* #0C0B1A */
+  --surface-1: oklch(0.185 0.030 285);       /* #11111F  ΔL 0.025 */
+  --surface-2: oklch(0.208 0.030 285);       /* #161625  ΔL 0.023 */
+  --surface-3: oklch(0.233 0.030 285);       /* #1C1C2B  ΔL 0.025 */
+  --surface-sunken: oklch(0.145 0.030 285);
+  --fg: oklch(0.940 0.015 290);              /* #EBEAF5  16.3:1 */
+  --fg-muted: oklch(0.730 0.020 290);        /* #A7A6B4  8.1:1 */
+  --accent: oklch(0.800 0.135 320);          /* #E4A0F4  9.9:1 */
+  --accent-hover: oklch(0.850 0.125 320);
+  --line-1: oklch(0.330 0.030 285);          /* #343344 */
+  --line-inset: color-mix(in oklab, var(--fg) 6%, transparent);
+
+  --shadow-1: 0 1px 3px -1px rgb(0 0 0 / 0.30);
+  --shadow-2: 0 10px 32px -12px rgb(0 0 0 / 0.48);
+  --shadow-3: 0 32px 80px -32px rgb(0 0 0 / 0.68);
+  --shadow-field-outer: 0 2px 6px -2px rgb(0 0 0 / 0.45);
+  --shadow-field-inner: inset 0 1px 2px rgb(0 0 0 / 0.30);
+
+  --fw-body: 350;
+  --fw-strong: 450;
+  --fw-display: 550;
+
+  --aurora-1: oklch(0.620 0.170 310);
+  --aurora-2: oklch(0.580 0.150 195);
+  --aurora-3: oklch(0.640 0.140 55);
+  --aurora-opacity: 0.42;
+}
+
+/* --------------------------------------------------------------------------
+   2. SIGNATURE —— 色斑
+   -------------------------------------------------------------------------- */
+
+/* 页面底：三团弥散光，固定在视口，不随滚动 */
+:root[data-style="gradient-aurora"] body::before {
+  content: "";
+  position: fixed;
+  inset: -20%;
+  z-index: -1;
+  pointer-events: none;
+  opacity: var(--aurora-opacity);
+  filter: blur(var(--aurora-blur));
+  background:
+    radial-gradient(38% 42% at 22% 18%, var(--aurora-1), transparent 62%),
+    radial-gradient(34% 38% at 78% 26%, var(--aurora-2), transparent 60%),
+    radial-gradient(46% 40% at 52% 88%, var(--aurora-3), transparent 64%);
+  background-color: var(--bg);
+}
+
+/* 表面：≥92% 不透明，保证文字压得住 */
+:root[data-style="gradient-aurora"] .card,
+:root[data-style="gradient-aurora"] .surface {
+  border: none;
+  border-radius: var(--r-lg);
+  background: color-mix(in oklab, var(--surface-1) 94%, transparent);
+  box-shadow: var(--shadow-2), inset 0 1px 0 rgb(255 255 255 / 0.55);
+}
+:root[data-style="gradient-aurora"][data-theme="dark"] .card,
+:root[data-style="gradient-aurora"][data-theme="dark"] .surface {
+  background: color-mix(in oklab, var(--surface-1) 92%, transparent);
+  box-shadow: var(--shadow-2), inset 0 1px 0 rgb(255 255 255 / 0.07);
+}
+
+/* 按钮：主按钮带一层柔光 */
+:root[data-style="gradient-aurora"] .btn {
+  border-radius: var(--r-full);
+  border: none;
+  background: var(--surface-2);
+  color: var(--fg);
+}
+:root[data-style="gradient-aurora"] .btn[data-variant="primary"] {
+  background: linear-gradient(135deg, var(--accent), color-mix(in oklab, var(--accent) 70%, var(--aurora-2)));
+  color: var(--on-accent);
+  box-shadow: 0 4px 16px -4px color-mix(in oklab, var(--accent) 45%, transparent);
+}
+:root[data-style="gradient-aurora"] .btn[data-variant="primary"]:hover {
+  box-shadow: 0 6px 22px -4px color-mix(in oklab, var(--accent) 55%, transparent);
+}
+
+/* 输入框：大圆角 + 内高光 */
+:root[data-style="gradient-aurora"] .field-control {
+  border: 1px solid color-mix(in oklab, var(--fg) 8%, transparent);
+  border-radius: var(--r-md);
+  background: color-mix(in oklab, var(--surface-sunken) 96%, transparent);
+  box-shadow: var(--shadow-field-outer), inset 0 1px 0 rgb(255 255 255 / 0.5), inset 0 0 0 1px var(--line-inset);
+}
+
+/* 首屏区块可以叠自己的色斑 */
+:root[data-style="gradient-aurora"] .view-head {
+  position: relative;
+  isolation: isolate;
+}
+:root[data-style="gradient-aurora"] .view-head::before {
+  content: "";
+  position: absolute;
+  inset: calc(var(--s-6) * -1);
+  z-index: -1;
+  border-radius: var(--r-lg);
+  opacity: calc(var(--aurora-opacity) * 0.5);
+  filter: blur(48px);
+  background: radial-gradient(60% 100% at 30% 50%, var(--aurora-1), transparent 70%);
+}
+
+/* 慢速漂移：≥40s，reduced-motion 下静止 */
+@keyframes aurora-drift {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  33%  { transform: translate3d(2%, -1.5%, 0) scale(1.04); }
+  66%  { transform: translate3d(-1.5%, 2%, 0) scale(0.98); }
+  100% { transform: translate3d(0, 0, 0) scale(1); }
+}
+:root[data-style="gradient-aurora"] body::before {
+  animation: aurora-drift 44s linear infinite;
+}
+
+/* --------------------------------------------------------------------------
+   3. CONSTRAINT
+   -------------------------------------------------------------------------- */
+
+/* 正文绝不能直接压在色斑上——所有文字容器必须有实底 */
+:root[data-style="gradient-aurora"] .prose,
+:root[data-style="gradient-aurora"] .msg__bubble,
+:root[data-style="gradient-aurora"] .settings {
+  background: color-mix(in oklab, var(--surface-1) 96%, transparent);
+  border-radius: var(--r-md);
+}
+
+/* 色斑在 reduced-motion 下完全静止 */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-style="gradient-aurora"] body::before { animation: none; }
+}
+
+/* 不用玻璃（色斑已经承担了氛围） */
+:root[data-style="gradient-aurora"] .glass { backdrop-filter: none; }
+
+/* 打印时去掉色斑 */
+@media print {
+  :root[data-style="gradient-aurora"] body::before,
+  :root[data-style="gradient-aurora"] .view-head::before { display: none; }
+}

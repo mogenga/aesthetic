@@ -1,0 +1,286 @@
+/* ==========================================================================
+   glass-liquid.css —— 液态玻璃 · 变体 10/12
+   --------------------------------------------------------------------------
+   判定法：遮住背景只留纯色块——背景「变形」了 = 液态玻璃。
+
+   原理：把元素当作一块有倒角的厚玻璃。圆角矩形 SDF → 位移场 → SVG
+         feDisplacementMap → backdrop-filter: url(#…) 折射背后内容。
+
+   实现用 assets/vendor/hyalite.js（MIT，单文件，无 WebGL，无构建）。
+
+   ⚠ 只有 Chromium 真渲染折射：
+     · Safari 接受 backdrop-filter: url() 但丢弃 SVG 部分（WebKit bug 245510）
+     · Firefox 不实现 SVG filter graph（bug 1787623）
+     · CSS.supports('backdrop-filter','url(#x)') 在三大引擎都返回 true，
+       不能做特性检测 —— 由 hyalite 做引擎嗅探 + force() 手动开关
+
+   降级链：液态（Chromium）→ 毛玻璃（其他引擎）→ 半透明实色（无 backdrop-filter）
+
+   加载方式：
+     <html data-style="glass-liquid">
+     <script src="/studio/../vendor/hyalite.js"></script>
+     <script>Hyalite.watch(document.body, '.glass');</script>
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. TOKEN OVERRIDE
+   -------------------------------------------------------------------------- */
+
+:root[data-style="glass-liquid"] {
+  /* 与 frosted 同族，但更冷更沉——折射需要更深的底才看得出来 */
+  --bg: oklch(0.958 0.016 268);              /* #ECF2FD */
+  --surface-1: oklch(0.938 0.016 268);       /* #E4EBF8  ΔL 0.020 */
+  --surface-2: oklch(0.914 0.016 268);       /* #DBE3F3  ΔL 0.024 */
+  --surface-3: oklch(0.888 0.016 268);       /* #D2DBEE  ΔL 0.026 */
+  --surface-sunken: oklch(0.930 0.016 268);
+  --fg: oklch(0.225 0.022 268);              /* #161B28  16.0:1 */
+  --fg-muted: oklch(0.450 0.022 268);        /* #4C5266  7.0:1 */
+  --accent: oklch(0.530 0.150 280);          /* #5A5FC4  4.9:1 */
+  --accent-hover: oklch(0.485 0.155 280);
+  --line-1: oklch(0.895 0.022 268);          /* #D4DCEE */
+  --line-inset: color-mix(in oklab, var(--fg) 10%, transparent);
+
+  --r-sm: 12px;
+  --r-md: 18px;
+  --r-lg: 28px;
+  --r-full: 999px;
+
+  --shadow-1: 0 2px 8px -2px rgb(20 30 70 / 0.12);
+  --shadow-2: 0 10px 36px -10px rgb(20 30 70 / 0.30);
+  --shadow-3: 0 20px 56px -20px rgb(20 30 70 / 0.40);
+  --shadow-field-outer: 0 1px 2px -1px rgb(20 30 70 / 0.16);
+  --shadow-field-inner: inset 0 1px 2px rgb(20 30 70 / 0.10);
+
+  --fw-body: 400;
+  --fw-strong: 500;
+  --fw-display: 600;
+
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+
+  /* 玻璃参数 */
+  --glass-bg-alpha: 55%;
+  --glass-frost: 6px;
+  --glass-saturate: 165%;
+  --glass-edge: rgb(255 255 255 / 0.30);
+
+  /* 降级到毛玻璃时用的参数（与 glass-frosted 对齐） */
+  --fallback-blur: 22px;
+  --fallback-bg-alpha: 62%;
+}
+
+:root[data-style="glass-liquid"][data-theme="dark"] {
+  --bg: oklch(0.172 0.026 272);              /* #0C1120 */
+  --surface-1: oklch(0.198 0.026 272);       /* #111727  ΔL 0.026 */
+  --surface-2: oklch(0.223 0.026 272);       /* #171D2F  ΔL 0.025 */
+  --surface-3: oklch(0.248 0.026 272);       /* #1D2336  ΔL 0.025 */
+  --surface-sunken: oklch(0.158 0.026 272);
+  --fg: oklch(0.938 0.012 272);              /* #E7EBF4  16.1:1 */
+  --fg-muted: oklch(0.735 0.018 272);        /* #A6ABB9  7.9:1 */
+  --accent: oklch(0.805 0.110 285);          /* #BABEFF  10.1:1 */
+  --accent-hover: oklch(0.855 0.100 285);
+  --line-1: oklch(0.338 0.026 272);          /* #313852 */
+  --line-inset: color-mix(in oklab, var(--fg) 8%, transparent);
+
+  --shadow-1: 0 2px 10px -2px rgb(0 0 0 / 0.45);
+  --shadow-2: 0 14px 44px -14px rgb(0 0 0 / 0.60);
+  --shadow-3: 0 26px 68px -26px rgb(0 0 0 / 0.72);
+  --shadow-field-outer: 0 2px 6px -2px rgb(0 0 0 / 0.55);
+  --shadow-field-inner: inset 0 1px 2px rgb(0 0 0 / 0.34);
+
+  --fw-body: 350;
+  --fw-strong: 450;
+  --fw-display: 550;
+
+  --glass-bg-alpha: 40%;
+  --glass-frost: 5px;
+  --glass-saturate: 140%;
+  --glass-edge: rgb(255 255 255 / 0.18);
+
+  --fallback-blur: 20px;
+  --fallback-bg-alpha: 42%;
+}
+
+/* --------------------------------------------------------------------------
+   2. SIGNATURE —— 折射
+   -------------------------------------------------------------------------- */
+
+/* 受控背景：折射需要可辨认的纹理，纯色底折射了也看不出来 */
+:root[data-style="glass-liquid"] body {
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(48% 46% at 16% 14%,
+      color-mix(in oklab, var(--accent) 34%, transparent), transparent 68%),
+    radial-gradient(44% 44% at 84% 22%,
+      color-mix(in oklab, var(--accent) 18%, var(--bg)), transparent 70%),
+    radial-gradient(56% 48% at 50% 92%,
+      color-mix(in oklab, var(--accent) 12%, var(--bg)), transparent 72%),
+    repeating-linear-gradient(45deg,
+      rgb(255 255 255 / 0.035) 0 1px, transparent 1px 22px);
+  background-attachment: fixed;
+}
+
+/* 玻璃表面：hyalite 会写入 --hyalite 与 --hyalite-edge */
+:root[data-style="glass-liquid"] .glass-surface,
+:root[data-style="glass-liquid"] .card,
+:root[data-style="glass-liquid"] .surface {
+  position: relative;
+  isolation: isolate;
+  border-radius: var(--r-lg);
+  background: color-mix(in oklab, var(--surface-1) var(--glass-bg-alpha), transparent);
+
+  /* 第一级：液态（Chromium）。hyalite 挂不上时 var() 回退到第二级 */
+  -webkit-backdrop-filter: var(--hyalite, blur(var(--fallback-blur)) saturate(var(--glass-saturate)));
+  backdrop-filter: var(--hyalite, blur(var(--fallback-blur)) saturate(var(--glass-saturate)));
+
+  border: 1px solid var(--glass-edge);
+  /* hyalite 写入的锐利边缘光；没有时回退到一条 inset 高光 */
+  box-shadow: var(--hyalite-edge, inset 0 1px 0 var(--glass-edge)), var(--shadow-2);
+}
+
+/* 顶栏与浮动控制条：液态玻璃最该出现的地方（小型、高价值表面） */
+:root[data-style="glass-liquid"] .topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  border-radius: 0;
+  border-width: 0 0 1px;
+  background: color-mix(in oklab, var(--surface-1) var(--glass-bg-alpha), transparent);
+  -webkit-backdrop-filter: var(--hyalite, blur(var(--fallback-blur)) saturate(var(--glass-saturate)));
+  backdrop-filter: var(--hyalite, blur(var(--fallback-blur)) saturate(var(--glass-saturate)));
+  border-bottom: 1px solid var(--glass-edge);
+  box-shadow: var(--shadow-1);
+}
+
+/* 侧栏保持毛玻璃即可——大面积折射成本高且收益低 */
+:root[data-style="glass-liquid"] .rail {
+  background: color-mix(in oklab, var(--surface-1) 88%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+  border-right: 1px solid var(--line-1);
+}
+
+/* 按钮：浮动玻璃胶囊，同样挂 hyalite */
+:root[data-style="glass-liquid"] .btn {
+  border-radius: var(--r-full);
+  border: 1px solid var(--glass-edge);
+  background: color-mix(in oklab, var(--surface-1) 52%, transparent);
+  -webkit-backdrop-filter: var(--hyalite, blur(12px) saturate(160%));
+  backdrop-filter: var(--hyalite, blur(12px) saturate(160%));
+  box-shadow: inset 0 1px 0 var(--glass-edge);
+  color: var(--fg);
+}
+:root[data-style="glass-liquid"] .btn[data-variant="primary"] {
+  background: color-mix(in oklab, var(--accent) 76%, transparent);
+  color: var(--on-accent);
+  border-color: color-mix(in oklab, white 30%, transparent);
+}
+
+/* 表单控件不用液态——倒角折射会让文字边缘发虚 */
+:root[data-style="glass-liquid"] .field-control {
+  background: color-mix(in oklab, var(--surface-1) 90%, transparent);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-field-outer), inset 0 0 0 1px var(--line-inset);
+}
+:root[data-style="glass-liquid"] .field-control:focus-visible {
+  border-color: var(--accent);
+  box-shadow:
+    var(--shadow-field-outer),
+    inset 0 0 0 1px var(--accent),
+    0 0 0 3px color-mix(in oklab, var(--accent) 22%, transparent);
+}
+
+/* 内容需要遮罩，否则折射会把文字搅进背景 */
+:root[data-style="glass-liquid"] .card::before,
+:root[data-style="glass-liquid"] .surface::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(to bottom, transparent, rgb(0 0 0 / 0.05));
+  pointer-events: none;
+  z-index: 0;
+}
+:root[data-style="glass-liquid"] .card > *,
+:root[data-style="glass-liquid"] .surface > * { position: relative; z-index: 1; }
+
+/* --------------------------------------------------------------------------
+   3. CONSTRAINT
+   -------------------------------------------------------------------------- */
+
+/* 玻璃叠玻璃 = 双重折射，视觉上变成一团糊 */
+:root[data-style="glass-liquid"] .card .card,
+:root[data-style="glass-liquid"] .surface .surface,
+:root[data-style="glass-liquid"] .card .surface-layer {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background: var(--surface-2);
+  border-color: var(--line-1);
+  box-shadow: none;
+}
+
+/* 列表行不做玻璃：每行一个 render surface 会掉帧 */
+:root[data-style="glass-liquid"] .settings-row,
+:root[data-style="glass-liquid"] .timeline__item,
+:root[data-style="glass-liquid"] .token-table__row,
+:root[data-style="glass-liquid"] .msg {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* 不做全屏玻璃 */
+:root[data-style="glass-liquid"] .main,
+:root[data-style="glass-liquid"] body {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* 玻璃上的正文必须有实底 */
+:root[data-style="glass-liquid"] .prose,
+:root[data-style="glass-liquid"] .msg__bubble {
+  background: color-mix(in oklab, var(--surface-1) 94%, transparent);
+  border-radius: var(--r-md);
+  padding: var(--s-4);
+}
+
+/* 第三级降级：完全不支持 backdrop-filter 时退回实色 */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root[data-style="glass-liquid"] .card,
+  :root[data-style="glass-liquid"] .surface,
+  :root[data-style="glass-liquid"] .topbar,
+  :root[data-style="glass-liquid"] .btn {
+    background: var(--surface-1);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    border-color: var(--line-1);
+  }
+}
+
+/* forced-colors：折射/模糊全无意义，实边接管 */
+@media (forced-colors: active) {
+  :root[data-style="glass-liquid"] .card,
+  :root[data-style="glass-liquid"] .surface,
+  :root[data-style="glass-liquid"] .btn,
+  :root[data-style="glass-liquid"] .topbar {
+    background: Canvas !important;
+    border: 1px solid CanvasText !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+}
+
+/* 不对 backdrop-filter 做过渡 */
+:root[data-style="glass-liquid"] * {
+  transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+}
+
+/* 减弱动效：不接受位移与缩放 */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-style="glass-liquid"] * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,202 @@
+/* ==========================================================================
+   cyberpunk.css —— 赛博朋克 · 变体 04/12
+   --------------------------------------------------------------------------
+   签名：暗底荧光、切角、等宽字、扫描线。
+   代价：可读性差、易廉价——所以本变体把荧光限制在「描边 + 高光」，
+         正文永远是低彩度，且循环闪烁在 reduced-motion 下完全关闭。
+
+   加载方式：<html data-style="cyberpunk">
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. TOKEN OVERRIDE
+   -------------------------------------------------------------------------- */
+
+:root[data-style="cyberpunk"] {
+  /* 浅色是「褪色的终端」而不是纯白 */
+  --bg: oklch(0.960 0.010 200);              /* #EBF4F4 */
+  --surface-1: oklch(0.945 0.010 200);       /* #E6EFEF  ΔL 0.015 */
+  --surface-2: oklch(0.928 0.010 200);       /* #E0E9EA  ΔL 0.017 */
+  --surface-3: oklch(0.908 0.010 200);       /* #D9E3E3  ΔL 0.020 */
+  --surface-sunken: oklch(0.938 0.010 200);
+  --fg: oklch(0.220 0.030 280);              /* #181928  15.5:1 */
+  --fg-muted: oklch(0.435 0.050 280);        /* #4B4E6D  7.2:1 */
+  --accent: oklch(0.520 0.190 330);          /* #A1319B  品红，5.5:1 */
+  --accent-hover: oklch(0.470 0.195 330);
+  --accent-2: oklch(0.700 0.080 200);        /* 青色辅助 */
+  --line-1: oklch(0.700 0.080 200);          /* #5CAEB2 */
+  --line-inset: color-mix(in oklab, var(--accent) 45%, transparent);
+
+  /* 切角，圆角近乎为零 */
+  --r-sm: 0px;
+  --r-md: 2px;
+  --r-lg: 4px;
+  --r-full: 999px;
+
+  /* 荧光辉光取代实心阴影 */
+  --shadow-1: 0 0 8px color-mix(in oklab, var(--accent) 35%, transparent);
+  --shadow-2: 0 0 18px color-mix(in oklab, var(--accent) 30%, transparent);
+  --shadow-3: 0 8px 32px -8px rgb(0 0 0 / 0.80);
+  --shadow-field-outer: 0 0 6px color-mix(in oklab, var(--line-1) 40%, transparent);
+  --shadow-field-inner: inset 0 0 8px color-mix(in oklab, var(--line-1) 18%, transparent);
+
+  --fw-body: 400;
+  --fw-strong: 600;
+  --fw-display: 700;
+  /* base.css 消费的是 --font-sans；覆盖它才真的换掉正文字族 */
+  --font-sans: var(--font-mono);
+  --font-display: var(--font-mono);
+
+  --dur-fast: 100ms;
+  --dur-base: 160ms;
+  --ease-out: steps(2, end);
+  --ease-inout: linear;
+
+  --border-w: 1px;
+}
+
+:root[data-style="cyberpunk"][data-theme="dark"] {
+  /* 暗色：H 280 / C 0.020 —— 蓝紫黑；纯中性黑会让荧光显得脏 */
+  --bg: oklch(0.145 0.020 280);              /* #080912 */
+  --surface-1: oklch(0.168 0.020 280);       /* #0D0E18  ΔL 0.023 */
+  --surface-2: oklch(0.192 0.020 280);       /* #12131D  ΔL 0.024 */
+  --surface-3: oklch(0.217 0.020 280);       /* #181923  ΔL 0.025 */
+  --surface-sunken: oklch(0.130 0.020 280);
+  --fg: oklch(0.950 0.020 190);              /* #E0F3F1  17.3:1 */
+  --fg-muted: oklch(0.780 0.040 210);        /* #9BBFC6  10.0:1 */
+  --accent: oklch(0.855 0.135 190);          /* #40EBE3  青，13.4:1 */
+  --accent-hover: oklch(0.900 0.125 190);
+  --accent-2: oklch(0.720 0.180 330);        /* 品红辅助 */
+  --line-1: oklch(0.430 0.100 300);          /* #59417E */
+  --line-inset: color-mix(in oklab, var(--accent) 55%, transparent);
+
+  --shadow-1: 0 0 8px color-mix(in oklab, var(--accent) 35%, transparent);
+  --shadow-2: 0 0 18px color-mix(in oklab, var(--accent) 30%, transparent);
+  --shadow-3: 0 8px 32px -8px rgb(0 0 0 / 0.90);
+  --shadow-field-outer: 0 0 6px color-mix(in oklab, var(--accent) 25%, transparent);
+  --shadow-field-inner: inset 0 0 10px color-mix(in oklab, var(--accent) 14%, transparent);
+
+  --fw-body: 350;
+  --fw-strong: 550;
+  --fw-display: 650;
+}
+
+/* --------------------------------------------------------------------------
+   2. SIGNATURE
+   -------------------------------------------------------------------------- */
+
+/* 切角：clip-path 做真正的斜边，不是圆角 */
+:root[data-style="cyberpunk"] .card,
+:root[data-style="cyberpunk"] .surface {
+  --cut: 12px;
+  clip-path: polygon(
+    var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)),
+    calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut)
+  );
+  border: 1px solid var(--line-1);
+  border-radius: 0;
+  background: var(--surface-1);
+  box-shadow: var(--shadow-1);
+}
+
+/* 按钮：荧光描边 + 悬停辉光 */
+:root[data-style="cyberpunk"] .btn {
+  border: 1px solid var(--line-1);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--fg);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+}
+:root[data-style="cyberpunk"] .btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: var(--shadow-1);
+}
+:root[data-style="cyberpunk"] .btn[data-variant="primary"] {
+  background: color-mix(in oklab, var(--accent) 16%, transparent);
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: var(--shadow-1);
+}
+
+/* 输入框：荧光内环 */
+:root[data-style="cyberpunk"] .field-control {
+  background: var(--surface-sunken);
+  border: 1px solid var(--line-1);
+  border-radius: 2px;
+  box-shadow: inset 0 0 10px color-mix(in oklab, var(--line-1) 14%, transparent);
+  font-family: var(--font-mono);
+}
+:root[data-style="cyberpunk"] .field-control:focus-visible {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 12px color-mix(in oklab, var(--accent) 18%, transparent), var(--shadow-1);
+}
+
+/* 标题：等宽 + 字距拉宽 + 荧光下划线 */
+:root[data-style="cyberpunk"] .view-head h1 {
+  font-family: var(--font-mono);
+  font-weight: var(--fw-display);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+:root[data-style="cyberpunk"] .view-head h1::after {
+  content: "";
+  display: block;
+  height: 2px;
+  margin-top: var(--s-2);
+  background: linear-gradient(90deg, var(--accent), transparent 60%);
+}
+
+/* 扫描线：极低透明度，只在暗色下出现 */
+:root[data-style="cyberpunk"][data-theme="dark"] .main::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0 2px,
+    rgb(255 255 255 / 0.012) 2px 3px
+  );
+  z-index: 1;
+}
+
+/* 状态点用荧光脉冲，≤1.2Hz */
+@keyframes cyber-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.45; }
+}
+:root[data-style="cyberpunk"] .dot[data-tone="success"],
+:root[data-style="cyberpunk"] .dot[data-tone="danger"] {
+  animation: cyber-pulse 1.2s steps(2, end) infinite;
+}
+
+/* --------------------------------------------------------------------------
+   3. CONSTRAINT
+   -------------------------------------------------------------------------- */
+
+/* 正文永远低彩度——荧光只做描边与高光 */
+:root[data-style="cyberpunk"] .prose,
+:root[data-style="cyberpunk"] .settings-row__name,
+:root[data-style="cyberpunk"] .field__label {
+  color: var(--fg);
+  letter-spacing: 0.01em;
+}
+
+/* 循环动画在 reduced-motion 下必须停 */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-style="cyberpunk"] .dot { animation: none !important; }
+  :root[data-style="cyberpunk"] * { transition-duration: 0.01ms !important; }
+}
+
+/* 切角在 forced-colors 下会被吃掉，退回实边 */
+@media (forced-colors: active) {
+  :root[data-style="cyberpunk"] .card,
+  :root[data-style="cyberpunk"] .surface { clip-path: none; border: 1px solid CanvasText !important; }
+}
+
+/* 不允许玻璃、不允许大圆角 */
+:root[data-style="cyberpunk"] .glass { backdrop-filter: none; }
