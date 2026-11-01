@@ -20,6 +20,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
+import { assertInside, atomicWrite as atomicWriteSafe, PathViolation } from './lib/paths.mjs';
 
 const EXIT = { OK: 0, FAIL: 1, ENV: 2, INPUT: 3 };
 const OUT_DIR = 'design/aesthetic';
@@ -122,16 +123,7 @@ export function applyBlock(existing, block) {
 // atomic write
 // ---------------------------------------------------------------------------
 
-function atomicWrite(file, data, { backup = true } = {}) {
-  const dir = path.dirname(file);
-  fs.mkdirSync(dir, { recursive: true });
-  const tmp = path.join(dir, `.${path.basename(file)}.${process.pid}.tmp`);
-  if (backup && fs.existsSync(file)) {
-    fs.copyFileSync(file, `${file}.bak`);
-  }
-  fs.writeFileSync(tmp, data.replace(/\r\n/g, '\n'), 'utf8');
-  fs.renameSync(tmp, file);
-}
+const atomicWrite = atomicWriteSafe;
 
 // ---------------------------------------------------------------------------
 
@@ -147,7 +139,23 @@ async function main() {
     process.exit(EXIT.INPUT);
   }
 
-  const designFile = path.resolve(o.designFile || path.join(project, 'DESIGN.md'));
+  // A DESIGN_FILE is allowed anywhere inside the project. Pointing it outside
+  // is refused: the block is a projection, and a typo in --design-file must not
+  // silently create files across the user's disk.
+  let designFile;
+  try {
+    designFile = assertInside(
+      path.resolve(o.designFile || path.join(project, 'DESIGN.md')),
+      project,
+      { ext: ['.md'] },
+    );
+  } catch (e) {
+    if (e instanceof PathViolation) {
+      console.error(`✗ ${e.message}`);
+      process.exit(EXIT.INPUT);
+    }
+    throw e;
+  }
 
   let inner;
   if (o.content) {
