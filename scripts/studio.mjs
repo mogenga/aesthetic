@@ -1,18 +1,23 @@
 #!/usr/bin/env node
 /**
  * studio.mjs — Aesthetic Studio：本地设计工作台 + 六个写回端点。
- * 零运行时第三方依赖，只用 node: 内置模块。assets/studio/ → /studio/。
+ * 零运行时第三方依赖，只用 node: 内置模块。assets/studio/ 映射到 /studio/。
  *
  * 本地安全（七条，全部生效）：
  *   1. 只监听 127.0.0.1
  *   2. 一次性 token，所有 POST 必须带 X-Studio-Token，否则 403
- *   3. 默认关闭 CORS   4. JSON body ≤ 256 KB，超限 413
+ *   3. 默认关闭 CORS（不回 Access-Control-Allow-*）
+ *   4. JSON body ≤ 256 KB，超限 413
  *   5. 路径 resolve → realpath（取最近已存在祖先）→ 允许根校验；
  *      拒绝 `..`、绝对路径、符号链接逃逸、非预期扩展名
  *   6. 原子替换：临时文件 → rename；覆盖前留 .bak
  *   7. --dry-run：只打印路径与 diff，不落盘
  *
  * Exit codes: 0 ok · 1 failed · 2 environment unavailable · 3 invalid input
+ *
+ * Usage:
+ *   node studio.mjs --project <dir> [--port 4318] [--open]
+ *                   [--design-file <path>] [--dry-run] [--quiet]
  */
 
 import fs from 'node:fs';
@@ -29,12 +34,13 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SKILL_ROOT = path.resolve(HERE, '..');
 const STUDIO_ASSETS = path.join(SKILL_ROOT, 'assets', 'studio');
 const UI_DIR = path.join(STUDIO_ASSETS, 'ui');
+const SCHEMA_FILE = path.join(SKILL_ROOT, 'schemas', 'decisions.schema.json');
 
 const OUT_REL = 'design/aesthetic';
 const RECIPE_REL = 'assets/recipes';
 const MAX_BODY = 256 * 1024;
-const MAX_BODY_LABEL = '256 KB';
 const GENERATOR = 'aesthetic-v2';
+const HOST = '127.0.0.1';
 const EXIT = { OK: 0, FAIL: 1, ENV: 2, INPUT: 3 };
 
 // === errors / args ===
@@ -65,7 +71,7 @@ function parseArgs(argv) {
     else throw new HttpError(EXIT.INPUT, 'ARG', `未知参数：${a}`);
   }
   if (!o.help && (!Number.isInteger(o.port) || o.port < 0 || o.port > 65535)) {
-    throw new HttpError(EXIT.INPUT, 'ARG', `--port 必须是 0–65535 的整数`);
+    throw new HttpError(EXIT.INPUT, 'ARG', '--port 必须是 0–65535 的整数');
   }
   return o;
 }
@@ -73,10 +79,8 @@ function parseArgs(argv) {
 function usage() {
   console.log([
     'Aesthetic Studio',
-    '',
     '  node studio.mjs --project <dir> [--port 4318] [--open]',
     '                  [--design-file <path>] [--dry-run] [--quiet]',
-    '',
     '  --project <dir>       目标项目根目录（必填）',
     '  --port <n>            起始端口，默认 4318；被占用时自动 +1',
     '  --open                监听成功后调用系统 open 命令（失败则只打印 URL）',
@@ -93,7 +97,7 @@ const isInside = (root, target) => {
   return rel === '' || (rel !== '..' && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel));
 };
 
-/** realpath of the nearest existing ancestor + the not-yet-existing tail. */
+/** realpath of the nearest existing ancestor, then re-attach the missing tail. */
 function nearestReal(target) {
   let cur = path.resolve(target);
   const tail = [];
@@ -117,15 +121,9 @@ function nearestReal(target) {
  * Returns { abs, real, rel }. Throws HttpError(400/403) on any violation.
  */
 function safeTarget(rootDir, relRaw, { exts = null, label = '路径' } = {}) {
-  if (typeof relRaw !== 'string' || !relRaw.trim()) {
-    throw new HttpError(400, 'PATH_EMPTY', `${label}不能为空`);
-  }
-  if (relRaw.length > 512) {
-    throw new HttpError(400, 'PATH_LONG', `${label}超过 512 字符`);
-  }
-  if (relRaw.includes('\0')) {
-    throw new HttpError(400, 'PATH_NUL', `${label}包含非法字符`);
-  }
+  if (typeof relRaw !== 'string' || !relRaw.trim()) throw new HttpError(400, 'PATH_EMPTY', `${label}不能为空`);
+  if (relRaw.length > 512) throw new HttpError(400, 'PATH_LONG', `${label}超过 512 字符`);
+  if (relRaw.includes('\0')) throw new HttpError(400, 'PATH_NUL', `${label}包含非法字符`);
   if (path.isAbsolute(relRaw) || /^[a-zA-Z]:/.test(relRaw) || relRaw.startsWith('\\\\')) {
     throw new HttpError(400, 'PATH_ABSOLUTE', `${label}必须是相对路径`);
   }
@@ -136,10 +134,7 @@ function safeTarget(rootDir, relRaw, { exts = null, label = '路径' } = {}) {
   }
 
   const abs = path.resolve(rootDir, ...segs);
-  if (!isInside(rootDir, abs)) {
-    throw new HttpError(403, 'PATH_OUTSIDE', `${label}越出允许根目录`);
-  }
-
+  if (!isInside(rootDir, abs)) throw new HttpError(403, 'PATH_OUTSIDE', `${label}越出允许根目录`);
   const ext = path.extname(abs).toLowerCase();
   if (exts && !exts.includes(ext)) {
     throw new HttpError(400, 'PATH_EXT', `${label}扩展名必须是 ${exts.join(' / ')}`);
@@ -168,10 +163,7 @@ function writeAtomic(file, text) {
   const dir = path.dirname(file);
   fs.mkdirSync(dir, { recursive: true });
   if (fs.existsSync(file)) fs.copyFileSync(file, `${file}.bak`);
-  const tmp = path.join(
-    dir,
-    `.${path.basename(file)}.${process.pid}.${crypto.randomBytes(3).toString('hex')}.tmp`,
-  );
+  const tmp = path.join(dir, `.${path.basename(file)}.${process.pid}.${crypto.randomBytes(3).toString('hex')}.tmp`);
   fs.writeFileSync(tmp, text.replace(/\r\n/g, '\n'), 'utf8');
   fs.renameSync(tmp, file);
 }
@@ -184,7 +176,15 @@ function readJsonFile(file) {
   }
 }
 
-/** Minimal LCS line diff: unchanged runs >6 lines collapse, output capped. */
+const listCss = (dir) => {
+  try {
+    return fs.readdirSync(dir).filter((f) => f.endsWith('.css')).sort();
+  } catch {
+    return [];
+  }
+};
+
+/** Minimal LCS line diff; unchanged runs >6 lines collapse, output capped. */
 function lineDiff(oldText, newText, label) {
   const a = oldText ? oldText.replace(/\r\n/g, '\n').split('\n') : [];
   const b = String(newText).replace(/\r\n/g, '\n').split('\n');
@@ -210,43 +210,25 @@ function lineDiff(oldText, newText, label) {
 
   const out = [];
   for (let k = 0; k < raw.length; k++) {
-    if (!raw[k].startsWith('  ')) { out.push(raw[k]); continue; }
     let run = 0;
-    while (k + run < raw.length && raw[k + run].startsWith('  ')) run++;
-    if (run > 6) {
-      out.push(raw[k], `  … ${run - 2} 行未变化 …`, raw[k + run - 1]);
-      k += run - 1;
-    } else {
-      out.push(...raw.slice(k, k + run));
-      k += run - 1;
-    }
+    while (raw[k + run]?.startsWith('  ')) run++;
+    if (run > 6) { out.push(raw[k], `  … ${run - 2} 行未变化 …`, raw[k + run - 1]); k += run - 1; }
+    else out.push(raw[k]);
   }
-  const capped = out.length > 300 ? [...out.slice(0, 300), '…（diff 截断）'] : out;
-  return [`--- ${label}`, ...capped].join('\n');
+  return [`--- ${label}`, ...(out.length > 300 ? [...out.slice(0, 300), '…（diff 截断）'] : out)].join('\n');
 }
 
 // === http helpers ===
 
+// Static MIME allowlist. Anything not listed is refused.
 const MIME = {
-  '.html': 'text/html; charset=utf-8',
-  '.css': 'text/css; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8',
-  '.mjs': 'text/javascript; charset=utf-8',
-  '.json': 'application/json; charset=utf-8',
-  '.svg': 'image/svg+xml',
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.webp': 'image/webp',
-  '.gif': 'image/gif',
-  '.ico': 'image/x-icon',
-  '.woff': 'font/woff',
-  '.woff2': 'font/woff2',
-  '.ttf': 'font/ttf',
-  '.otf': 'font/otf',
-  '.map': 'application/json; charset=utf-8',
-  '.txt': 'text/plain; charset=utf-8',
-  '.md': 'text/markdown; charset=utf-8',
+  '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
+  '.json': 'application/json; charset=utf-8', '.map': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp', '.gif': 'image/gif', '.ico': 'image/x-icon',
+  '.woff': 'font/woff', '.woff2': 'font/woff2', '.ttf': 'font/ttf', '.otf': 'font/otf',
+  '.txt': 'text/plain; charset=utf-8', '.md': 'text/markdown; charset=utf-8',
 };
 
 const baseHeaders = () => ({
@@ -258,20 +240,20 @@ const baseHeaders = () => ({
 function sendJson(res, status, obj) {
   const body = Buffer.from(`${JSON.stringify(obj, null, 2)}\n`, 'utf8');
   res.writeHead(status, {
-    ...baseHeaders(),
-    'Content-Type': 'application/json; charset=utf-8',
-    'Content-Length': body.length,
+    ...baseHeaders(), 'Content-Type': 'application/json; charset=utf-8', 'Content-Length': body.length,
   });
   res.end(body);
 }
 
-function sendText(res, status, text, type = 'text/plain; charset=utf-8') {
+function sendText(res, status, text) {
   const body = Buffer.from(text, 'utf8');
-  res.writeHead(status, { ...baseHeaders(), 'Content-Type': type, 'Content-Length': body.length });
+  res.writeHead(status, {
+    ...baseHeaders(), 'Content-Type': 'text/plain; charset=utf-8', 'Content-Length': body.length,
+  });
   res.end(body);
 }
 
-/** Read a JSON body; rejects >256 KB with 413. `optional` allows an empty body. */
+/** Read a JSON body; >256 KB → 413. `optional` allows an empty body. */
 function readJsonBody(req, { optional = false } = {}) {
   return new Promise((resolve, reject) => {
     if (!/^application\/json\b/i.test(String(req.headers['content-type'] || ''))) {
@@ -296,7 +278,7 @@ function readJsonBody(req, { optional = false } = {}) {
     req.on('error', (e) => finish(false, e));
     req.on('end', () => {
       if (size > MAX_BODY) {
-        finish(false, new HttpError(413, 'BODY_TOO_LARGE', `请求体超过 ${MAX_BODY_LABEL} 上限`));
+        finish(false, new HttpError(413, 'BODY_TOO_LARGE', '请求体超过 256 KB 上限'));
         return;
       }
       const text = Buffer.concat(chunks).toString('utf8').trim();
@@ -317,7 +299,7 @@ const timingEqual = (a, b) => {
 
 // === script runner ===
 
-/** Spawn a sibling script; map exit 0/1/2/3 → 200/422/503/400. */
+/** Spawn a sibling script; map exit 0/1/2/3 → HTTP 200/422/503/400. */
 function runScript(scriptName, argv, { timeoutMs = 120000 } = {}) {
   return new Promise((resolve) => {
     const script = path.join(HERE, scriptName);
@@ -360,17 +342,18 @@ function createApi(config, schema) {
 
   function planWrite(target, text, label) {
     const old = fs.existsSync(target) ? fs.readFileSync(target, 'utf8') : '';
-    const diff = lineDiff(old, text, label);
+    const bytes = Buffer.byteLength(text, 'utf8');
     if (dryRun) {
+      const diff = lineDiff(old, text, label);
       console.log(`\n[dry-run] 将写入 ${target}\n${diff}`);
-      return { dryRun: true, diff, bytes: Buffer.byteLength(text, 'utf8') };
+      return { dryRun: true, diff, bytes };
     }
     writeAtomic(target, text);
-    console.log(`✓ 写入 ${target}（${Buffer.byteLength(text, 'utf8')} 字节${old ? '，已留 .bak' : ''}）`);
-    return { dryRun: false, diff: null, bytes: Buffer.byteLength(text, 'utf8') };
+    console.log(`✓ 写入 ${target}（${bytes} 字节${old ? '，已留 .bak' : ''}）`);
+    return { dryRun: false, diff: null, bytes };
   }
 
-  /** Run a child script with --project (+ optional extras), map its exit code. */
+  /** Run a child script with --project (+ extras + --dry-run), return its log. */
   async function call(script, extra = [], opts) {
     const argv = ['--project', projectRoot, ...extra];
     if (dryRun) argv.push('--dry-run');
@@ -379,40 +362,27 @@ function createApi(config, schema) {
     return r.stdout.trim();
   }
 
-  const endpoints = {
+  return {
     async commit(req) {
       const body = await readJsonBody(req);
-      const stored = readJsonFile(decisionsPath);
-      const incoming = body && typeof body.decisions === 'object' && body.decisions
-        ? body.decisions : body;
+      const incoming = body?.decisions && typeof body.decisions === 'object' ? body.decisions : body;
       if (!incoming || typeof incoming !== 'object' || Array.isArray(incoming)) {
         throw new HttpError(400, 'DECISIONS_SHAPE', 'decisions 必须是对象');
       }
       const target = safeTarget(outDir, body.path || 'decisions.json', { exts: ['.json'], label: 'decisions 路径' });
-
-      const merged = {
-        ...(stored || {}),
-        ...incoming,
-        meta: {
-          schemaVersion: 1,
-          theme: 'light-dark',
-          ...(stored?.meta || {}),
-          ...(incoming.meta || {}),
-        },
-      };
-      if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(String(merged.meta.generatedAt || ''))) {
-        merged.meta.generatedAt = new Date().toISOString();
+      const stored = readJsonFile(decisionsPath) || {};
+      const meta = { schemaVersion: 1, theme: 'light-dark', ...(stored.meta || {}), ...(incoming.meta || {}) };
+      if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(String(meta.generatedAt || ''))) {
+        meta.generatedAt = new Date().toISOString();
       }
-      merged.meta.schemaVersion = 1;
-      merged.meta.generatorVersion = GENERATOR;
+      meta.schemaVersion = 1;
+      meta.generatorVersion = GENERATOR;
+      const merged = { ...stored, ...incoming, meta };
 
       const { valid, errors } = validate(schema, merged);
-      if (!valid) {
-        throw new HttpError(422, 'SCHEMA', 'decisions.json 不符合 schema', errors.slice(0, 20));
-      }
+      if (!valid) throw new HttpError(422, 'SCHEMA', 'decisions.json 不符合 schema', errors.slice(0, 20));
 
-      const text = `${JSON.stringify(merged, null, 2)}\n`;
-      const plan = planWrite(target.abs, text, toPosix(path.relative(projectRoot, target.abs)));
+      const plan = planWrite(target.abs, `${JSON.stringify(merged, null, 2)}\n`, toPosix(path.relative(projectRoot, target.abs)));
       return {
         ok: true, file: toPosix(path.relative(projectRoot, target.abs)),
         sourceHash: `sha256:${hashDecisions(merged)}`, ...plan,
@@ -442,24 +412,20 @@ function createApi(config, schema) {
       if (typeof body.css !== 'string' || !body.css.trim()) {
         throw new HttpError(400, 'RECIPE_CSS', 'css 字段必须是非空字符串');
       }
-      const rawName = typeof body.name === 'string' ? body.name.trim() : '';
-      if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$/.test(rawName)) {
+      const name = typeof body.name === 'string' ? body.name.trim() : '';
+      if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$/.test(name)) {
         throw new HttpError(400, 'RECIPE_NAME', 'name 只能含字母、数字、点、下划线、短横，长度 1–64');
       }
-      const relRaw = body.path || `${rawName}.css`;
-      const root = path.join(projectRoot, RECIPE_REL);
-      const target = safeTarget(root, relRaw, { exts: ['.css'], label: 'recipe 路径' });
-      if (!target.rel.endsWith('.css')) {
-        throw new HttpError(400, 'RECIPE_EXT', 'recipe 必须是 .css 文件');
-      }
+      // 写入根是目标项目的 assets/recipes/，不是 skill 目录。
+      const target = safeTarget(path.join(projectRoot, RECIPE_REL), body.path || `${name}.css`,
+        { exts: ['.css'], label: 'recipe 路径' });
       if (fs.existsSync(target.abs) && body.overwrite !== true) {
         throw new HttpError(409, 'RECIPE_EXISTS', `recipes/${target.rel} 已存在；确认覆盖请带 overwrite: true`);
       }
-      const stamp = new Date().toISOString();
-      const header = `/* recipe: ${target.rel} — 由 Aesthetic Studio 生成于 ${stamp} */\n`
-        + `/* 依赖 design/aesthetic/tokens.css 的变量；不要在业务代码里硬编码视觉值。 */\n\n`;
-      const text = `${header}${body.css.replace(/\r\n/g, '\n').trimEnd()}\n`;
-      const plan = planWrite(target.abs, text, `${RECIPE_REL}/${target.rel}`);
+      const header = `/* recipe: ${target.rel} — 由 Aesthetic Studio 生成于 ${new Date().toISOString()} */\n`
+        + '/* 依赖 design/aesthetic/tokens.css 的变量；不要在业务代码里硬编码视觉值。 */\n\n';
+      const plan = planWrite(target.abs, `${header}${body.css.replace(/\r\n/g, '\n').trimEnd()}\n`,
+        `${RECIPE_REL}/${target.rel}`);
       return { ok: true, file: `${RECIPE_REL}/${target.rel}`, ...plan };
     },
 
@@ -477,8 +443,6 @@ function createApi(config, schema) {
       return { ok: true, dir: `${OUT_REL}/shots`, log };
     },
   };
-
-  return { endpoints, decisionsPath };
 }
 
 // === static files (/studio/ → assets/studio) ===
@@ -492,7 +456,7 @@ function resolveStatic(urlPath) {
   }
   if (rel !== '/studio' && !rel.startsWith('/studio/')) throw new HttpError(404, 'NOT_FOUND', '未找到');
   let rest = rel === '/studio' ? '' : rel.slice('/studio/'.length);
-  if (!rest || rest.endsWith('/')) rest += 'index.html';
+  if (!rest || rest.endsWith('/')) rest = `${rest}index.html`;
   if (rest.includes('\0')) throw new HttpError(400, 'URL_NUL', 'URL 含非法字符');
 
   const segs = rest.split('/').filter(Boolean);
@@ -523,12 +487,12 @@ const CSP = [
 
 function serveStatic(req, res, urlPath, token) {
   const file = resolveStatic(urlPath);
-  const type = MIME[path.extname(file).toLowerCase()];
-  if (!type) throw new HttpError(403, 'MIME', `不提供该扩展名：${path.extname(file) || '(无)'}`);
+  const ext = path.extname(file).toLowerCase();
+  const type = MIME[ext];
+  if (!type) throw new HttpError(403, 'MIME', `不提供该扩展名：${ext || '(无)'}`);
   const buf = fs.readFileSync(file);
   // 一次性 token 内联进外壳；前端从 window.__STUDIO_TOKEN__ 读。
-  const shell = file === path.join(UI_DIR, 'index.html');
-  const body = shell
+  const body = file === path.join(UI_DIR, 'index.html')
     ? Buffer.from(buf.toString('utf8').replace(
       '</head>', `<script>window.__STUDIO_TOKEN__ = ${JSON.stringify(token)};</script>\n</head>`,
     ), 'utf8')
@@ -539,58 +503,42 @@ function serveStatic(req, res, urlPath, token) {
   res.end(req.method === 'HEAD' ? undefined : body);
 }
 
-// === GET reads (Studio 只读面板用) ===
+// === GET reads ===
 
 function createReads(config) {
   const { projectRoot, designFile, outDir } = config;
-  const rel = (p) => toPosix(path.relative(projectRoot, p));
-
   return {
     '/api/health': () => ({
-      ok: true,
-      project: projectRoot,
-      designFile: rel(designFile),
-      outDir: OUT_REL,
-      generatorVersion: GENERATOR,
-      node: process.version,
+      ok: true, project: projectRoot, designFile: toPosix(path.relative(projectRoot, designFile)),
+      outDir: OUT_REL, generatorVersion: GENERATOR, node: process.version,
     }),
     '/api/state': () => {
       const decisions = readJsonFile(path.join(outDir, 'decisions.json'));
       const tokens = readJsonFile(path.join(outDir, 'tokens.json'));
-      const hasContract = fs.existsSync(path.join(outDir, 'contract.md'));
-      const hasDesign = fs.existsSync(designFile);
       let designBlock = false;
-      if (hasDesign) {
-        try {
-          designBlock = /<!--\s*aesthetic:begin/.test(fs.readFileSync(designFile, 'utf8'));
-        } catch { designBlock = false; }
-      }
-      const stylesDir = path.join(STUDIO_ASSETS, 'styles');
-      let styleCount = 0;
       try {
-        styleCount = fs.readdirSync(stylesDir).filter((f) => f.endsWith('.css')).length;
-      } catch { styleCount = 0; }
-      const fixture = fs.existsSync(path.join(STUDIO_ASSETS, 'fixture', 'index.html'));
+        designBlock = /<!--\s*aesthetic:begin/.test(fs.readFileSync(designFile, 'utf8'));
+      } catch { designBlock = false; }
       return {
         ok: true,
         decisions,
         sourceHash: decisions ? `sha256:${hashDecisions(decisions)}` : null,
         tokensSourceHash: tokens?.sourceHash || null,
         artifacts: {
-          decisions: !!decisions, tokens: !!tokens,
-          contract: hasContract, designFile: hasDesign, designBlock,
+          decisions: !!decisions,
+          tokens: !!tokens,
+          contract: fs.existsSync(path.join(outDir, 'contract.md')),
+          designFile: fs.existsSync(designFile),
+          designBlock,
         },
-        studio: { styles: styleCount, fixture, recipes: rel(path.join(projectRoot, RECIPE_REL)) },
+        studio: {
+          styles: listCss(path.join(STUDIO_ASSETS, 'styles')).length,
+          fixture: fs.existsSync(path.join(STUDIO_ASSETS, 'fixture', 'index.html')),
+          recipes: RECIPE_REL,
+        },
       };
     },
-    '/api/recipes': () => {
-      const dir = path.join(projectRoot, RECIPE_REL);
-      let files = [];
-      try {
-        files = fs.readdirSync(dir).filter((f) => f.endsWith('.css')).sort();
-      } catch { files = []; }
-      return { ok: true, dir: RECIPE_REL, files };
-    },
+    '/api/recipes': () => ({ ok: true, dir: RECIPE_REL, files: listCss(path.join(projectRoot, RECIPE_REL)) }),
   };
 }
 
@@ -620,11 +568,11 @@ function listen(server, port, host, attempts = 20) {
 }
 
 function openBrowser(url) {
-  const cmd = process.platform === 'darwin' ? ['open', [url]]
+  const [cmd, args] = process.platform === 'darwin' ? ['open', [url]]
     : process.platform === 'win32' ? ['cmd', ['/c', 'start', '', url]]
       : ['xdg-open', [url]];
   try {
-    const child = spawn(cmd[0], cmd[1], { detached: true, stdio: 'ignore', windowsHide: true });
+    const child = spawn(cmd, args, { detached: true, stdio: 'ignore', windowsHide: true });
     child.on('error', () => { /* 打不开就只留 URL */ });
     child.unref();
     return true;
@@ -635,14 +583,11 @@ function openBrowser(url) {
 
 const PROXY_RE = /^\/studio\/proxy\/([a-z0-9-]{1,40})\/(.*)$/;
 
-/**
- * Gallery placeholder: /studio/proxy/<variant>/<file> serves the neutral
- * fixture. No variant CSS exists yet (批次 6), so the prefix is dropped.
- */
-function rewriteProxy(urlPath) {
-  const m = urlPath.match(PROXY_RE);
-  return m ? `/studio/fixture/${m[2] || 'index.html'}` : urlPath;
-}
+/** 画廊占位：/studio/proxy/<variant>/<file> 目前只落到中性夹具（批次 6 前无变体 CSS）。 */
+const rewriteProxy = (p) => {
+  const m = p.match(PROXY_RE);
+  return m ? `/studio/fixture/${m[2] || 'index.html'}` : p;
+};
 
 async function main() {
   let o;
@@ -672,41 +617,36 @@ async function main() {
   const outDir = path.join(projectRoot, OUT_REL);
   const config = { projectRoot, designFile, outDir, dryRun: o.dryRun };
 
-  if (!o.dryRun) {
-    try {
-      fs.mkdirSync(outDir, { recursive: true });
-    } catch (e) {
-      console.error(`无法创建 ${path.relative(projectRoot, outDir)}：${e.message}`);
-      process.exit(EXIT.FAIL);
-    }
-  }
+  if (!o.dryRun) fs.mkdirSync(outDir, { recursive: true });
   if (!isInside(projectRoot, designFile)) {
     console.warn(`注意：DESIGN_FILE 在项目目录外（${designFile}），注入端点只写该文件的 marker 块。`);
   }
 
   let schema;
   try {
-    schema = JSON.parse(fs.readFileSync(path.join(SKILL_ROOT, 'schemas', 'decisions.schema.json'), 'utf8'));
+    schema = JSON.parse(fs.readFileSync(SCHEMA_FILE, 'utf8'));
   } catch (e) {
     console.error(`无法读取 decisions schema：${e.message}`);
     process.exit(EXIT.ENV);
   }
 
   const token = crypto.randomBytes(24).toString('base64url');
-  const { endpoints } = createApi(config, schema);
+  const endpoints = createApi(config, schema);
   const reads = createReads(config);
-  const host = '127.0.0.1';
   const startedAt = Date.now();
 
   const server = http.createServer(async (req, res) => {
-    const urlPath = new URL(req.url, 'http://127.0.0.1').pathname;
+    const url = new URL(req.url, `http://${HOST}`);
+    const urlPath = url.pathname;
     const log = (s) => { if (!o.quiet) console.log(`${String(s).padEnd(3)} ${req.method.padEnd(4)} ${urlPath}`); };
     const fail = (err) => {
       const e = err instanceof HttpError ? err : new HttpError(500, 'INTERNAL', err?.message || '内部错误');
       if (!(err instanceof HttpError) && !o.quiet) console.error(err);
-      const body = { ok: false, code: e.code, message: e.message, detail: e.detail ?? null };
-      if (urlPath.startsWith('/api/')) sendJson(res, e.status || 500, body);
-      else sendText(res, e.status || 500, `${e.status || 500} ${e.message}\n`);
+      if (urlPath.startsWith('/api/')) {
+        sendJson(res, e.status || 500, { ok: false, code: e.code, message: e.message, detail: e.detail ?? null });
+      } else {
+        sendText(res, e.status || 500, `${e.status || 500} ${e.message}\n`);
+      }
       log(e.status || 500);
     };
 
@@ -743,14 +683,11 @@ async function main() {
         return;
       }
 
-      if (req.method !== 'GET' && req.method !== 'HEAD') {
-        throw new HttpError(405, 'METHOD', '静态资源只支持 GET');
-      }
+      if (req.method !== 'GET' && req.method !== 'HEAD') throw new HttpError(405, 'METHOD', '静态资源只支持 GET');
 
       const target = rewriteProxy(urlPath);
       if (target === '/' || target === '/index.html') {
-        const qs = new URL(req.url, 'http://127.0.0.1').search;
-        res.writeHead(302, { ...baseHeaders(), Location: `/studio/ui/index.html${qs}` });
+        res.writeHead(302, { ...baseHeaders(), Location: `/studio/ui/index.html${url.search}` });
         res.end();
         log(302);
         return;
@@ -767,57 +704,46 @@ async function main() {
 
   let port;
   try {
-    port = await listen(server, o.port, host);
+    port = await listen(server, o.port, HOST);
   } catch (e) {
     if (e.code === 'EADDRINUSE') {
       console.error(`端口 ${o.port}–${o.port + 20} 都被占用，请用 --port 指定其他端口。`);
       process.exit(EXIT.ENV);
     }
-    console.error(`监听 ${host} 失败：${e.message}`);
+    console.error(`监听 ${HOST} 失败：${e.message}`);
     process.exit(EXIT.ENV);
   }
 
-  const url = `http://${host}:${port}/studio/ui/index.html?t=${encodeURIComponent(token)}`;
+  const url = `http://${HOST}:${port}/studio/ui/index.html?t=${encodeURIComponent(token)}`;
   console.log('');
   console.log('  Aesthetic Studio');
-  console.log(`  项目    ${projectRoot}`);
-  console.log(`  设计文档 ${path.relative(projectRoot, designFile) || designFile}`);
-  console.log(`  监听    http://${host}:${port}/`);
-  console.log(`  Token   ${token}`);
-  console.log('          页面打开时自动带上，不要外传；进程退出即失效。');
-  console.log(`  打开    ${url}`);
-  if (o.dryRun) console.log('  模式    --dry-run：所有写操作只打印，不落盘');
+  console.log(`  项目      ${projectRoot}`);
+  console.log(`  设计文档  ${path.relative(projectRoot, designFile) || designFile}`);
+  console.log(`  监听      http://${HOST}:${port}/`);
+  console.log(`  Token     ${token}`);
+  console.log('            浏览器打开时自动带上，不要外传；进程退出即失效。');
+  console.log(`  Studio    ${url}`);
+  if (o.dryRun) console.log('  模式      --dry-run：所有写操作只打印，不落盘');
   console.log('');
   console.log('  Ctrl+C 停止。');
 
-  if (o.open) {
-    const ok = openBrowser(url);
-    if (!ok) console.log('  无法调用系统打开命令，请手动打开上面的 URL。');
-  }
+  if (o.open && !openBrowser(url)) console.log('  无法调用系统打开命令，请手动打开上面的 Studio URL。');
 
   let closing = false;
   const shutdown = (signal) => {
     if (closing) return;
     closing = true;
     console.log(`\n收到 ${signal}，正在关闭…`);
-    const force = setTimeout(() => {
-      console.log('已停止');
-      process.exit(EXIT.OK);
-    }, 2000);
+    const force = setTimeout(() => { console.log('已停止'); process.exit(EXIT.OK); }, 2000);
     force.unref();
     server.close(() => {
-      const ms = Date.now() - startedAt;
-      console.log(`已停止（运行 ${Math.round(ms / 1000)}s）`);
+      console.log(`已停止（运行 ${Math.round((Date.now() - startedAt) / 1000)}s）`);
       process.exit(EXIT.OK);
     });
     server.closeAllConnections?.();
   };
   process.on('SIGINT', () => shutdown('SIGINT'));
   process.on('SIGTERM', () => shutdown('SIGTERM'));
-  server.on('error', (e) => {
-    console.error(`服务器错误：${e.message}`);
-    process.exit(EXIT.FAIL);
-  });
 }
 
 main().catch((e) => {
