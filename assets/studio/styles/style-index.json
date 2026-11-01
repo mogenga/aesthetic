@@ -1,0 +1,121 @@
+{
+  "schemaVersion": 1,
+  "note": "渲染时的唯一计数来源。与 references/styles/style-index.json 是同一份计数的两面：那份描述文字卡与文件映射，这份描述 CSS 加载顺序与渲染字段。两份不一致时以本文件为准。",
+  "loadOrder": [
+    "../fixture/tokens.css",
+    "../fixture/base.css",
+    "minimalism.css"
+  ],
+  "variants": [
+    {
+      "id": "minimalism",
+      "card": "minimalism",
+      "name": "极简主义",
+      "css": "minimalism.css",
+      "baseline": true,
+      "oneLine": "用留白与字级建立秩序，只有一条发丝线。",
+      "signature": ["几乎不用阴影", "2/4/6 三级圆角", "发丝线代替卡片边框", "标题靠字级差"],
+      "anti": ["玻璃", "大圆角", "装饰性渐变", "模糊阴影"]
+    },
+    {
+      "id": "bento",
+      "card": "bento",
+      "name": "便当盒",
+      "css": "bento.css",
+      "oneLine": "用尺寸不同的格子讲内容优先级。",
+      "signature": ["4 列网格重排", "统一 20px 卡片圆角", "一个 2×2 主格", "格子靠留白分界"],
+      "anti": ["等高卡片阵列", "卡中卡再套圆角", "玻璃"]
+    },
+    {
+      "id": "neumorphism",
+      "card": "neumorphism",
+      "name": "新拟态",
+      "css": "neumorphism.css",
+      "oneLine": "明暗双阴影把控件挤进或挤出表面。",
+      "signature": ["零边框", "成对双色投影", "按下时翻成下沉", "大圆角"],
+      "anti": ["硬偏移阴影", "玻璃", "纯白底"]
+    },
+    {
+      "id": "cyberpunk",
+      "card": "cyberpunk",
+      "name": "赛博朋克",
+      "css": "cyberpunk.css",
+      "oneLine": "暗底荧光、切角、等宽字、扫描线。",
+      "signature": ["clip-path 切角", "荧光描边与辉光", "等宽字体", "扫描线"],
+      "anti": ["大圆角", "柔和渐变", "玻璃", "高彩度正文"]
+    },
+    {
+      "id": "neo-brutalism",
+      "card": "neo-brutalism",
+      "name": "新粗野主义",
+      "css": "neo-brutalism.css",
+      "oneLine": "零圆角、厚描边、无模糊硬阴影、撞色。",
+      "signature": ["0 圆角", "2px 实心描边", "4px 4px 0 硬阴影", "亮黄撞色"],
+      "anti": ["模糊阴影", "玻璃", "大圆角", "柔和渐变"]
+    },
+    {
+      "id": "dark-tech",
+      "card": "dark-tech",
+      "name": "黑色科技极简",
+      "css": "dark-tech.css",
+      "oneLine": "近黑底、极细同宽线、单点高光。",
+      "signature": ["所有线同宽 1px", "无装饰投影", "单点高光", "等宽数字"],
+      "anti": ["装饰性阴影", "玻璃", "多色高光"]
+    },
+    {
+      "id": "pixel",
+      "card": "pixel",
+      "name": "像素风",
+      "css": "pixel.css",
+      "oneLine": "8px 网格、硬边、无抗锯齿。",
+      "signature": ["零圆角", "2/4px 硬描边", "像素字标题", "硬投影"],
+      "anti": ["抗锯齿软阴影", "玻璃", "渐变", "像素字正文"]
+    },
+    {
+      "id": "material",
+      "card": "material",
+      "name": "材料设计",
+      "css": "material.css",
+      "oneLine": "三档高度语义 + 状态层 + 大圆角。",
+      "signature": ["elevation 1/2/3", "状态层 ::before", "fill 输入框 + 底部指示线", "胶囊按钮"],
+      "anti": ["默认紫蓝", "Material 默认阴影", "4px 圆角", "玻璃"]
+    },
+    {
+      "id": "gradient-aurora",
+      "card": "gradient-aurora",
+      "name": "渐变 / 弥散光",
+      "css": "gradient-aurora.css",
+      "oneLine": "大色斑做氛围底，表面半透。",
+      "signature": ["三团弥散光", "≥92% 不透明表面", "大圆角", "44s 慢漂移"],
+      "anti": ["文字直接压色斑", "玻璃", "静态死板背景"]
+    },
+    {
+      "id": "glass-liquid",
+      "card": "glassmorphism",
+      "name": "液态玻璃",
+      "css": "glass-liquid.css",
+      "engine": "chromium-only",
+      "oneLine": "边缘折射并弯曲背后的内容。",
+      "signature": ["SDF 位移场折射", "hyalite 边缘光", "受控渐变背景", "只用于小型表面"],
+      "anti": ["玻璃叠玻璃", "全屏玻璃", "列表项玻璃", "无纹理背景"]
+    },
+    {
+      "id": "glass-frosted",
+      "card": "glassmorphism",
+      "name": "毛玻璃",
+      "css": "glass-frosted.css",
+      "oneLine": "背景被糊掉，边缘靠双 inset 伪造厚度。",
+      "signature": ["blur(24px) saturate(180%)", "上亮下暗双 inset", "页面基色半透明", "内容遮罩"],
+      "anti": ["纯白半透明底", "玻璃叠玻璃", "全屏玻璃", "暗色沿用浅色参数"]
+    },
+    {
+      "id": "glass-transparent",
+      "card": "glassmorphism",
+      "name": "透明玻璃",
+      "css": "glass-transparent.css",
+      "oneLine": "不模糊，只染色，靠亮边立形。",
+      "signature": ["10% 极低染色", "亮边而非模糊", "受控渐变网格背景", "正文实底遮罩"],
+      "anti": ["任意内容背景", "正文直接压透明面", "玻璃叠玻璃"]
+    }
+  ]
+}
