@@ -580,11 +580,51 @@ function openBrowser(url) {
 
 const PROXY_RE = /^\/studio\/proxy\/([a-z0-9-]{1,40})\/(.*)$/;
 
-/** 画廊占位：/studio/proxy/<variant>/<file> 目前只落到中性夹具（批次 6 前无变体 CSS）。 */
-const rewriteProxy = (p) => {
-  const m = p.match(PROXY_RE);
-  return m ? `/studio/fixture/${m[2] || 'index.html'}` : p;
-};
+const VARIANTS = (() => {
+  try {
+    const idx = JSON.parse(fs.readFileSync(path.join(STUDIO_ASSETS, 'styles', 'style-index.json'), 'utf8'));
+    return new Set((idx.variants || []).map((v) => v.id));
+  } catch {
+    return new Set();
+  }
+})();
+
+/**
+ * 画廊代理：/studio/proxy/<variant>/<file> 把夹具的 index.html 换成交叉引用变体的版本。
+ * 不是简单 302 —— 夹具里的 `./tokens.css` 等相对路径在 /studio/proxy/ 下会 404，
+ * 所以直接返回改写过的 HTML，把相对路径补成 `/studio/fixture/…`，
+ * 并在 base.css 之后插入变体 CSS、在 <html> 上加 data-style。
+ */
+function proxyVariant(variant, file, res, req) {
+  const target = path.join(STUDIO_ASSETS, 'fixture', file || 'index.html');
+  if (!fs.existsSync(target) || !fs.statSync(target).isFile()) {
+    throw new HttpError(404, 'NOT_FOUND', '夹具文件不存在');
+  }
+  if (!VARIANTS.has(variant)) {
+    throw new HttpError(404, 'UNKNOWN_VARIANT', `未知变体：${variant}`);
+  }
+  if (file && file !== 'index.html') {
+    // 非 HTML 资源照常返回原始文件
+    const body = fs.readFileSync(target);
+    const type = MIME[path.extname(target).toLowerCase()] || 'application/octet-stream';
+    res.writeHead(200, { ...baseHeaders(), 'Content-Type': type, 'Content-Length': body.length, 'Content-Security-Policy': CSP });
+    res.end(req.method === 'HEAD' ? undefined : body);
+    return;
+  }
+
+  const html = fs.readFileSync(target, 'utf8')
+    .replace(/<html([^>]*)lang="zh-CN"/, `<html$1lang="zh-CN" data-style="${variant}"`)
+    .replace(/<link rel="stylesheet" href="tokens\.css">/g,
+      '<link rel="stylesheet" href="/studio/fixture/tokens.css">')
+    .replace(/<link rel="stylesheet" href="base\.css">/g,
+      `<link rel="stylesheet" href="/studio/fixture/base.css">\n    <link rel="stylesheet" href="/studio/styles/${variant}.css">`)
+    .replace(/(<script type="module" src=")app\.js(")/, '$1/studio/fixture/app.js$2');
+  const body = Buffer.from(html, 'utf8');
+  res.writeHead(200, {
+    ...baseHeaders(), 'Content-Type': MIME['.html'], 'Content-Length': body.length, 'Content-Security-Policy': CSP,
+  });
+  res.end(req.method === 'HEAD' ? undefined : body);
+}
 
 async function main() {
   let o;
@@ -672,14 +712,20 @@ async function main() {
 
       if (req.method !== 'GET' && req.method !== 'HEAD') throw new HttpError(405, 'METHOD', '静态资源只支持 GET');
 
-      const target = rewriteProxy(urlPath);
-      if (target === '/' || target === '/index.html') {
+      const proxied = urlPath.match(PROXY_RE);
+      if (proxied) {
+        proxyVariant(proxied[1], proxied[2], res, req);
+        log(200);
+        return;
+      }
+
+      if (urlPath === '/' || urlPath === '/index.html') {
         res.writeHead(302, { ...baseHeaders(), Location: `/studio/ui/index.html${url.search}` });
         res.end();
         log(302);
         return;
       }
-      serveStatic(req, res, target, token);
+      serveStatic(req, res, urlPath, token);
       log(200);
     } catch (err) {
       const e = err instanceof HttpError ? err : new HttpError(500, 'INTERNAL', err?.message || '内部错误');
