@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aesthetic Studio</title>
+<meta name="studio-token" content="">
+<meta name="studio-mode" content="palette">
+<link rel="stylesheet" href="./studio.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <span class="brand-name">AESTHETIC</span>
+    <span class="brand-sub">STUDIO</span>
+  </div>
+
+  <nav class="modes" role="tablist" aria-label="模式">
+    <button type="button" role="tab" class="mode-tab is-active" data-mode="palette" aria-selected="true">调色</button>
+    <button type="button" role="tab" class="mode-tab" data-mode="gallery" aria-selected="false">画廊</button>
+    <button type="button" role="tab" class="mode-tab" data-mode="lab" aria-selected="false">组件实验室</button>
+  </nav>
+
+  <div class="topbar-controls">
+    <label class="ctl"><span>视图</span>
+      <select id="view-select">
+        <option value="desktop">桌面 1440</option>
+        <option value="tablet">平板 834</option>
+        <option value="mobile">手机 390</option>
+      </select>
+    </label>
+    <label class="ctl"><span>主题</span>
+      <select id="theme-select">
+        <option value="light">浅</option>
+        <option value="dark">深</option>
+      </select>
+    </label>
+    <label class="ctl"><span>内容</span>
+      <select id="content-select">
+        <option value="home">首页</option>
+        <option value="settings">设置</option>
+        <option value="form">表单</option>
+        <option value="ai">AI</option>
+      </select>
+    </label>
+  </div>
+</header>
+
+<div id="status" class="status" hidden role="status" aria-live="polite">
+  <span id="status-text"></span>
+  <button type="button" id="status-close" class="status-close" aria-label="关闭提示">×</button>
+</div>
+
+<main>
+  <!-- ------------------------------------------------ 调色模式 -->
+  <section id="mode-palette" class="mode mode-palette">
+
+    <div class="stage">
+      <div class="frame-shell" id="frame-shell">
+        <div class="frame-bar">
+          <span class="frame-url" id="frame-url">/studio/fixture/index.html</span>
+          <span class="frame-meta" id="frame-meta">1440 × 900</span>
+        </div>
+        <div class="frame-viewport" id="frame-viewport">
+          <iframe id="fixture-frame" title="夹具预览"></iframe>
+        </div>
+
+        <!-- 夹具尚未生成时的内置预览。变量由 studio.js 写在 #preview-root 上。 -->
+        <div class="preview" id="fixture-fallback" hidden>
+          <div class="preview-note">
+            夹具 <code>assets/studio/fixture/</code> 尚未生成。以下是 Studio 内置的最小预览，
+            只用于检查 token 变化；正式签样请用夹具。
+          </div>
+          <div class="preview-root" id="preview-root">
+            <div class="p-nav">
+              <strong>项目名称</strong>
+              <span class="p-nav-links"><span>概览</span><span class="p-active">设置</span><span>活动</span></span>
+            </div>
+            <div class="p-body">
+              <h1>本周概览</h1>
+              <p class="p-lead">这是正文。表面层级、字重与强调色都会随左侧参数实时变化，用于确认转写表是否说对了方向。</p>
+              <p class="p-muted">次要文本：辅助说明、时间戳、字段帮助。</p>
+              <div class="p-cards">
+                <div class="p-card"><span class="p-kicker">层级 1</span><b>1,284</b><span class="p-muted">较上周 +6.2%</span></div>
+                <div class="p-card p-card-2"><span class="p-kicker">层级 2</span><b>96.4%</b><span class="p-muted">可用性</span></div>
+                <div class="p-card p-card-3"><span class="p-kicker">层级 3</span><b>12</b><span class="p-muted">待处理</span></div>
+              </div>
+              <div class="p-row">
+                <label class="p-field">字段标签
+                  <input type="text" value="输入内容" readonly>
+                  <span class="p-help">帮助文本走次要色。</span>
+                </label>
+                <button type="button" class="p-btn">主操作</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <aside class="panel" aria-label="调色面板">
+
+      <section class="block">
+        <div class="block-head">
+          <h2>转写表</h2>
+          <span class="block-sub">七维 · 可编辑 · G2</span>
+        </div>
+        <div class="trow thead" aria-hidden="true">
+          <span>维度</span><span>取值</span><span>依据（哪句话）</span>
+        </div>
+        <div id="translation-rows"></div>
+        <p class="note">「依据」为空表示没有方向来源、按规则取默认——这本身就是一条信息，合同第 9 段要标出来。</p>
+      </section>
+
+      <section class="block">
+        <div class="block-head"><h2>色板</h2><span class="block-sub" id="palette-sub">OKLCH</span></div>
+
+        <label class="slider">
+          <span class="slider-label">主色色相</span>
+          <input type="range" id="accent-hue" min="0" max="360" step="1" value="250">
+          <output id="accent-hue-out">250°</output>
+        </label>
+        <label class="slider">
+          <span class="slider-label">饱和度</span>
+          <input type="range" id="accent-chroma" min="0" max="100" step="1" value="40">
+          <output id="accent-chroma-out">C 0.120</output>
+        </label>
+        <label class="slider">
+          <span class="slider-label">中性温度</span>
+          <input type="range" id="neutral-temp" min="0" max="100" step="1" value="0">
+          <output id="neutral-temp-out">H 250 · 冷</output>
+        </label>
+
+        <div class="swatches" id="swatches"></div>
+      </section>
+
+      <section class="block">
+        <div class="block-head"><h2>层级阶梯</h2><span class="block-sub">ΔL = |L₁ − L₂|</span></div>
+        <ul class="ladder" id="ladder"></ul>
+        <p class="note">ΔL 必须落在 [0.010, 0.030]。低于 0.010 在低质量屏不可见，高于 0.030 会"浮起来"。</p>
+      </section>
+
+      <section class="block">
+        <div class="block-head"><h2>校验读数</h2><span class="block-sub">WCAG 2.2 AA</span></div>
+        <ul class="checks" id="checks"></ul>
+        <p class="note">表面 ΔL 不能替代可读性检查：正文 4.5:1，非文本与焦点 3:1。</p>
+      </section>
+
+      <section class="actions">
+        <button type="button" id="btn-commit" class="btn primary">写入 decisions</button>
+        <button type="button" id="btn-tokens" class="btn">生成 tokens</button>
+        <button type="button" id="btn-inject" class="btn">注入 DESIGN.md</button>
+        <p class="hint" id="artifact-hint">尚未读取项目状态。</p>
+      </section>
+    </aside>
+  </section>
+
+  <!-- ------------------------------------------------ 画廊模式 -->
+  <section id="mode-gallery" class="mode mode-gallery" hidden>
+    <div class="notice">
+      <strong>自导模式未启用（需先完成批次 6 的 12 个风格变体）。当前请使用导演层定方向。</strong>
+      <p>画廊用于并排比较候选风格。变体 CSS 位于 <code>assets/studio/styles/</code>，在生成之前这里只有空壳；
+        调色与转写不受影响。</p>
+      <label class="inline-check">
+        <input type="checkbox" id="gallery-load"> 加载夹具预览（仅用于检查同步滚动，不代表风格差异）
+      </label>
+    </div>
+    <div class="gallery-grid" id="gallery-grid"></div>
+  </section>
+
+  <!-- ------------------------------------------------ 组件实验室 -->
+  <section id="mode-lab" class="mode mode-lab" hidden>
+    <div class="lab-bar">
+      <label class="ctl"><span>组件</span>
+        <select id="lab-component">
+          <option value="button">按钮</option>
+          <option value="input">输入框</option>
+          <option value="switch">开关</option>
+          <option value="card">卡片</option>
+          <option value="badge">徽章</option>
+        </select>
+      </label>
+      <label class="ctl"><span>背景</span>
+        <select id="lab-bg">
+          <option value="solid">纯色</option>
+          <option value="dark">深色</option>
+          <option value="image">图片</option>
+          <option value="mesh">渐变网格</option>
+        </select>
+      </label>
+      <label class="ctl"><span>状态</span>
+        <select id="lab-state">
+          <option value="default">default</option>
+          <option value="hover">hover</option>
+          <option value="focus">focus</option>
+          <option value="active">active</option>
+          <option value="disabled">disabled</option>
+          <option value="loading">loading</option>
+          <option value="error">error</option>
+        </select>
+      </label>
+      <label class="ctl"><span>尺寸</span>
+        <select id="lab-size">
+          <option value="sm">sm</option>
+          <option value="md" selected>md</option>
+          <option value="lg">lg</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="lab-stage" id="lab-stage" data-bg="solid">
+      <div class="lab-mount" id="lab-mount"></div>
+    </div>
+
+    <div class="lab-foot">
+      <label class="ctl grow"><span>recipe 名</span>
+        <input type="text" id="recipe-name" value="button" autocomplete="off" spellcheck="false">
+      </label>
+      <span class="lab-path" id="recipe-path">assets/recipes/button.css</span>
+      <button type="button" id="btn-recipe" class="btn primary">写入 recipe</button>
+      <p class="hint" id="recipe-hint">片段写入目标项目的 assets/recipes/，不写 skill 目录。</p>
+    </div>
+  </section>
+</main>
+
+<script type="module" src="./studio.js"></script>
+</body>
+</html>
