@@ -1,0 +1,186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aesthetic.local/schemas/decisions.schema.json",
+  "title": "aesthetic decisions.json",
+  "type": "object",
+  "required": ["meta", "direction", "translation", "color", "weights"],
+  "additionalProperties": true,
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": ["schemaVersion", "theme", "generatedAt", "generatorVersion"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "theme": { "enum": ["light", "dark", "light-dark"] },
+        "generatedAt": { "type": "string", "format": "date-time" },
+        "generatorVersion": { "type": "string", "pattern": "^aesthetic-v\\d+$" }
+      }
+    },
+    "direction": {
+      "type": "object",
+      "required": ["director", "keywords"],
+      "properties": {
+        "director": { "enum": ["impeccable", "frontend-design", "self"] },
+        "mode": { "enum": ["Persuade", "Operate", "Read", "Experience"] },
+        "keywords": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 5,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "references": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 3,
+          "items": { "type": "string" }
+        },
+        "anti": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "items": { "type": "string" }
+        },
+        "tone": { "type": "string" }
+      }
+    },
+    "translation": {
+      "type": "object",
+      "required": ["neutralTemp", "chromaCap", "radius", "border", "shadow", "weight", "motion"],
+      "additionalProperties": {
+        "type": "object",
+        "required": ["value", "from"],
+        "properties": {
+          "value": {},
+          "from": { "type": ["string", "null"] }
+        }
+      },
+      "properties": {
+        "neutralTemp": { "$ref": "#/$defs/dim" },
+        "chromaCap": { "$ref": "#/$defs/dim" },
+        "radius": { "$ref": "#/$defs/dim" },
+        "border": { "$ref": "#/$defs/dim" },
+        "shadow": { "$ref": "#/$defs/dim" },
+        "weight": { "$ref": "#/$defs/dim" },
+        "motion": { "$ref": "#/$defs/dim" }
+      }
+    },
+    "style": {
+      "type": "object",
+      "properties": {
+        "card": {
+          "enum": ["minimalism", "bento", "neumorphism", "neo-brutalism", "cyberpunk",
+                   "dark-tech", "pixel", "material", "gradient-aurora", "glassmorphism", "custom"]
+        },
+        "variant": {
+          "enum": ["minimalism", "bento", "neumorphism", "neo-brutalism", "cyberpunk",
+                   "dark-tech", "pixel", "material", "gradient-aurora",
+                   "glass-liquid", "glass-frosted", "glass-transparent", "custom"]
+        }
+      }
+    },
+    "color": {
+      "type": "object",
+      "required": ["light"],
+      "propertyNames": { "enum": ["light", "dark"] },
+      "additionalProperties": {
+        "type": "object",
+        "required": ["bg", "fg"],
+        "additionalProperties": { "$ref": "#/$defs/colorEntry" }
+      }
+    },
+    "surfaceLadder": {
+      "type": "object",
+      "required": ["step"],
+      "properties": {
+        "step": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "number",
+            "minimum": 0.010,
+            "maximum": 0.030
+          }
+        }
+      }
+    },
+    "weightLadder": {
+      "type": "object",
+      "required": ["available"],
+      "properties": {
+        "family": { "type": "string" },
+        "variable": { "type": "boolean" },
+        "available": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "integer", "minimum": 100, "maximum": 900 }
+        }
+      }
+    },
+    "weights": {
+      "type": "object",
+      "required": ["light"],
+      "properties": {
+        "light": { "$ref": "#/$defs/weightSet" },
+        "dark": { "$ref": "#/$defs/weightSet" }
+      }
+    },
+    "overrides": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["rule", "scope", "requestedValue", "effectiveValue",
+                     "reason", "approvedBy", "createdAt", "expiresAt", "verification"],
+        "properties": {
+          "rule": { "type": "string", "pattern": "^(R[1-9]|A11Y|T2)$" },
+          "scope": { "type": "string", "minLength": 1 },
+          "requestedValue": {},
+          "effectiveValue": {},
+          "reason": { "type": "string", "minLength": 1 },
+          "approvedBy": { "type": "string", "minLength": 1 },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "expiresAt": { "type": ["string", "null"] },
+          "verification": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "browserSupport": {
+      "type": "object",
+      "properties": {
+        "chromium": { "type": "string" },
+        "safari": { "type": "string" },
+        "firefox": { "type": "string" }
+      }
+    }
+  },
+  "$defs": {
+    "dim": {
+      "type": "object",
+      "required": ["value", "from"],
+      "properties": {
+        "value": {},
+        "from": { "type": ["string", "null"] }
+      }
+    },
+    "weightSet": {
+      "type": "object",
+      "required": ["body", "strong", "display"],
+      "properties": {
+        "body": { "type": "integer", "minimum": 100, "maximum": 900 },
+        "strong": { "type": "integer", "minimum": 100, "maximum": 900 },
+        "display": { "type": "integer", "minimum": 100, "maximum": 900 }
+      }
+    },
+    "colorEntry": {
+      "type": "object",
+      "required": ["oklch", "hex", "l"],
+      "additionalProperties": true,
+      "properties": {
+        "oklch": { "type": "string", "pattern": "^oklch\\(" },
+        "hex": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+        "l": { "type": "number", "minimum": 0, "maximum": 1 },
+        "gamutClipped": { "type": "boolean" },
+        "actualWeight": { "type": "integer" }
+      }
+    }
+  }
+}
