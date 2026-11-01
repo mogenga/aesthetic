@@ -249,13 +249,11 @@ const MIME = {
   '.md': 'text/markdown; charset=utf-8',
 };
 
-function baseHeaders() {
-  return {
-    'X-Content-Type-Options': 'nosniff',
-    'Referrer-Policy': 'no-referrer',
-    'Cache-Control': 'no-store',
-  };
-}
+const baseHeaders = () => ({
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'no-referrer',
+  'Cache-Control': 'no-store',
+});
 
 function sendJson(res, status, obj) {
   const body = Buffer.from(`${JSON.stringify(obj, null, 2)}\n`, 'utf8');

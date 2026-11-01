@@ -88,7 +88,7 @@
 | 4 | 装滤镜的 `<svg>` **不能用 `display:none`**，Blink 会忽略 | 用 `position:fixed; width:0; height:0` |
 | 5 | 每个 `backdrop-filter` 元素都是**独立 render surface** | 只用于小型高价值表面 |
 
-另两条实现前提：位移图常为 `data:` URL，严格 CSP 需放行 `img-src data:`；尺寸变化会触发重建（hyalite 限流 90ms），形状变形（药丸→卡片）应在动画结束后再 attach。
+另两条前提：位移图常为 `data:` URL，严格 CSP 需放行 `img-src data:`；尺寸变化会触发重建（hyalite 限流 90ms），形状变形（药丸→卡片）应在动画结束后再 attach。
 
 ### 技术方案
 
