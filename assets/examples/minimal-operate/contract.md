@@ -3,7 +3,7 @@
 <!-- contract-meta
 schemaVersion: 1
 sourceFile: design/aesthetic/decisions.json
-sourceHash: sha256:f9e40363655ff3b29194d9966c809868e3f888db14a609b038b8dce5298c6209
+sourceHash: sha256:2ca631b611f7f26bc52f083f3c20f9fa02e527740405ef21e2afe4f9dd0ca9c2
 generatedAt: 2026-11-01T00:00:00Z
 generatorVersion: aesthetic-v2
 -->
@@ -62,7 +62,7 @@ generatorVersion: aesthetic-v2
 | `--surface-1` | `oklch(0.975 0.002 85)`<br>`#f6f5f4` | `oklch(0.202 0.002 85)`<br>`#1d1c1b` | 表面 1 | 0.010 |
 | `--surface-2` | `oklch(0.96 0.002 85)`<br>`#f1f0ef` | `oklch(0.226 0.002 85)`<br>`#232221` | 表面 2 | 0.015 |
 | `--surface-3` | `oklch(0.943 0.002 85)`<br>`#ecebea` | `oklch(0.252 0.002 85)`<br>`#2a2928` | 表面 3 | 0.017 |
-| `--surface-sunken` | `oklch(0.968 0.002 85)`<br>`#f4f3f2` | `oklch(0.16 0.002 85)`<br>`#121110` | 输入框凹陷底 | — |
+| `--surface-sunken` | — | `oklch(0.16 0.002 85)`<br>`#121110` | 输入框凹陷底 | — |
 | `--fg` | `oklch(0.217 0.002 106.6)`<br>`#1a1a19` | `oklch(0.94 0.002 85)`<br>`#edeceb` | 正文 | — |
 | `--fg-muted` | `oklch(0.52 0.004 85)`<br>`#757371` | `oklch(0.72 0.004 85)`<br>`#acaba9` | 次要 | — |
 | `--accent` | `oklch(0.52 0.09 250)`<br>`#2f6690` | `oklch(0.72 0.09 250)`<br>`#7fb3d6` | 强调 | — |

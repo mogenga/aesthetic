@@ -228,19 +228,27 @@ function checkColorPolicy(data, file, report) {
     const c = data.color[theme];
     if (!c || !c.bg || !c.fg) continue;
     const bgHex = toHex(c.bg);
+    // R4: the focus ring must be measurable against the control surface, not
+    // just against the page. `--line-inset` is deliberately a *low-contrast*
+    // hairline (fg 8%) — it is the "咬合" line, not the 3:1 boundary. The 3:1
+    // boundary is the focus ring, so that is what we check.
+    const sunkenHex = toHex(c['surface-sunken']) || bgHex;
     const checks = [
-      ['fg', 4.5, '正文'],
-      ['fg-muted', 4.5, '次要文本'],
-      ['accent', 3.0, '非文本控件/焦点'],
+      ['fg', 4.5, '正文', bgHex],
+      ['fg-muted', 4.5, '次要文本', bgHex],
+      ['accent', 3.0, '焦点指示 / 非文本控件', bgHex],
+      ['accent', 3.0, '焦点内环 vs 输入框底', sunkenHex],
     ];
-    for (const [name, min, label] of checks) {
+    for (const [name, min, label, against] of checks) {
       if (!c[name]) continue;
       const fgHex = toHex(c[name]);
-      if (!bgHex || !fgHex) continue;
-      const ratio = contrastHex(fgHex, bgHex);
+      const bgForCheck = against || bgHex;
+      if (!bgForCheck || !fgHex) continue;
+      const ratio = contrastHex(fgHex, bgForCheck);
       if (ratio < min) {
+        const surface = bgForCheck === sunkenHex && against !== bgHex ? '输入框底' : 'bg';
         report.error('A11Y', file, 0,
-          `${theme}.${name}（${label}）对 bg 的对比度 ${ratio.toFixed(2)}:1 < ${min}:1。`);
+          `${theme}.${name}（${label}）对 ${surface} 的对比度 ${ratio.toFixed(2)}:1 < ${min}:1。`);
       }
     }
   }

@@ -139,6 +139,18 @@ function cssVar(entry) {
   return `${entry.oklch}; /* ${entry.hex} */${comment}`;
 }
 
+/**
+ * Radius comes from the translation table, not from a hard-coded default —
+ * otherwise contract.md (§5.3 reads decisions) and tokens.css disagree.
+ */
+function radiusDecls(decisions) {
+  const r = decisions.translation?.radius?.value;
+  const [sm, md, lg, full] = Array.isArray(r) && r.length >= 3
+    ? r
+    : [6, 10, 16, 999];
+  return `--r-sm: ${sm}px; --r-md: ${md}px; --r-lg: ${lg}px; --r-full: ${full ?? 999}px;`;
+}
+
 function buildTokensCss(tokens, decisions) {
   const L = [];
   L.push('/*');
@@ -164,8 +176,8 @@ function buildTokensCss(tokens, decisions) {
       L.push('  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px;');
       L.push('  --s-5: 24px; --s-6: 32px; --s-7: 48px; --s-8: 64px;');
       L.push('');
-      L.push('  /* radius */');
-      L.push('  --r-sm: 4px; --r-md: 8px; --r-lg: 16px; --r-full: 999px;');
+      L.push('  /* radius —— 取自 translation.radius，未定义时用默认三级 */');
+      L.push(`  ${radiusDecls(decisions)}`);
       L.push('');
       L.push('  /* line — 光学值 */');
       L.push('  --line-hair: 1px solid var(--line-1);');

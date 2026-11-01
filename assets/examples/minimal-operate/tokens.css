@@ -1,6 +1,6 @@
 /*
  * tokens.css — 由 decisions.json 派生，请勿手改。
- * sourceHash: sha256:f9e40363655ff3b29194d9966c809868e3f888db14a609b038b8dce5298c6209
+ * sourceHash: sha256:2ca631b611f7f26bc52f083f3c20f9fa02e527740405ef21e2afe4f9dd0ca9c2
  * generatedAt: 2026-11-01T00:00:00Z
  * generatorVersion: aesthetic-v2
  */
@@ -11,7 +11,6 @@
   --surface-1: oklch(0.975 0.002 85); /* #f6f5f4 */
   --surface-2: oklch(0.96 0.002 85); /* #f1f0ef */
   --surface-3: oklch(0.943 0.002 85); /* #ecebea */
-  --surface-sunken: oklch(0.968 0.002 85); /* #f4f3f2 */
   --fg: oklch(0.217 0.002 106.6); /* #1a1a19 */
   --fg-muted: oklch(0.52 0.004 85); /* #757371 */
   --accent: oklch(0.52 0.09 250); /* #2f6690 */
@@ -22,20 +21,27 @@
   --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px;
   --s-5: 24px; --s-6: 32px; --s-7: 48px; --s-8: 64px;
 
-  /* radius */
-  --r-sm: 4px; --r-md: 8px; --r-lg: 16px; --r-full: 999px;
+  /* radius —— 取自 translation.radius，未定义时用默认三级 */
+  --r-sm: 0px; --r-md: 2px; --r-lg: 4px; --r-full: 999px;
 
   /* line — 光学值 */
   --line-hair: 1px solid var(--line-1);
-  --line-inset: color-mix(in oklab, var(--fg) 8%, transparent);
+  --line-2: color-mix(in oklab, var(--fg) 16%, transparent);
   --label-gap: 8px;
   --icon-shift: -0.125em;
   --focus-ring: 3px;
+
+  /* layout — R8/R9 的结构值 */
+  --row-h: 52px;
+  --gap-group: 44px;
+  --field-gap: var(--s-5);
 
   /* type */
   --fs-xs: 12px; --fs-sm: 13px; --fs-md: 15px; --fs-lg: 18px;
   --fs-xl: 24px; --fs-2xl: 32px; --fs-3xl: 44px;
   --lh-tight: 1.15; --lh-snug: 1.35; --lh-body: 1.65;
+  /* 状态色：decisions.json 未定义时取 R3 允许的默认值 */
+  --danger: oklch(0.530 0.160 27);
 
   /* motion */
   --dur-fast: 120ms; --dur-base: 200ms; --dur-slow: 320ms;
@@ -46,6 +52,7 @@
   --fw-body: 400;
   --fw-strong: 600;
   --fw-display: 700;
+  --fw-small: 400;
 }
 
 :root[data-theme="dark"] {
@@ -65,4 +72,5 @@
   --fw-body: 350;
   --fw-strong: 500;
   --fw-display: 600;
+  --fw-small: 400;
 }

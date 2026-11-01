@@ -87,11 +87,6 @@
         "hex": "#ECEBEA",
         "l": 0.943
       },
-      "surface-sunken": {
-        "oklch": "oklch(0.968 0.002 85)",
-        "hex": "#F4F3F2",
-        "l": 0.968
-      },
       "fg": {
         "oklch": "oklch(0.2174 0.0019 106.6)",
         "hex": "#1A1A19",
