@@ -11,17 +11,15 @@
 | 一句话 | 用一层半透明表面把背景"隔开但不遮住"，细节交给三种不同的光学处理 |
 | 最适合 | 悬浮控制条、导航条、播放器、卡片层叠的品牌页、有受控背景资产的落地页 |
 | 不适合 | 数据密集后台、长文本阅读、任何背景内容不可控的页面（用户上传、无限列表、实时视频） |
-| 主要代价 | 实现成本与对比度风险双高：每个玻璃元素都是一个独立渲染面，对比度取决于它背后恰好是什么 |
+| 主要代价 | 实现成本与对比度风险双高：每个玻璃元素都是独立渲染面，对比度取决于它背后恰好是什么 |
 
-**先分清三支**。判定法：遮住页面背景，只留一个纯色块放在玻璃后面。
+**先分清三支**。判定法：遮住页面背景，只留一个纯色块放在玻璃后面。三者技术栈、浏览器支持、性能、失败模式完全不同，不能共用一份参数。
 
 | 观察 | 结论 | 变体 id |
 |---|---|---|
 | 背景**变形**了（直线被掰弯） | 液态玻璃 | `glass-liquid` |
 | 背景**糊了**（轮廓消失但颜色还在） | 毛玻璃 | `glass-frosted` |
-| 背景**只是被染了一层色**（清晰可见） | 透明玻璃 | `glass-transparent` |
-
-三者技术栈、浏览器支持、性能代价、失败模式完全不同，不能共用一份参数。
+| 背景**只是被染了一层色** | 透明玻璃 | `glass-transparent` |
 
 ## 签名特征（3–5 条，缺一不可）
 
@@ -39,7 +37,7 @@
 | 彩度上限 | C ≤ 0.145；彩色只在强调色与背景资产里 |
 | 圆角 | `--r-sm` 10 · `--r-md` 16 · `--r-lg` 26 · `--r-full` 999（小圆角会在倒角处露出折射断裂） |
 | 边框 | 1px，`white 16–26%` 的亮边（不是 `--line-1`） |
-| 阴影 | 三档外投影 + 两条 inset 边缘光；暗色整套重算 |
+| 阴影 | `--shadow-1` 贴地 · `--shadow-2` 玻璃本体的抬升 · `--shadow-3` 只给浮在玻璃之上的弹层；三条 inset 边缘光另算，暗色整套重算 |
 | 字重 | 浅色 400 / 500 / 600 · 暗色 350 / 450 / 550 |
 | 动效 | 120–200ms `ease-out`；动透明度与 8px 位移，**不对 `backdrop-filter` 做过渡** |
 
@@ -60,25 +58,29 @@
 - 对比度（浅，实底）：`fg/bg` 15.3:1 · `fg-muted/bg` 6.6:1 · `accent/bg` 4.8:1
 - 对比度（暗，实底）：`fg/bg` 16.1:1 · `fg-muted/bg` 8.3:1 · `accent/bg` 10.0:1
 
-**玻璃上的对比度要另算**：上表是实底值。玻璃必须在其**实际渲染像素**上重测——把背后内容换到最亮与最暗两帧各测一次，三支共通，不因变体豁免。
+**玻璃上的对比度要另算**：上表是实底值。玻璃必须在其**实际渲染像素**上重测——把背后内容换到最亮与最暗两帧各测一次，三支共通，不因变体豁免。**暗色参数整套重算**（不是把浅色压暗）：底色 62% → 42%、上高光 22% → 16%、下暗线 8% → 24%、外投影加重一档、模糊 24px → 20px。
 
-**暗色参数整套重算**（不是把浅色压暗）：
+**三支共用基座**（三个变体文件都带这一段；差异只写在 `--glass-*` 与 `--shadow-*`）：
 
-| 参数 | 浅色 | 暗色 |
-|---|---|---|
-| 底色不透明度 | 62%（frosted） | 42% |
-| 边缘上高光 | white 22% | white 16% |
-| 边缘下暗线 | black 8% | black 24% |
-| 外投影 | `0 8px 32px -8px / .28` | `0 12px 40px -12px / .55` 量级 |
-| 模糊半径 | 24px | 20px（暗背景下模糊收益更低） |
+```css
+:root[data-style^="glass-"] {
+  --bg: oklch(0.965 0.014 265);        --surface-1: oklch(0.948 0.014 265);
+  --surface-2: oklch(0.928 0.014 265); --surface-3: oklch(0.905 0.014 265);
+  --fg: oklch(0.230 0.020 265);        --fg-muted: oklch(0.455 0.020 265);
+  --accent: oklch(0.535 0.145 275);    --line-1: oklch(0.900 0.020 265);
+  --line-inset: color-mix(in oklab, var(--fg) 8%, transparent);
+  --r-sm: 10px; --r-md: 16px; --r-lg: 26px; --r-full: 999px;
+  --fw-body: 400; --fw-strong: 500; --fw-display: 600;
+  --dur-fast: 120ms; --dur-base: 200ms; --dur-slow: 320ms; --ease-out: cubic-bezier(.2,.7,.2,1);
+}
+/* 验收：三支 --r-* / --fw-* / --dur-* 完全一致，只有 --glass-* 与 --shadow-* 不同 */
+```
 
 ## 变体 A · 液态玻璃 `glass-liquid`
 
-**原理**：把元素当作一块有倒角的厚玻璃。对元素尺寸与圆角计算圆角矩形 SDF → 由 SDF 梯度得到边缘法线 → 生成位移场贴图（R 通道 = x 偏移，G 通道 = y 偏移，128 = 不动）→ 交给 SVG 滤镜 → `backdrop-filter: url(#filter)` 实时折射背后内容。
+**原理**：把元素当作一块有倒角的厚玻璃。对元素尺寸与圆角计算圆角矩形 SDF → 由梯度得到边缘法线 → 生成位移场贴图（R 通道 = x 偏移，G 通道 = y 偏移，128 = 不动）→ 交给 SVG 滤镜 → `backdrop-filter: url(#filter)` 实时折射背后内容。**用 `assets/vendor/hyalite.js`（MIT，单文件，`Hyalite.watch()`），不要自己从物理公式推。**
 
-**用 `assets/vendor/hyalite.js`（MIT，单文件，`Hyalite.watch()`），不要自己从物理公式推。**
-
-### 技术事实（全部来自实测，改实现前重读）
+### 技术事实（改实现前重读）
 
 | # | 事实 | 后果 |
 |---|---|---|
@@ -98,46 +100,35 @@
   --glass-edge: color-mix(in oklab, white 26%, transparent);
   --glass-edge-dark: color-mix(in oklab, black 10%, transparent);
   --shadow-2: 0 8px 32px -8px rgb(20 25 60 / .22);
+  --shadow-3: 0 24px 64px -24px rgb(20 25 60 / .32);  /* 弹层；不叠 backdrop-filter */
   /* 其余 token 与上方共用表一致 */
 }
 .glass--liquid {
-  position: relative;
-  background: var(--glass-bg);
+  position: relative; background: var(--glass-bg);
   border: 1px solid var(--glass-edge);
   backdrop-filter: url(#liquid-glass-filter) blur(1px);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);  /* 非 Chromium 的实际兜底 */
-  box-shadow: inset 0 1px 0 var(--glass-edge),
-              inset 0 -1px 0 var(--glass-edge-dark), var(--shadow-2);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);  /* 非 Chromium 兜底 */
+  box-shadow: inset 0 1px 0 var(--glass-edge), inset 0 -1px 0 var(--glass-edge-dark), var(--shadow-2);
 }
-@supports not (backdrop-filter: blur(1px)) {
-  .glass--liquid { background: var(--surface-1); backdrop-filter: none; }
-}
-/* 验收：滤镜 svg 用 width:0;height:0 隐藏，绝不 display:none */
+@supports not (backdrop-filter: blur(1px)) { .glass--liquid { background: var(--surface-1); backdrop-filter: none; } }
 ```
 
 ```html
-<svg aria-hidden="true" focusable="false"
-     style="position:fixed;width:0;height:0;overflow:hidden">
-  <filter id="liquid-glass-filter" x="0" y="0" width="100%" height="100%"
-          color-interpolation-filters="sRGB">
-    <feImage href="data:image/png;base64,…" result="map"
-             x="0" y="0" width="100%" height="100%" preserveAspectRatio="none"/>
-    <feDisplacementMap in="SourceGraphic" in2="map" scale="18"
-                       xChannelSelector="R" yChannelSelector="G"/>
+<svg aria-hidden="true" style="position:fixed;width:0;height:0;overflow:hidden">
+  <filter id="liquid-glass-filter" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+    <feImage href="data:image/png;base64,…" result="map" x="0" y="0" width="100%" height="100%" preserveAspectRatio="none"/>
+    <feDisplacementMap in="SourceGraphic" in2="map" scale="18" xChannelSelector="R" yChannelSelector="G"/>
   </filter>
 </svg>
 ```
 
 ```js
-// 检测：CSS.supports 在这里一定返回 true，别用它
 const isChromium = /Chrome|Edg|OPR/.test(navigator.userAgent) && !/Firefox/.test(navigator.userAgent);
-Hyalite.watch({ force: isChromium === false });
+Hyalite.watch({ force: isChromium === false });   // CSS.supports 在这里一定返回 true，别用它
 // 验收：Safari / Firefox 人工确认玻璃是"糊的"而不是"变形的"
 ```
 
-### 降级链与性能
-
-`液态（Chromium）→ 毛玻璃（其他引擎）→ 半透明实色（不支持 backdrop-filter）`。三级参数都要进合同，**不能只写一级**。性能：一页液态表面 ≤ 2；重建随元素数线性增长，流式内容在重建期掉帧；位移场"折叠"（slope > 1）是液态感来源，但折叠区拉伸无上限，靠窄倒角 + 模糊 + 色散盖住；元素大于 320×200 不要用液态。
+**降级链与性能**：`液态（Chromium）→ 毛玻璃（其他引擎）→ 半透明实色（不支持 backdrop-filter）`，三级参数都要进合同，不能只写一级。一页液态表面 ≤ 2；重建随元素数线性增长，流式内容在重建期掉帧；位移场"折叠"（slope > 1）是液态感来源，但折叠区拉伸无上限，靠窄倒角 + 模糊 + 色散盖住；元素大于 320×200 不用液态。
 
 ## 变体 B · 毛玻璃 `glass-frosted`
 
@@ -156,6 +147,7 @@ Hyalite.watch({ force: isChromium === false });
   --glass-edge: color-mix(in oklab, white 16%, transparent);
   --glass-edge-dark: color-mix(in oklab, black 24%, transparent);
   --glass-blur: 20px;
+  --shadow-2: 0 12px 40px -12px rgb(0 0 0 / .55);
   --fw-body: 350; --fw-strong: 450; --fw-display: 550;
 }
 .glass--frosted {
@@ -167,22 +159,16 @@ Hyalite.watch({ force: isChromium === false });
   box-shadow: inset 0 1px 0 var(--glass-edge),
               inset 0 -1px 0 var(--glass-edge-dark), var(--shadow-2);
 }
-/* 验收：底色由 --surface-1 派生，不是纯白；暗色 42% / 20px 均与浅色不同 */
-```
-
-玻璃上若放正文，必须加内层遮罩（顶部 0 → 底部 12% 底色），否则滚动内容经过时对比度崩：
-
-```css
+/* 放正文时必须加内层遮罩（顶部 0 → 底部 12% 底色），否则滚动内容经过时对比度崩 */
 .glass--frosted .glass__content::before {
-  content: ""; position: absolute; inset: 0; border-radius: inherit;
-  pointer-events: none;
-  background: linear-gradient(to bottom,
-    transparent 0%, color-mix(in oklab, var(--surface-1) 12%, transparent) 100%);
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(to bottom, transparent 0%,
+    color-mix(in oklab, var(--surface-1) 12%, transparent) 100%);
 }
-/* 验收：任一滚动帧采样，正文对比仍 ≥ 4.5:1 */
+/* 验收：底色由 --surface-1 派生而非纯白；暗色 42% / 20px 与浅色不同；任一滚动帧正文对比 ≥ 4.5:1 */
 ```
 
-**降级链**：支持 `backdrop-filter` → 毛玻璃；不支持 → `--surface-1` 88% 半透明 + 保留两条 inset 边缘光；`prefers-reduced-transparency: reduce` → 实色 `--surface-1` + 1px `--line-1`。
+降级链：支持 `backdrop-filter` → 毛玻璃；不支持 → `--surface-1` 88% 半透明 + 两条 inset；`prefers-reduced-transparency: reduce` → 实色 + 1px `--line-1`。
 
 ## 变体 C · 透明玻璃 `glass-transparent`
 
@@ -193,6 +179,7 @@ Hyalite.watch({ force: isChromium === false });
   --glass-bg: color-mix(in oklab, var(--surface-1) 10%, transparent);
   --glass-edge: color-mix(in oklab, white 18%, transparent);
   --shadow-2: 0 4px 24px -6px rgb(20 25 60 / .20);
+  --shadow-3: 0 20px 56px -20px rgb(20 25 60 / .30);
 }
 .glass--transparent {
   background: var(--glass-bg);
@@ -201,45 +188,39 @@ Hyalite.watch({ force: isChromium === false });
   box-shadow: var(--shadow-2);
   /* 注意：没有 backdrop-filter */
 }
-/* 验收：computed backdrop-filter 为 none */
-```
-
-**强制要求：受控背景资产。** 背后内容不可控 → 对比度不可控。必须同时满足：① 背景是固定插画 / 渐变网格 / 暗色照片 / 纯色 + 噪点之一，不允许放在用户图片、实时视频、无限列表之上；② 该资产登记进 `contract.md` 第 3 段并随交付物版本管理；③ 玻璃文字与资产**最亮、最暗两处**的对比都 ≥ 4.5:1。
-
-```css
 /* 兜底压暗层：删掉它对比度就掉到阈值以下 —— 说明它不是装饰 */
 .glass--transparent::before {
-  content: ""; position: absolute; inset: 0; z-index: -1;
-  border-radius: inherit; pointer-events: none;
-  background: linear-gradient(to bottom,
-    color-mix(in oklab, var(--bg) 22%, transparent),
+  content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(to bottom, color-mix(in oklab, var(--bg) 22%, transparent),
     color-mix(in oklab, var(--bg) 8%, transparent));
 }
+/* 验收：computed backdrop-filter 为 none；关闭压暗层后对比度跌破阈值 */
 ```
 
-**降级链**：本支不需要 `backdrop-filter`，只有两级——`prefers-contrast: more` 时底色提到 40%、边框提到 `fg 30%`；背景资产加载失败时退到 `--surface-1` 实色（不是透明）。
+**强制要求：受控背景资产。** 背后内容不可控 → 对比度不可控。必须满足：① 背景是固定插画 / 渐变网格 / 暗色照片 / 纯色 + 噪点之一，不得放在用户图片、实时视频、无限列表之上；② 资产登记进 `contract.md` 第 3 段并随交付物版本管理；③ 玻璃文字与资产**最亮、最暗两处**的对比都 ≥ 4.5:1。降级：`prefers-contrast: more` 时底色提到 40%、边框提到 `fg 30%`；资产加载失败退到 `--surface-1` 实色。
 
 ## 标志性 CSS（三支共用）
 
 ```css
-/* 厚度：两条 inset 伪造玻璃断面 */
+/* 厚度：两条 inset 伪造玻璃断面（单条 border 无法产生厚度感）；验收看两条 y 方向相反 */
 .glass { border: 1px solid var(--glass-edge); border-radius: var(--r-lg);
   box-shadow: inset 0 1px 0 var(--glass-edge),
               inset 0 -1px 0 var(--glass-edge-dark), var(--shadow-2); }
-/* 验收：两条 inset 的 y 方向相反；单条 border 无法产生厚度感 */
+```
 
-/* 出现动效：动透明度，不动滤镜 */
+```css
+/* 出现动效：动透明度，不动滤镜 —— 对 backdrop-filter 做 transition 每帧重算模糊，必然掉帧 */
 @keyframes glass-in { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: none } }
 .glass--enter { animation: glass-in 200ms var(--ease-out) both; }
-/* 禁止对 backdrop-filter 做 transition：每帧重算模糊，必然掉帧 */
+```
 
-/* 焦点环必须在玻璃上可见 */
+```css
+/* 焦点环必须在玻璃上可见；可点目标 ≥ 44px */
 .glass :where(a, button, input):focus-visible {
   outline: 2px solid var(--accent); outline-offset: 2px;
   box-shadow: 0 0 0 4px color-mix(in oklab, var(--bg) 65%, transparent);
 }
 .glass .icon-btn { min-width: 44px; min-height: 44px; }
-/* 验收：焦点环在玻璃最亮/最暗两帧上均 ≥ 3:1 */
 ```
 
 ## 必须压制的东西
@@ -253,21 +234,18 @@ Hyalite.watch({ force: isChromium === false });
 | 在 `transform` 祖先下用 fixed 玻璃 | 定位与滤镜区域错乱，玻璃随祖先被裁剪 |
 | 用 `CSS.supports` 检测 SVG 滤镜 | 三大引擎都返回 true，等于没有检测 |
 | 液态玻璃用于大面板或列表项 | 每个 `backdrop-filter` 元素是独立 render surface；面积一大就掉帧 |
-| 透明玻璃用在不可控背景上 | 对比度不可控且无法采样验收；这是该变体的硬前置条件 |
+| 透明玻璃用在不可控背景上 | 对比度不可控、无法采样验收 |
+| 表单控件做成玻璃 | 玻璃底色随背后浮动，聚焦时控件会"跳"；表单一律走实色 + R4 三件套（内环 `--line-inset`） |
 
 ## 验收：怎么判断这个风格做对了
 
 - [ ] 变体判定正确：遮住背景只留纯色块，变形 / 糊了 / 清楚三选一
 - [ ] 非 Chromium 下 `glass-liquid` 实际落到毛玻璃（Safari / Firefox 各人工看一次，不能只看 `CSS.supports`）
 - [ ] 滤镜 `<svg>` 用 `width:0;height:0` 隐藏，页面搜不到对它生效的 `display:none`
-- [ ] 一页同时存在的 `backdrop-filter` 元素 ≤ 3，其中液态 ≤ 2
-- [ ] 玻璃上正文 ≤ 6 行；超过的改为实色面板
-- [ ] 背后最亮 / 最暗两帧下，正文对比均 ≥ 4.5:1，焦点环均 ≥ 3:1
+- [ ] 一页 `backdrop-filter` 元素 ≤ 3（液态 ≤ 2）；玻璃上正文 ≤ 6 行；最亮 / 最暗两帧下正文对比均 ≥ 4.5:1、焦点环均 ≥ 3:1
 - [ ] 暗色玻璃不透明度、边缘光、外投影与浅色不同（42% / 16% / 24% 一组）
-- [ ] `transition-property` 不含 `backdrop-filter`
-- [ ] `glass-transparent` 有登记在案的受控背景资产与压暗层
-- [ ] `prefers-reduced-transparency: reduce` 下有实色回退
-- [ ] 关掉所有玻璃与模糊后，页面仍能读（结构不依赖玻璃）
+- [ ] `transition-property` 不含 `backdrop-filter`；`prefers-reduced-transparency: reduce` 下有实色回退
+- [ ] `glass-transparent` 有登记在案的受控背景资产与压暗层；关掉所有玻璃后页面仍能读
 
 ## 反模式
 
@@ -279,4 +257,4 @@ Hyalite.watch({ force: isChromium === false });
 | 只做降级链的第一级 | 非 Chromium 看到"没有折射的玻璃"会当成 bug；三级参数都要进合同 |
 | 玻璃上放正文又滚动 | 对比度随滚动位置变化，一次性采样无法保证 |
 | 用液态玻璃做整页背景 | 形态是"一块玻璃"不是"一层空气"；面积放大后最近邻采样的阶梯在 1x 屏可见 |
-| 手工推导位移场去"优化"现成实现 | SDF → 梯度 → 位移图链路里编码方式（128 = 不动）、双通道抗阶梯、sRGB 插值任一处错都产生不可调试的伪影；用 `hyalite.js` |
+| 手工推导位移场去"优化"现成实现 | 编码方式（128 = 不动）、双通道抗阶梯、sRGB 插值任一处错都产生不可调试的伪影；用 `hyalite.js` |

@@ -195,17 +195,24 @@ async function applyState(conn, theme, style) {
 // capture
 // ---------------------------------------------------------------------------
 
+// 浏览器不可用 = 环境问题（退出码 2）。页面加载失败不是环境问题，
+// 不能拿 manual-required 掩盖过去（退出码 1）。
 function isBrowserFailure(e) {
+  if (e instanceof CdpError && e.detail?.navigationFailure) return false;
   return e instanceof CdpError || ['ENOENT', 'ETIMEDOUT', 'EPROTO'].includes(e?.code);
 }
 
 function reasonFor(e) {
   const code = e?.code ? `${e.code}: ` : '';
   const base = `${code}${e?.message || String(e)}`;
-  const hint = '可改用 Chromium 111+ 以 --remote-debugging-port=9222 启动后重试；'
-    + 'CDP Proxy 不提供 Emulation 端点，无法设置视口。'
-    + 'L3 知觉复核必须人工完成，不能记为自动通过。';
-  return `${base}。${hint}`;
+  // 只有"找到了上游但能力不足"才提 Proxy 的限制；完全找不到浏览器是另一回事
+  const incompatible = /缺少能力/.test(base);
+  let hint = '用 Chromium 111+ 以 --remote-debugging-port=9222 启动后重试（或用 --port 指向已有端口）。';
+  if (incompatible) {
+    hint = 'CDP Proxy 不提供 Emulation 端点与全页截图，'
+      + '需改用 Chromium 111+ 以 --remote-debugging-port=9222 启动后重试。';
+  }
+  return `${base}。${hint}L3 知觉复核必须人工完成，不能记为自动通过。`;
 }
 
 async function capture(cfg, planned) {
@@ -246,6 +253,9 @@ async function capture(cfg, planned) {
         break;
       }
     }
+  } catch (e) {
+    if (!isBrowserFailure(e)) throw e;
+    failure = e;
   } finally {
     await conn.close().catch(() => {});
   }
@@ -262,6 +272,11 @@ async function capture(cfg, planned) {
 // ---------------------------------------------------------------------------
 
 function emitManual(result, cfg) {
+  if (!cfg.json) {
+    // 非 JSON 模式：人读的提示走 stderr，机读块仍然完整打到 stdout
+    console.error(`! manual-required — ${result.reason}`);
+    console.error('  L3 知觉复核必须人工完成，不能记为自动通过。');
+  }
   const payload = {
     status: 'manual-required',
     reason: result.reason,
@@ -270,10 +285,6 @@ function emitManual(result, cfg) {
     })),
   };
   console.log(JSON.stringify(payload, null, 2));
-  if (!cfg.json) {
-    console.error(`! manual-required — ${result.reason}`);
-    console.error('  L3 知觉复核必须人工完成，不能记为自动通过。');
-  }
   process.exit(EXIT.ENV);
 }
 
@@ -333,7 +344,7 @@ async function main() {
     result = await capture(cfg, planned);
   } catch (e) {
     console.error(`! 截图失败：${e?.message || e}`);
-    if (!cfg.json) console.error('  这不是浏览器不可用，而是本地错误（例如目录不可写）。');
+    console.error('  浏览器本身可用，这次失败来自页面加载或本地写入（例如目录不可写）。');
     process.exit(EXIT.FAIL);
   }
 

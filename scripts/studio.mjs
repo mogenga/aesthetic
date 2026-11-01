@@ -6,18 +6,15 @@
  * 本地安全（七条，全部生效）：
  *   1. 只监听 127.0.0.1
  *   2. 一次性 token，所有 POST 必须带 X-Studio-Token，否则 403
- *   3. 默认关闭 CORS（不回 Access-Control-Allow-*）
- *   4. JSON body ≤ 256 KB，超限 413
+ *   3. 默认关闭 CORS   4. JSON body ≤ 256 KB，超限 413
  *   5. 路径 resolve → realpath（取最近已存在祖先）→ 允许根校验；
  *      拒绝 `..`、绝对路径、符号链接逃逸、非预期扩展名
  *   6. 原子替换：临时文件 → rename；覆盖前留 .bak
  *   7. --dry-run：只打印路径与 diff，不落盘
  *
  * Exit codes: 0 ok · 1 failed · 2 environment unavailable · 3 invalid input
- *
- * Usage:
- *   node studio.mjs --project <dir> [--port 4318] [--open]
- *                   [--design-file <path>] [--dry-run] [--quiet]
+ * Usage: node studio.mjs --project <dir> [--port 4318] [--open]
+ *                        [--design-file <path>] [--dry-run] [--quiet]
  */
 
 import fs from 'node:fs';
@@ -639,16 +636,6 @@ async function main() {
     const url = new URL(req.url, `http://${HOST}`);
     const urlPath = url.pathname;
     const log = (s) => { if (!o.quiet) console.log(`${String(s).padEnd(3)} ${req.method.padEnd(4)} ${urlPath}`); };
-    const fail = (err) => {
-      const e = err instanceof HttpError ? err : new HttpError(500, 'INTERNAL', err?.message || '内部错误');
-      if (!(err instanceof HttpError) && !o.quiet) console.error(err);
-      if (urlPath.startsWith('/api/')) {
-        sendJson(res, e.status || 500, { ok: false, code: e.code, message: e.message, detail: e.detail ?? null });
-      } else {
-        sendText(res, e.status || 500, `${e.status || 500} ${e.message}\n`);
-      }
-      log(e.status || 500);
-    };
 
     try {
       if (req.method === 'OPTIONS') {
@@ -695,7 +682,14 @@ async function main() {
       serveStatic(req, res, target, token);
       log(200);
     } catch (err) {
-      fail(err);
+      const e = err instanceof HttpError ? err : new HttpError(500, 'INTERNAL', err?.message || '内部错误');
+      if (!(err instanceof HttpError) && !o.quiet) console.error(err);
+      if (urlPath.startsWith('/api/')) {
+        sendJson(res, e.status || 500, { ok: false, code: e.code, message: e.message, detail: e.detail ?? null });
+      } else {
+        sendText(res, e.status || 500, `${e.status || 500} ${e.message}\n`);
+      }
+      log(e.status || 500);
     }
   });
 

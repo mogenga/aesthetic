@@ -4,9 +4,10 @@
  * getBoundingClientRect 取事实，再在 Node 侧判定。
  *
  * 规则（--rules 可只跑其中几条，接受 R1 或 R1-structure 两种写法）：
- *   R1-structure  margin / padding / gap 的计算值应是 4 的倍数；
- *                 允许光学 token（--label-gap / --icon-shift 这类）造成的偏离，
- *                 判据是"值等于某个解析成 px 的光学 token"。warn
+ *   R1-structure  作者声明的 margin / padding / gap 计算值应是 4 的倍数；
+ *                 用 var(--label-gap) / var(--icon-shift) 等光学 token 供给的值放行。
+ *                 UA 默认值（h1 的 21.44px、button 的 6px 外边距）不审——不是实现决定。
+ *                 把 4pt 写存在某一侧（如 margin-bottom: -1px 规避）不在此规则内。warn
  *   R2-scale      :root 的 --surface-1..3 相邻层的 OKLCH ΔL ∈ [0.010, 0.030]。error
  *   R4-inset      input / textarea / select 的 box-shadow 必须同时有
  *                 一条非 inset 外投影与至少一条 inset 内环。error
@@ -73,9 +74,10 @@ const RULES = [
 const RULE_IDS = RULES.map((r) => r.id);
 const RULE_ORDER = new Map(RULE_IDS.map((id, i) => [id, i]));
 
-// 光学 token：允许偏离 4pt 网格，但必须走 token（R1 例外条款）。
-// 前缀 + 显式名单；解析不到的（颜色、非长度）会被丢弃。
-const OPTICAL_TOKEN_NAMES = ['--label-gap', '--icon-shift', '--line-hair', '--row-h'];
+// R1 例外条款里的光学值：1px 细线、标签→输入 6–8px、-0.125em 图标偏移。
+// 显式名单 + 前缀扫描（页面里声明的 --label-* / --icon-* 也算）。
+// --row-h 不在其中——行高是结构值，由 R8 单独校验 48–60px。
+const OPTICAL_TOKEN_NAMES = ['--label-gap', '--icon-shift', '--line-hair'];
 const OPTICAL_TOKEN_PREFIXES = ['--label-', '--icon-', '--optical-'];
 const LENGTH_PROPS = [
   'margin-top', 'margin-right', 'margin-bottom', 'margin-left',
@@ -191,9 +193,12 @@ function collectFacts(cfg) {
     title: document.title,
     theme: cfg.theme,
     root: {},
-    optical: {},
+    optical: [],
     weights: null,
     structure: [],
+    structureChecked: 0,
+    structureExplained: 0,
+    structureOffGrid: 0,
     inputs: [],
     timers: [],
     settingsRows: [],
@@ -219,15 +224,15 @@ function collectFacts(cfg) {
       const parts = [];
       let node = el;
       let depth = 0;
-      while (node && node.nodeType === 1 && depth < 5) {
+      while (node && node.nodeType === 1 && depth < 6) {
         let part = node.tagName.toLowerCase();
         const anchor = ANCHOR_ATTRS.find((a) => node.hasAttribute(a));
+        const cls = (node.getAttribute('class') || '').trim().split(/\s+/)
+          .filter(Boolean).slice(0, 2);
         if (anchor) {
           part += '[' + anchor + ']';
-        } else {
-          const cls = (node.getAttribute('class') || '').trim().split(/\s+/)
-            .filter(Boolean).slice(0, 3);
-          if (cls.length) part += '.' + cls.map(esc).join('.');
+        } else if (cls.length) {
+          part += '.' + cls.map(esc).join('.');
         }
         const parent = node.parentElement;
         if (parent) {
@@ -238,8 +243,16 @@ function collectFacts(cfg) {
         }
         parts.unshift(part);
         if (node.id) {
-          parts[0] = '#' + esc(node.id);
+          parts.length = 0;
+          parts.push('#' + esc(node.id));
           break;
+        }
+        // 有 anchor 或 class 通常够用；仍不唯一时继续往上补一级，避免两条报告同选择器
+        if (anchor || cls.length) {
+          const candidate = parts.join(' > ');
+          try {
+            if (document.querySelectorAll(candidate).length === 1) return candidate;
+          } catch (e) { return candidate; }
         }
         node = parent;
         depth++;
@@ -282,21 +295,11 @@ function collectFacts(cfg) {
     out.root[name] = readVar(name);
   }
 
-  // ---- 光学 token 解析成 px（用探针元素，避免手写单位换算）
-  const probe = document.createElement('div');
-  probe.setAttribute('aria-hidden', 'true');
-  probe.style.cssText =
-    'position:absolute;left:-99999px;top:0;width:0;height:0;margin:0;padding:0;'
-    + 'overflow:hidden;pointer-events:none;font:inherit;';
-  root.appendChild(probe);
+  // ---- 光学 token 清单：显式名单 + 同源样式表里声明的前缀匹配项
   try {
-    const names = [];
     const seen = new Set();
-    const push = (n) => {
-      if (n && !seen.has(n)) { seen.add(n); names.push(n); }
-    };
+    const push = (n) => { if (n && !seen.has(n)) seen.add(n); };
     (cfg.opticalTokens || []).forEach(push);
-    // 扫描同源样式表里声明的光学 token（跨域样式表读不到，跳过）
     for (let i = 0; i < document.styleSheets.length; i++) {
       let rules = null;
       try { rules = document.styleSheets[i].cssRules; } catch (e) { continue; }
@@ -311,18 +314,10 @@ function collectFacts(cfg) {
         }
       }
     }
-    for (const name of names) {
-      const raw = readVar(name);
-      if (!raw) continue;
-      probe.style.setProperty('margin-top', '');
-      probe.style.setProperty('margin-top', raw);
-      const px = num(getComputedStyle(probe).marginTop);
-      if (px !== null && px !== 0) out.optical[name] = round(px, 3);
-    }
+    out.optical = [...seen];
   } catch (e) {
+    out.optical = [...(cfg.opticalTokens || [])];
     out.opticalError = String(e && e.message ? e.message : e);
-  } finally {
-    if (probe.parentNode) probe.parentNode.removeChild(probe);
   }
 
   // ---- R5：dark 值 + 临时切到 light 读基线，读完立刻还原
@@ -336,19 +331,16 @@ function collectFacts(cfg) {
         display: pick('--fw-display'),
       };
     };
-    const hadTheme = Object.prototype.hasOwnProperty.call(root.dataset, 'theme');
-    const savedTheme = root.dataset.theme;
     const dark = readWeights();
     let light = null;
     try {
+      // 临时切到 light 读基线，读完还原成 cfg.theme，页面状态与注入前一致
       root.dataset.theme = 'light';
       void root.offsetHeight;
       light = readWeights();
     } catch (e) {
       light = null;
     } finally {
-      if (hadTheme) root.dataset.theme = savedTheme;
-      else delete root.dataset.theme;
       root.dataset.theme = cfg.theme;
       void root.offsetHeight;
     }
@@ -365,7 +357,96 @@ function collectFacts(cfg) {
     : [];
   out.counts.elements = all.length;
 
+  // 只审"作者声明过"的属性。UA 默认值（h1 的 21.44px、button 的 6px 外边距）
+  // 不是实现决定，报了只会淹没有效信号。
+  //
+  // 做法：每条规则只跑一次 querySelectorAll 反查受影响元素，建 prop → Map<Element, 原始值>。
+  // 逐元素 el.matches(所有选择器) 在大页面上是 O(元素 × 规则)，这里压到 O(规则 × 子树)。
+  const declaredByProp = {};
+  cfg.lengthProps.forEach((p) => { declaredByProp[p] = new Map(); });
+
+  const ruleApplies = (rule) => {
+    const cond = rule.conditionText;
+    if (!cond) return true;
+    try {
+      if (typeof rule.media !== 'undefined' && rule.media) {
+        return window.matchMedia(cond).matches;
+      }
+    } catch (e) { return false; }
+    return true;
+  };
+
+  const visitRules = (rules, depth) => {
+    if (!rules || depth > 6) return;
+    for (let j = 0; j < rules.length; j++) {
+      const rule = rules[j];
+      if (!rule) continue;
+      if (typeof rule.cssRules !== 'undefined' && rule.cssRules
+        && !rule.selectorText) {
+        if (ruleApplies(rule)) visitRules(rule.cssRules, depth + 1);
+        continue;
+      }
+      const style = rule.style;
+      const sel = rule.selectorText;
+      if (!style || !sel) continue;
+      let nodes = null;
+      for (let p = 0; p < cfg.lengthProps.length; p++) {
+        const prop = cfg.lengthProps[p];
+        const value = style.getPropertyValue(prop);
+        if (!value) continue;
+        if (nodes === null) {
+          try { nodes = document.querySelectorAll(sel); } catch (e) { nodes = []; }
+        }
+        const map = declaredByProp[prop];
+        for (let k = 0; k < nodes.length; k++) {
+          if (!map.has(nodes[k])) map.set(nodes[k], value);
+        }
+      }
+    }
+  };
+
+  for (let i = 0; i < document.styleSheets.length; i++) {
+    let rules = null;
+    try { rules = document.styleSheets[i].cssRules; } catch (e) { continue; }
+    visitRules(rules, 0);
+  }
+  // CSS-in-JS / Shadow DOM 库常用构造样式表
+  try {
+    const adopted = document.adoptedStyleSheets;
+    if (adopted) {
+      for (let i = 0; i < adopted.length; i++) visitRules(adopted[i].cssRules, 0);
+    }
+  } catch (e) { /* 不支持时跳过 */ }
+
+  // 行内样式优先级最高
+  for (let i = 0; i < all.length; i++) {
+    const el = all[i];
+    const inline = el.style;
+    if (!inline) continue;
+    for (let p = 0; p < cfg.lengthProps.length; p++) {
+      const prop = cfg.lengthProps[p];
+      const value = inline.getPropertyValue(prop);
+      if (value) declaredByProp[prop].set(el, value);
+    }
+  }
+
+  // 作者是否声明过这个属性（含纯字面值）
+  const authorDeclared = (el, prop) => declaredByProp[prop].has(el);
+
+  // 该值是否由光学 token 供给：只认声明本身写了 var(--label-gap) 这类。
+  // 不走"计算值与某个光学 token 的 px 恰好相等"的兜底——--label-gap 与 --s-2
+  // 都可能是 8px，值比对会给出假通过。
+  const opticalNames = new Set(out.optical || []);
+  const opticalSource = (el, prop) => {
+    const decl = declaredByProp[prop].get(el);
+    if (!decl) return null;
+    const m = String(decl).match(/var\(\s*(--[a-zA-Z0-9_-]+)/);
+    if (!m || !opticalNames.has(m[1])) return null;
+    return m[1];
+  };
+
   const skipProps = { 'row-gap': 1, 'column-gap': 1 };
+  let structureOverflow = false;
   for (let i = 0; i < all.length; i++) {
     if (i >= cfg.maxElements) {
       out.counts.truncated = true;
@@ -382,23 +463,31 @@ function collectFacts(cfg) {
         && display !== 'inline-flex' && display !== 'inline-grid') {
         continue;
       }
+      if (!authorDeclared(el, prop)) continue;
       const value = num(cs.getPropertyValue(prop));
       if (value === null || value === 0) continue;
+      out.structureChecked++;
+      const token = opticalSource(el, prop);
+      if (token) {
+        out.structureExplained++;
+        continue;
+      }
       const offGrid = Math.abs(value - Math.round(value / cfg.gridStep) * cfg.gridStep);
       if (offGrid < cfg.gridEps) continue;
+      out.structureOffGrid++;
+      if (out.structure.length >= cfg.maxStructure) {
+        structureOverflow = true;
+        continue;
+      }
       out.structure.push({
         selector: selectorFor(el),
         prop,
         value: round(value, 3),
         raw: String(cs.getPropertyValue(prop)).trim(),
       });
-      if (out.structure.length >= cfg.maxStructure) {
-        out.counts.truncated = true;
-        break;
-      }
     }
-    if (out.structure.length >= cfg.maxStructure) break;
   }
+  if (structureOverflow) out.counts.truncated = true;
 
   // ---- R4：输入框
   const inputSel = 'input, textarea, select';
@@ -506,6 +595,18 @@ function parseCssColor(str) {
       const { L, C, H } = parseOklch(s);
       return { L, C, H };
     }
+    // oklab(L a b) 是 OKLCH 的直角坐标形式：C = hypot(a,b)，H = atan2(b,a)。
+    // color-mix() 在现代浏览器里就回落成这种格式，不认它会让 R2 断链。
+    const lab = s.match(/^oklab\(\s*([\d.]+%?)\s+(-?[\d.]+)\s+(-?[\d.]+)(?:\s*\/\s*[\d.]+%?)?\s*\)$/i);
+    if (lab) {
+      const L = lab[1].endsWith('%') ? parseFloat(lab[1]) / 100 : parseFloat(lab[1]);
+      const a = parseFloat(lab[2]);
+      const b = parseFloat(lab[3]);
+      if (!Number.isFinite(L) || !Number.isFinite(a) || !Number.isFinite(b)) return null;
+      const C = Math.hypot(a, b);
+      const H = C < 1e-6 ? 0 : (Math.atan2(b, a) * 180 / Math.PI + 360) % 360;
+      return { L, C, H };
+    }
     const m = s.match(/^rgba?\(([^)]+)\)$/i);
     if (m) {
       const parts = m[1].replace(/\//g, ' ').split(/[,\s]+/).filter(Boolean);
@@ -578,53 +679,40 @@ const fmt = (n, p = 2) => (typeof n === 'number' && Number.isFinite(n) ? Number(
 function checkR1(facts, findings, rules) {
   const rule = 'R1-structure';
   if (!rules.has(rule)) return;
-  const optical = Object.entries(facts.optical || {})
-    .filter(([, px]) => typeof px === 'number' && px !== 0);
-
-  const explainedBy = (value) => {
-    for (const [name, px] of optical) {
-      if (Math.abs(Math.abs(value) - Math.abs(px)) <= 0.05) return name;
-    }
-    return null;
-  };
-
   const rows = facts.structure || [];
-  let checked = 0;
-  let offGrid = 0;
-  let explained = 0;
-  const seen = new Set();
+  const checked = Number(facts.structureChecked) || 0;
+  const explained = Number(facts.structureExplained) || 0;
+
+  // 同一元素同一数值的四个方向（padding: 10px）合成一条，属性名并列出来
+  const groups = new Map();
   for (const row of rows) {
-    checked++;
-    const token = explainedBy(row.value);
-    if (token) {
-      explained++;
-      continue;
-    }
-    offGrid++;
-    const key = `${row.selector}|${row.prop}|${row.value}`;
-    if (seen.has(key) || seen.size >= MAX_VIOLATIONS) continue;
-    seen.add(key);
-    findings.warn(rule, row.selector,
-      `${row.prop} = 4 的倍数`,
-      `${row.prop} = ${fmt(row.value, 3)}px`,
-      `${fmt(row.value, 3)}px 不在 4pt 网格上，且不来自光学 token`);
+    const key = `${row.selector}|${row.value}`;
+    if (!groups.has(key)) groups.set(key, { selector: row.selector, value: row.value, props: [] });
+    const g = groups.get(key);
+    if (!g.props.includes(row.prop)) g.props.push(row.prop);
+  }
+  const violations = groups.size;
+  for (const g of groups.values()) {
+    findings.warn(rule, g.selector,
+      '4 的倍数',
+      `${fmt(g.value, 3)}px`,
+      `${g.props.join(' / ')} ${fmt(g.value, 3)}px 不在 4pt 网格上，且不来自光学 token`);
   }
 
   if (!checked) {
-    findings.skip(rule, '页面上没有可测的 margin / padding / gap');
+    findings.skip(rule, '页面上没有作者声明的可测 margin / padding / gap');
     return;
   }
-  if (!offGrid) {
-    findings.pass(rule, ':root',
-      '结构值对齐 4pt 网格',
-      `${checked}/${checked} 个值对齐`,
-      `检查 ${checked} 个结构值，全部对齐（${explained} 个走光学 token）`);
-    return;
-  }
-  findings.pass(rule, ':root',
+  const offGrid = Number(facts.structureOffGrid) || violations;
+  const onGrid = Math.max(0, checked - explained - offGrid);
+  // 有偏离时这条是汇总行（不是纯通过），用状态反映真实结论
+  const status = offGrid ? 'warn' : 'pass';
+  findings.push(rule, status, ':root',
     '结构值对齐 4pt 网格',
-    `${checked - offGrid}/${checked} 对齐，${explained} 个走光学 token`,
-    `检查 ${checked} 个结构值，${offGrid} 个偏离网格`);
+    `${onGrid}/${checked} 对齐，${explained} 个走光学 token，${offGrid} 个偏离`,
+    `检查 ${checked} 个作者声明的结构值：${onGrid} 个对齐，`
+    + `${explained} 个走光学 token，${offGrid} 个偏离`
+    + (facts.counts?.truncated ? '（页面过大，明细已截断）' : ''));
 }
 
 function checkR2(facts, findings, rules) {
@@ -645,36 +733,39 @@ function checkR2(facts, findings, rules) {
       `表面阶梯不完整，只能检查已有层级`);
   }
 
-  const levels = [];
+  // 逐层相邻比较。中间任何一层解析不了就断链——不能跨层拿 1 和 3 相比，
+  // 那会把"缺少一层"误报成"ΔL 越界"。
+  let prev = null;
+  let compared = 0;
   for (const name of names) {
     const raw = resolved[name];
-    if (!raw) continue;
+    if (!raw) { prev = null; continue; }
     const lch = parseCssColor(raw);
     if (!lch) {
       findings.warn(rule, name,
         '可解析的颜色值',
         String(raw).slice(0, 60),
-        '无法解析为 sRGB / oklch，跳过该层');
+        `无法解析为 sRGB / oklch / oklab，${name} 与下一层之间的 ΔL 未校验`);
+      prev = null;
       continue;
     }
-    levels.push({ name, L: lch.L, raw });
-  }
-
-  for (let i = 1; i < levels.length; i++) {
-    const prev = levels[i - 1];
-    const cur = levels[i];
-    const d = Math.abs(prev.L - cur.L);
-    const ok = d >= DL_MIN - DL_EPS && d <= DL_MAX + DL_EPS;
-    const expected = `ΔL ∈ [${DL_MIN.toFixed(3)}, ${DL_MAX.toFixed(3)}]`;
-    const actual = `ΔL ${fmt(d, 4)}`;
-    if (ok) {
-      findings.pass(rule, cur.name, expected, actual, `${prev.name} → ${cur.name} ΔL ${fmt(d, 4)}`);
-    } else {
-      findings.error(rule, cur.name, expected, actual,
-        `ΔL ${fmt(d, 4)} 超出 [${DL_MIN.toFixed(3)},${DL_MAX.toFixed(3)}]`);
+    const cur = { name, L: lch.L };
+    if (prev) {
+      const d = Math.abs(prev.L - cur.L);
+      const ok = d >= DL_MIN - DL_EPS && d <= DL_MAX + DL_EPS;
+      const expected = `ΔL ∈ [${DL_MIN.toFixed(3)}, ${DL_MAX.toFixed(3)}]`;
+      const actual = `ΔL ${fmt(d, 4)}`;
+      compared++;
+      if (ok) {
+        findings.pass(rule, cur.name, expected, actual, `${prev.name} → ${cur.name} ΔL ${fmt(d, 4)}`);
+      } else {
+        findings.error(rule, cur.name, expected, actual,
+          `ΔL ${fmt(d, 4)} 超出 [${DL_MIN.toFixed(3)},${DL_MAX.toFixed(3)}]`);
+      }
     }
+    prev = cur;
   }
-  if (levels.length < 2) findings.skip(rule, '可解析的表面层不足两层，无法计算 ΔL');
+  if (!compared) findings.skip(rule, '相邻表面层不足两项可解析，无法计算 ΔL');
 }
 
 function checkR4(facts, findings, rules) {
@@ -685,7 +776,6 @@ function checkR4(facts, findings, rules) {
     findings.skip(rule, '页面上没有可见的 input / textarea / select');
     return;
   }
-  let passCount = 0;
   for (const el of inputs) {
     const shadows = splitShadowList(el.boxShadow);
     const isNone = shadows.length === 1 && shadows[0].toLowerCase() === 'none';
@@ -697,7 +787,6 @@ function checkR4(facts, findings, rules) {
     if (!inset.length) problems.push('缺 inset 内环');
 
     if (!problems.length) {
-      passCount++;
       findings.pass(rule, el.selector, '外投影 + inset 内环', `${shadows.length} 层 shadow`);
       continue;
     }
@@ -706,10 +795,6 @@ function checkR4(facts, findings, rules) {
       '外投影 + 至少一条 inset 内环',
       actual,
       `${problems.join('，')}：${actual}`);
-  }
-  if (passCount && passCount === inputs.length) {
-    findings.pass(rule, `${inputs.length} 个输入控件`,
-      '全部具备外投影 + inset 内环', '✓', '');
   }
 }
 
@@ -878,16 +963,24 @@ function evaluateRules(facts, rules, theme) {
 // 浏览器
 // ---------------------------------------------------------------------------
 
+// 浏览器不可用 = 环境问题（退出码 2）。页面加载失败不是环境问题，
+// 不能拿 manual-required 掩盖过去（退出码 1）。
 function isBrowserFailure(e) {
+  if (e instanceof CdpError && e.detail?.navigationFailure) return false;
   return e instanceof CdpError || ['ENOENT', 'ETIMEDOUT', 'EPROTO'].includes(e?.code);
 }
 
 function reasonFor(e) {
   const code = e?.code ? `${e.code}: ` : '';
-  return `${code}${e?.message || String(e)}。`
-    + '可用 Chromium 111+ 以 --remote-debugging-port=9222 启动后重试；'
-    + 'CDP Proxy 不提供 Emulation 端点，无法设置视口。'
-    + 'L2 几何审计必须人工完成或换环境重跑，不能记为自动通过。';
+  const base = `${code}${e?.message || String(e)}`;
+  // 只有"找到了上游但能力不足"才提 Proxy 的限制；完全找不到浏览器是另一回事
+  const incompatible = /缺少能力/.test(base);
+  let hint = '用 Chromium 111+ 以 --remote-debugging-port=9222 启动后重试（或用 --port 指向已有端口）。';
+  if (incompatible) {
+    hint = 'CDP Proxy 不提供 Emulation 端点，无法设置视口，'
+      + '需改用 Chromium 111+ 以 --remote-debugging-port=9222 启动后重试。';
+  }
+  return `${base}。${hint}L2 几何审计必须人工完成或换环境重跑，不能记为自动通过。`;
 }
 
 const SETTLE_EXPRESSION =
@@ -946,9 +1039,15 @@ async function audit(cfg) {
       return { status: 'manual-required', reason: '采集脚本没有返回事实对象' };
     }
 
-    // 表面色：自定义属性保留原始 token，先解析；解析不了再让浏览器给出 rgb()
-    const unresolved = ['--surface-1', '--surface-2', '--surface-3']
-      .filter((n) => facts.root?.[n] && !parseCssColor(facts.root[n]));
+    // 表面色：优先用 :root 上的原始 token（hex / oklch 都能直接解析）。
+    // 解析不了时（var() 间接、color-mix、命名色），让浏览器先算成 rgb() 再取回来。
+    const SURFACES = ['--surface-1', '--surface-2', '--surface-3'];
+    facts.surfaces = {};
+    for (const n of SURFACES) facts.surfaces[n] = facts.root?.[n] || null;
+
+    const unresolved = SURFACES.filter(
+      (n) => facts.surfaces[n] && !parseCssColor(facts.surfaces[n]),
+    );
     if (unresolved.length) {
       try {
         const expr = `(${((names) => {
@@ -968,26 +1067,16 @@ async function audit(cfg) {
           return out;
         }).toString()})(${JSON.stringify(unresolved)})`;
         const resolved = await conn.evaluate(expr);
-        facts.surfaces = {};
-        for (const n of ['--surface-1', '--surface-2', '--surface-3']) {
-          facts.surfaces[n] = resolved?.[n] || facts.root?.[n] || null;
+        for (const n of unresolved) {
+          if (resolved?.[n]) facts.surfaces[n] = resolved[n];
         }
-      } catch {
-        facts.surfaces = {
-          '--surface-1': facts.root?.['--surface-1'] || null,
-          '--surface-2': facts.root?.['--surface-2'] || null,
-          '--surface-3': facts.root?.['--surface-3'] || null,
-        };
-      }
-    } else {
-      facts.surfaces = {
-        '--surface-1': facts.root?.['--surface-1'] || null,
-        '--surface-2': facts.root?.['--surface-2'] || null,
-        '--surface-3': facts.root?.['--surface-3'] || null,
-      };
+      } catch { /* 解析失败时让 checkR2 如实报"无法解析" */ }
     }
 
     return { status: 'ok', facts, upstream: conn.upstream, endpoint: conn.endpoint };
+  } catch (e) {
+    if (isBrowserFailure(e)) return { status: 'manual-required', reason: reasonFor(e) };
+    throw e;
   } finally {
     await conn.close().catch(() => {});
   }
@@ -1040,6 +1129,11 @@ function report(cfg, result) {
   const checkedAt = new Date().toISOString();
 
   if (result.status === 'manual-required') {
+    if (!cfg.json) {
+      // 非 JSON 模式：人读的一行 + 机读块，CI 与终端都能直接消费
+      console.error(`! manual-required — ${result.reason}`);
+      console.error('  L2 几何审计未执行，不能记为通过。');
+    }
     printJson({
       status: 'manual-required',
       gate: 'L2',
@@ -1051,10 +1145,6 @@ function report(cfg, result) {
       errorCount: 0,
       warningCount: 0,
     });
-    if (!cfg.json) {
-      console.error(`! manual-required — ${result.reason}`);
-      console.error('  L2 几何审计未执行，不能记为通过。');
-    }
     return EXIT.ENV;
   }
 

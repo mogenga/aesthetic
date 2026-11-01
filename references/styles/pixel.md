@@ -28,9 +28,9 @@
 | 中性色温度 | H 95 / C 0.030（暖米黄，取自早期掌机的底色；浅色下 C 偏高，读的是"屏幕发黄"而不是"纸张"） |
 | 彩度上限 | C ≤ 0.180；彩色 3 个（主 + 辅 + 状态），其余全部进米/墨两族 |
 | 圆角 | `--r-sm` 0 · `--r-md` 0 · `--r-lg` 0 · `--r-full` 0（假圆角用 `clip-path`，不走 token） |
-| 边框 | 2px solid `--fg`（1x）或 4px（2x 缩放模式）；不用 1px |
+| 边框 | 2px solid `--fg`（1x）或 4px（2x 缩放模式，由 `--px` 切换）；不用 1px |
 | 阴影 | `--shadow-1` 4px 4px 0 · `--shadow-2` 8px 8px 0 · `--shadow-3` 浮层用 0 8px 0 + 1px 描边 |
-| 字重 | 浅色 400 / 700 / 700 · 暗色 400 / 700 / 700（像素字体通常只有单字重，700 是渲染近似） |
+| 字重 | 浅色 400 / 700 / 700 · 暗色 400 / 700 / 700（像素字体通常只有单字重，"降一档"落在同一个可用值上；按 R5 在 `tokens.json` 记 `actualWeight`，不得为凑降档而换字族） |
 | 动效 | 60–90ms `steps(1)`；只允许"帧切换"式变化，不做插值 |
 
 ## 典型配色
@@ -140,15 +140,21 @@
 /* 验收：所有视觉尺寸可被 8 整除（光学值 1px 例外不适用本风格） */
 ```
 
-**5 · 双倍缩放模式：整体乘 2，不做半像素**
+**5 · R4 等价方案：斜角代替内环**
+
+像素风用两条 inset 硬阴影伪造"内亮外暗"的斜角，参数与 `references/rules/02-input-inset.md` §7.1 一致：
 
 ```css
-@media (min-width: 834px) {
-  :root[data-style="pixel"] { --px: 4px; }
-  .px-card { border-width: 4px; }
-  .btn { min-height: 96px; padding-inline: 32px; }
+:root[data-style="pixel"] .field {
+  background: var(--bg);
+  border: 2px solid var(--fg);
+  border-radius: 0;
+  box-shadow:
+    inset -2px -2px 0 color-mix(in oklab, var(--fg) 30%, transparent),
+    inset 2px 2px 0 color-mix(in oklab, var(--bg) 60%, white);
+  image-rendering: pixelated;
 }
-/* 验收：834px 以上所有边界尺寸是 4 的倍数 */
+/* R4 override 已登记，scope = pixel.field；斜角是像素 UI 表达"凹陷"的通用做法 */
 ```
 
 **6 · 焦点与状态：颜色 + 形状双通道**

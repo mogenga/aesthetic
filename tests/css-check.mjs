@@ -23,6 +23,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
 const STYLES = path.join(ROOT, 'assets', 'studio', 'styles');
 const INDEX = path.join(ROOT, 'references', 'styles', 'style-index.json');
+const STUDIO_INDEX = path.join(STYLES, 'style-index.json');
 
 const SEMANTIC_TOKENS = new Set([
   '--bg', '--surface-1', '--surface-2', '--surface-3', '--surface-sunken',
@@ -179,19 +180,44 @@ function main() {
   const files = fs.readdirSync(STYLES).filter((f) => f.endsWith('.css')).sort();
   const names = files.map((f) => checkFile(path.join(STYLES, f)));
 
-  // style-index coverage
+  // style-index coverage — both indexes must agree with disk and with each other
   let indexCheck = 'skipped';
+  const onDisk = files.slice().sort();
+
   if (fs.existsSync(INDEX)) {
     const idx = JSON.parse(fs.readFileSync(INDEX, 'utf8'));
     const fromIndex = (idx.variants || []).map((v) => v.css).sort();
-    const onDisk = files.slice().sort();
     const missing = fromIndex.filter((f) => !onDisk.includes(f));
     const extra = onDisk.filter((f) => !fromIndex.includes(f));
-    if (missing.length) add('error', 'style-index', 0, `索引里有但磁盘没有：${missing.join(', ')}`);
-    if (extra.length) add('error', 'style-index', 0, `磁盘有但索引没有：${extra.join(', ')}`);
+    if (missing.length) add('error', 'style-index', 0, `记录里有但磁盘没有：${missing.join(', ')}`);
+    if (extra.length) add('error', 'style-index', 0, `磁盘有但记录没有：${extra.join(', ')}`);
     if (idx.cards?.length !== 10) add('error', 'style-index', 0, `cards 应为 10，实际 ${idx.cards?.length}`);
     if (idx.variants?.length !== 12) add('error', 'style-index', 0, `variants 应为 12，实际 ${idx.variants?.length}`);
     indexCheck = `${idx.cards?.length} 卡 / ${idx.variants?.length} 变体`;
+  }
+
+  // the studio-side index (the one the UI actually reads) must match
+  if (fs.existsSync(STUDIO_INDEX)) {
+    const s = JSON.parse(fs.readFileSync(STUDIO_INDEX, 'utf8'));
+    const sv = s.variants || [];
+    const sFiles = sv.map((v) => v.css).sort();
+    const missing = sFiles.filter((f) => !onDisk.includes(f));
+    const extra = onDisk.filter((f) => !sFiles.includes(f));
+    if (missing.length) add('error', 'studio/style-index', 0, `记录里有但磁盘没有：${missing.join(', ')}`);
+    if (extra.length) add('error', 'studio/style-index', 0, `磁盘有但记录没有：${extra.join(', ')}`);
+    if (sv.length !== 12) add('error', 'studio/style-index', 0, `variants 应为 12，实际 ${sv.length}`);
+    const cards = new Set(sv.map((v) => v.card));
+    if (cards.size !== 10) add('error', 'studio/style-index', 0, `card 应为 10 张，实际 ${cards.size}`);
+
+    // cross-check against the reference index
+    if (fs.existsSync(INDEX)) {
+      const r = JSON.parse(fs.readFileSync(INDEX, 'utf8'));
+      const a = sv.map((v) => v.id).sort().join(',');
+      const b = (r.variants || []).map((v) => v.id).sort().join(',');
+      if (a !== b) {
+        add('error', 'style-index', 0, `两份索引的 variant id 不一致\n  studio: ${a}\n  参照:   ${b}`);
+      }
+    }
   }
 
   const errors = findings.filter((f) => f.level === 'error');

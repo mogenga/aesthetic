@@ -19,9 +19,30 @@
 //   direct cdp          ✓         ✓               ✓               ✓           ✓        ✓
 // Proxy 没有 Emulation 端点，也没有全页截图参数，所以 shoot.mjs / audit.mjs 用
 // need: ['setViewport', 'fullPageScreenshot'] 跳过它，落到直连 CDP；两者都没有时
-// 脚本输出 manual-required（退出码 2），不伪造结果。
+// 抛 code=EPROTO（带 missing 详情），脚本据此输出 manual-required（退出码 2），
+// 不伪造结果。
+//
+// 生命周期：connect() 惰性创建 tab（proxy 走 /new，直连走 Target.createTarget），
+// close() 关掉自己创建的 tab 后断开。进程退出前务必调用 close()，否则会留下标签页。
+//
+// 注意：CDP 事件（Page.loadEventFired 等）不做分发。导航就绪靠轮询
+// document.readyState，避免"监听器挂上之前加载已经完成"的竞态。
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// 导航到不可达地址时 Chromium 会停在内建错误页，URL 协议是 chrome-error:。
+// 这不是"页面已加载"，任何后续采集都没有意义。
+//
+// 这类失败带 detail.navigationFailure = true：浏览器本身是好的，是页面没加载成。
+// 调用方据此区分"环境不可用（manual-required）"与"页面加载失败（普通失败）"。
+function assertNotErrorPage(url, tag) {
+  const href = String(url || '');
+  if (/^(chrome|edge|brave)-error:/i.test(href)) {
+    throw new CdpError('EPROTO', `导航失败，浏览器停在错误页：${href}`, {
+      url: href, upstream: tag, navigationFailure: true,
+    });
+  }
+}
 
 export class CdpError extends Error {
   constructor(code, message, detail) {
@@ -80,23 +101,42 @@ function causeCode(e) {
 
 /** 探测 CDP Proxy。返回描述对象或 null（代理没在跑）。 */
 async function probeProxy(port, timeoutMs) {
-  const base = `http://localhost:${port}`;
-  let health;
-  try {
-    const res = await httpRequest(`${base}/health`, { timeoutMs: Math.min(timeoutMs, 2500) });
-    if (!res.ok) return null; // 端口上跑着别的服务：不是代理，交给下一档
-    health = JSON.parse(res.buf.toString('utf8'));
-  } catch (e) {
-    if (isAbort(e)) throw new CdpError('ETIMEDOUT', `CDP Proxy :${port} 健康检查超时`);
-    // 连接被拒绝 / 非法 JSON / 别的服务 = 代理不存在，交给下一档
+  // 真实 Proxy 绑在 127.0.0.1，而文档里写的是 localhost。Windows 上 localhost
+  // 可能先解析到 ::1，单试一个会误判"代理不存在"，所以两个都试。
+  const hosts = ['localhost', HOST];
+  let base = null;
+  let health = null;
+  let timedOut = null;
+  for (const h of hosts) {
+    try {
+      const res = await httpRequest(`http://${h}:${port}/health`, {
+        timeoutMs: Math.min(timeoutMs, 2500),
+      });
+      if (!res.ok) continue; // 端口上跑着别的服务：不是代理
+      const parsed = JSON.parse(res.buf.toString('utf8'));
+      if (parsed && typeof parsed === 'object') {
+        base = `http://${h}:${port}`;
+        health = parsed;
+        break;
+      }
+    } catch (e) {
+      if (isAbort(e)) timedOut = new CdpError('ETIMEDOUT', `CDP Proxy :${port} 健康检查超时`);
+      // 连接被拒绝 / 非法 JSON / 别的服务：换下一个 host
+    }
+  }
+  if (!base) {
+    if (timedOut) throw timedOut;
     return null;
   }
-  if (!health || typeof health !== 'object') return null;
   // 代理在线但浏览器没连上：这是"环境不可用"，不是"代理不存在"。
-  // connectionState 在旧版本里可能缺失，缺失时继续探测 /targets。
-  if (health.connectionState && health.connectionState !== 'connected') {
+  // connected === false / connectionState 非 connected 都算。两个字段都缺失时
+  // 只认 status:'ok' 的 /health，继续往下走。
+  const state = health.connectionState;
+  const waiting = health.connected === false
+    || (typeof state === 'string' && state !== 'connected');
+  if (waiting) {
     const err = new CdpError('ENOENT',
-      `CDP Proxy 在运行，但浏览器未连接（${health.connectionState}）`);
+      `CDP Proxy 在运行，但浏览器未连接（${state || 'connected=false'}）`);
     err.proxyWaiting = true;
     throw err;
   }
@@ -133,15 +173,17 @@ export async function findBrowser({
   const found = [];
   let timedOut = null;
   let waiting = null;
+  let hardError = null;
 
   const tryUpstream = async (fn, args) => {
     try {
       const r = await fn(...args);
       if (r) found.push(r);
     } catch (e) {
+      // 单个上游失败不代表整体失败：另一个上游可能是好的
       if (e instanceof CdpError && e.code === 'ETIMEDOUT') timedOut = e;
       else if (e instanceof CdpError && e.proxyWaiting) waiting = e;
-      else if (e instanceof CdpError) throw e;
+      else if (e instanceof CdpError) hardError = e;
     }
   };
 
@@ -171,6 +213,7 @@ export async function findBrowser({
       { upstreams: found.map((u) => ({ kind: u.kind, endpoint: u.endpoint })), missing });
   }
   if (waiting) throw waiting;
+  if (hardError) throw hardError;
   if (timedOut) throw timedOut;
   return null;
 }
@@ -289,7 +332,9 @@ class ProxyConnection {
       await sleep(120);
     }
     await this.settle();
-    return { url: await this.evaluate('location.href').catch(() => null), readyState: last };
+    const href = await this.evaluate('location.href').catch(() => null);
+    assertNotErrorPage(href, 'proxy');
+    return { url: href, readyState: last };
   }
 
   async settle(ms = 120) {
@@ -495,7 +540,14 @@ class DirectConnection {
 
   async navigate(url) {
     const sid = await this.ensureTarget();
-    await this.send('Page.navigate', { url: String(url) }, sid);
+    const nav = await this.send('Page.navigate', { url: String(url) }, sid);
+
+    // 网络层失败（DNS、拒绝连接、端口被禁）不会抛错，只在结果里给 errorText。
+    // 不检查就会拍到 chrome-error:// 页面并当成成功。
+    if (nav?.errorText) {
+      throw new CdpError('EPROTO', `导航失败（${nav.errorText}）：${url}`,
+        { errorText: nav.errorText, url, upstream: 'direct', navigationFailure: true });
+    }
 
     // 不用 Page.loadEventFired：加载可能在我们挂上监听之前就完成。
     // 轮询 readyState 没有竞态，超时后如实标记。
@@ -523,6 +575,7 @@ class DirectConnection {
     await sleep(120);
 
     const href = await this.evaluate('location.href').catch(() => null);
+    assertNotErrorPage(href, 'direct');
     return { url: href, readyState };
   }
 

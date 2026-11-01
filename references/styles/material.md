@@ -28,7 +28,7 @@
 | 中性色温度 | H 45 / C 0.008（暖中性；Material 默认是冷灰或纯白，换暖是为了脱离"系统模板"） |
 | 彩度上限 | C ≤ 0.110；强调色 1 个（青绿），状态色用低彩度变体 |
 | 圆角 | `--r-sm` 8 · `--r-md` 12 · `--r-lg` 28 · `--r-full` 999（28 是"模态"专用的超大圆角） |
-| 边框 | 0（靠高度与表面色分层）；`outlined` 变体用 1px `--line-1` |
+| 边框 | 0（靠高度与表面色分层）；`outlined` 变体用 1px `--line-1`；fill 输入框内环 `--line-inset` |
 | 阴影 | 三档 elevation，**全部重新调过**，见下方 CSS；与 Material 默认的 `0 1px 3px rgba(0,0,0,.12), ...` 不同 |
 | 字重 | 浅色 400 / 500 / 600 · 暗色 350 / 450 / 550（Material 的默认类型系统依赖 500，暗色必须降） |
 | 动效 | 200–300ms `cubic-bezier(.2,0,0,1)`；状态层用 100ms；elevation 变化不能做动画（会导致连续重绘阴影） |
@@ -149,22 +149,28 @@
 
 **5 · 输入框：Material 的 fill 语义 + R4 的咬合**
 
+Material 的 fill 输入框把"咬合"放在**底部指示线**上：上方是容器底、下方是页面底，控件靠底部线"落"在页面上。R4 的三件套仍然保留（只是外投影更薄），否则 `audit.mjs` 报缺 inset 内环：
+
 ```css
 .field {
   background: var(--surface-2);
   border: 0;
   border-radius: var(--r-sm) var(--r-sm) 0 0;   /* fill 变体：底部方角 */
   box-shadow:
-    0 1px 0 0 var(--line-1),
-    inset 0 1px 2px rgb(60 40 30 / .08);
+    0 1px 2px -1px rgb(60 40 30 / .10),          /* 非 inset：嵌入页面 */
+    0 1px 0 0 var(--line-1),                    /* 底部指示线 */
+    inset 0 1px 2px rgb(60 40 30 / .08),        /* 内投影：上沿吃光 */
+    inset 0 0 0 1px color-mix(in oklab, var(--fg) 6%, transparent);
 }
 .field:focus-visible {
   box-shadow:
-    0 2px 0 0 var(--accent),
-    inset 0 1px 2px rgb(60 40 30 / .08);
+    0 1px 2px -1px rgb(60 40 30 / .10),
+    0 2px 0 0 var(--accent),                    /* 指示线变粗并换 accent */
+    inset 0 1px 2px rgb(60 40 30 / .08),
+    inset 0 0 0 1px color-mix(in oklab, var(--accent) 55%, transparent);
 }
 /* outlined 变体：1px --line-1 + --r-md；两者不可同时出现在一页 */
-/* 验收：R4 override 已登记，verification 指向本段"底部 2px accent 指示线" */
+/* 验收：R4 override 已登记，verification 指向本段"2px 底部指示线" */
 ```
 
 **6 · 动效：elevation 不做过渡**

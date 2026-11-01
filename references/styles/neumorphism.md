@@ -135,22 +135,26 @@
 
 **4 · 让 R4 的"咬合"以等价方案成立**
 
-新拟态无法用"内环变深"做咬合，因为内环会被双阴影吞掉。替代方案是**把内环做成外侧一层极窄的暗边**，方向与凹陷阴影一致：
+新拟态的双阴影会把普通内环吞掉，因此内环要更深、外投影要更薄，两者都保留——`audit.mjs` 要求"一条非 inset 投影 + 一条 `inset 0 0 0 1px` 内环"，缺一条就报违规：
 
 ```css
 .field {
+  background: var(--bg);
   box-shadow:
+    0 1px 2px -1px rgb(0 0 0 / .12),                                  /* 非 inset：嵌入页面 */
     inset 4px 4px 8px var(--neu-dark),
     inset -4px -4px 8px var(--neu-light),
-    0 0 0 1px color-mix(in oklab, var(--neu-dark) 70%, transparent);
+    inset 0 0 0 1px color-mix(in oklab, var(--neu-dark) 55%, transparent);
 }
 .field:focus-visible {
   box-shadow:
+    0 1px 2px -1px rgb(0 0 0 / .12),
     inset 4px 4px 8px var(--neu-dark),
     inset -4px -4px 8px var(--neu-light),
+    inset 0 0 0 1px var(--accent),
     0 0 0 3px color-mix(in oklab, var(--accent) 40%, transparent);
 }
-/* 验收：R4 override 已登记，verification 指向本段的 1px 暗边规则 */
+/* 验收：R4 override 已登记，verification 指向本段"加深内环 + 保留非 inset 外影" */
 ```
 
 **5 · 状态不只靠阴影（无障碍兜底）**

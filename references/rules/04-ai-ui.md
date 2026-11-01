@@ -2,7 +2,7 @@
 
 > 什么时候读这份：项目有对话 / 生成 / 流式输出、行内图标混排、可折叠的"思考过程"区块；`audit.mjs` 报流式或图标问题。
 
-R6 的一句话版在 [`00-non-negotiable.md`](00-non-negotiable.md) §3.6。三条都是**可验收的具体实现决定**，每条对应一个做过之后明显更好、不做就一眼是玩具的东西。
+R6 的一句话版在 [`00-non-negotiable.md`](00-non-negotiable.md) §3.6。三条都是**可验收的具体实现决定**：做过之后明显更好，不做就一眼是玩具。
 
 | 子条 | 决定 | 反例 |
 |---|---|---|
@@ -31,19 +31,12 @@ R6 的一句话版在 [`00-non-negotiable.md`](00-non-negotiable.md) §3.6。三
 
 | 参数 | 值 | 调错的后果 |
 |---|---|---|
-| `blur` 起点 | 6px | 3px 只是"略虚"，读不出对焦感 |
-| `opacity` 起点 | .35 | 0 会变成纯淡入，失去"对焦"隐喻 |
-| `translateY` 起点 | 2px | 8px 会变成弹跳，干扰阅读 |
-| 时长 | 200ms | 400ms 拖尾；120ms 太快看不见 |
-| 缓动 | `cubic-bezier(.2,.7,.2,1)` | `linear` 显得机械 |
+| `blur` / `opacity` / `translateY` 起点 | 6px / .35 / 2px | 3px 读不出对焦感；0 变成纯淡入；8px 变成弹跳 |
+| 时长 / 缓动 | 200ms / `cubic-bezier(.2,.7,.2,1)` | 400ms 拖尾，120ms 看不见；`linear` 显得机械 |
 | 错峰 | 30ms | 60ms 像打字机；10ms 糊成一团 |
 | `both` | 必须 | 缺了会在 delay 期间先以终态渲染，闪一下再变糊 |
 
-**`animation-fill-mode: both` 不能省。** 没有它，带 `animation-delay` 的字在延迟期以"无动画"状态渲染（完全清晰），30ms 后才突然变糊再对焦——比不做还难看。
-
-**30ms 错峰的含义：** 单字 200ms、错峰 30ms，所以同屏最多约 7 个字在动（200 / 30 ≈ 6.7）。这部分重叠是有意的，制造"波纹扫过"的连续感。不要为了"更快"压到 15ms——那样同屏 13 个字在动，整段会一直处于半糊状态。
-
-`--i` 是**相对当前批次的序号**，不是全文序号。
+**`animation-fill-mode: both` 不能省。** 没有它，带 `animation-delay` 的字在延迟期以"无动画"状态渲染（完全清晰），30ms 后才突然变糊再对焦——比不做还难看。单字 200ms、错峰 30ms，同屏最多约 7 个字在动（200 / 30 ≈ 6.7）；这部分重叠是有意的，压到 15ms 会让 13 个字一起动，整段始终半糊。`--i` 是**相对当前批次的序号**，不是全文序号。
 
 ### 1.2 性能约束
 
@@ -52,25 +45,26 @@ R6 的一句话版在 [`00-non-negotiable.md`](00-non-negotiable.md) §3.6。三
 | **只 append** | 只向尾部追加新 `<span>`；已完成的字**合并为纯文本节点** | 重排已渲染文本会触发整段 layout |
 | **只给最新 30 字挂动画** | 超出的旧 span 移除 class、清 `will-change`、合并 | 每个 `filter` 元素是一个合成层，累积吃满 GPU |
 | **>40 字/秒批量入场** | 按 2–3 字一组，共用同一个 `--i` | 错峰间隔小于帧间隔，视觉变成噪点 |
-| **DOM 上限** | 单条消息的 `.glyph` ≤ 30 | 长回答下节点数会到几千 |
-| **不滚动到中间** | `overflow-anchor: none` + 仅在用户贴底时自动滚 | 自动滚动会打断用户回看 |
-| **不用 `setInterval`** | 用 `requestAnimationFrame` 批量 flush | 定时器回调与布局绘制打架 |
+| **不滚动到中间** | `overflow-anchor: none`，仅在用户贴底时自动滚 | 自动滚动打断用户回看 |
+| **不用 `setInterval`** | 用 `requestAnimationFrame` 批量 flush | 定时器回调与绘制打架 |
 
 ```js
-const MAX_LIVE = 30;
-const BATCH_RATE = 40;                        // 字/秒
+const MAX_LIVE = 30;                    // 同屏最多挂动画的字数
+const BATCH_RATE = 40;                  // 字/秒，超过则批量入场
 
 function flush(buffer) {
   const chars = [...buffer];
   const groups = chars.length > BATCH_RATE / 30 ? chunk(chars, 2) : chars;
-  groups.forEach((text, i) => {
-    const span = document.createElement('span');
-    span.className = 'glyph';
-    span.style.setProperty('--i', i);
-    span.textContent = text;
-    live.append(span);
-  });
-  trimAndMerge(MAX_LIVE);
+  groups.forEach((text, i) => live.append(makeGlyph(text, i)));
+  trimAndMerge(MAX_LIVE);               // 只 append，不回头改已渲染的节点
+}
+
+function makeGlyph(text, i) {
+  const span = document.createElement('span');
+  span.className = 'glyph';
+  span.style.setProperty('--i', i);
+  span.textContent = text;
+  return span;
 }
 
 function trimAndMerge(max) {
@@ -79,12 +73,11 @@ function trimAndMerge(max) {
   if (n <= 0) return;
   let text = '';
   for (let i = 0; i < n; i++) {
-    spans[i].classList.remove('glyph');
-    spans[i].style.removeProperty('will-change');
+    spans[i].classList.remove('glyph'); // class 与 will-change 一并清掉
     text += spans[i].textContent;
+    spans[i].remove();
   }
-  live.insertBefore(document.createTextNode(text), spans[n]);
-  for (let i = 0; i < n; i++) spans[i].remove();
+  live.insertBefore(document.createTextNode(text), live.firstChild);
 }
 ```
 
@@ -117,7 +110,7 @@ function trimAndMerge(max) {
 | `aria-atomic="true"` | — | 每次都读整段，否则只读增量、上下文断裂 |
 | 完成时立即更新一次 | — | 保证最终文本完整 |
 
-不要在动画层上加 `aria-live`。一个 `aria-hidden` + 一个 `aria-live`，两个节点同步——这是唯一可靠的做法。
+不要在动画层上加 `aria-live`：一个 `aria-hidden` + 一个 `aria-live` 两个节点同步，是唯一可靠的做法。
 
 ### 1.4 reduced-motion
 
@@ -146,12 +139,9 @@ const seg = new Intl.Segmenter('zh', { granularity: 'grapheme' });
 const glyphs = [...seg.segment(text)].map((s) => s.segment);
 ```
 
-`Intl.Segmenter` 在最低浏览器矩阵（Chromium 111 / Safari 16.4 / Firefox 113）里全部可用。
-
-### 1.6 容器样式
+`Intl.Segmenter` 在最低浏览器矩阵（Chromium 111 / Safari 16.4 / Firefox 113）里全部可用。容器三行：
 
 ```css
-.stream-wrap { position: relative; }
 .stream {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -183,36 +173,28 @@ const glyphs = [...seg.segment(text)].map((s) => s.segment);
     ─────┤  ●   │  ← 图标中心，基线以上 0.5em
    基线  └──────┘  ← 图标底，坐在基线上
          xxxxxxx    ← 文字 x-height 区，中心在基线上约 0.25em
-
-相差 0.25em → 视觉上图标偏高
-下移 0.125em（差值的一半）→ 图标中心落到 0.375em，与文字重心重合
 ```
 
-`1em` 图标与典型字体 `x-height ≈ 0.5em` 之间的半个差值，就是 `0.125em`。它是 **CJK / Latin 混排的标准光学修正量**，也是 R1 定义的光学值，必须走 `--icon-shift` token。
+相差 0.25em → 图标偏高；下移差值的**一半**（0.125em）→ 图标中心落到 0.375em，与文字重心重合。`1em` 图标与典型字体 `x-height ≈ 0.5em` 之间的半个差值就是 `0.125em`，它是 **CJK / Latin 混排的标准光学修正量**，也是 R1 定义的光学值，必须走 `--icon-shift` token。
 
 | `vertical-align` | 效果 | 何时用 |
 |---|---|---|
 | `baseline`（默认） | 图标坐基线，偏高 | 几乎从不对 |
 | `middle` | 对齐"基线 + x-height/2"，**仍偏高约 0.125em** | 不推荐 |
-| `text-bottom` | 图标底对齐行框底，偏低 | 大图标块 |
 | **`-0.125em`** | 精确光学居中 | **正文行内图标的标准答案** |
-| `-0.15em` ~ `-0.2em` | 更低 | 图标下方视觉重量较强时（如向上箭头） |
+| `-0.15em` ~ `-0.2em` | 更低 | 图标下方视觉重量较强时 |
 
-**`middle` 不是"居中"。** 它的定义是"中线对齐父元素基线加 x-height 的一半"，而这个"一半"按字体 x-height 算，与图标几何中心并不一致——这就是它仍然偏高的原因。
+**`middle` 不是"居中"。** 它对齐的是"基线 + x-height/2"，而那个"一半"按字体 x-height 算，与图标几何中心并不一致——这就是它仍然偏高的原因。
 
 ### 2.2 CJK / Latin 混排
 
-| 文字 | 典型 x-height | 视觉重心相对基线 |
-|---|---|---|
-| Latin（Inter / Helvetica） | 0.52–0.54em | 0.26em |
-| CJK 汉字 | 0.86–0.88em（满格） | 0.43em |
-| 数字 | 0.70–0.72em | 0.35em |
+| 文字 | 典型 x-height | 视觉重心相对基线 | 行内图标 |
+|---|---|---|---|
+| Latin（Inter / Helvetica） | 0.52–0.54em | 0.26em | `1em` / `-0.125em` |
+| CJK 汉字 | 0.86–0.88em（满格） | 0.43em | `1.05em` / `-0.18em` |
+| 数字 | 0.70–0.72em | 0.35em | 同 Latin |
 
-同一行里中英文都出现时，图标只能对齐其中一个。规则：
-
-1. **图标紧邻哪种文字，就对齐哪种。**
-2. **默认对齐 Latin**——`-0.125em` 就是按 Latin 的 x-height 推出来的。
-3. **纯中文段落里**，图标略大、下移更多。
+同一行里中英文都出现时，图标只能对齐其中一个：**图标紧邻哪种文字就对齐哪种**；默认对齐 Latin（`-0.125em` 就是按 Latin 推的），纯中文段落里图标略大、下移更多。大标题行内降到 `0.9em`（比例不变）——32px 正文配 32px 图标太重。
 
 ```css
 /* 纯中文正文行内 */
@@ -221,25 +203,14 @@ const glyphs = [...seg.segment(text)].map((s) => s.segment);
 .prose.mixed .ico-inline { vertical-align: -0.125em; }
 ```
 
-| 场景 | 尺寸 | `vertical-align` |
-|---|---|---|
-| Latin 正文 / 中英混排行内 | `1em` | `-0.125em` |
-| 纯中文正文行内 | `1.05em` | `-0.18em` |
-| 大标题行内 | `0.9em` | `-0.125em`（比例不变） |
-| 独立图标按钮 | `1em` | 用 flex 居中，不用 `vertical-align` |
-
-大标题用 `0.9em`：32px 正文配 32px 图标太重，0.9 倍回到视觉平衡。
-
 ### 2.3 与 `align-items: center` 的区别
 
-`vertical-align` 只对内联格式化上下文生效。flex 容器里图标走 `align-items`，那是**盒子**居中，而按钮里的图标盒就是 `1em` 见方，几何居中在该场景下正确。
+`vertical-align` 只对内联格式化上下文生效。flex 容器里图标走 `align-items`，那是**盒子**居中，而按钮里的图标盒就是 `1em` 见方，几何居中在该场景下正确。R6.2 说的是**正文行内**混排，flex 内不要机械复制 `-0.125em`；只有截图确实显示偏移时，才给 flex 内的图标补 `transform: translateY(.5px)`。
 
 ```css
 .prose .ico-inline { vertical-align: -0.125em; }                 /* 正文行内 */
 .btn { display: inline-flex; align-items: center; gap: .5em; }   /* flex 内无需下移 */
 ```
-
-R6.2 说的是**正文行内**混排。只有截图显示偏移时，才给 flex 内的图标补 `transform: translateY(.5px)`。
 
 ---
 
@@ -257,8 +228,8 @@ R6.2 说的是**正文行内**混排。只有截图显示偏移时，才给 flex
 
 | 行 | 作用 | 删掉会怎样 |
 |---|---|---|
-| `grid-template-rows: 0fr` | 内容区高度归零 | — |
-| `overflow: hidden` 在**直接子元素**上 | 内容被裁掉，`fr` 才能把行高压到 0 | 内容溢出，框体已经"打开" |
+| `grid-template-rows: 0fr` | 内容区高度归零 | 内容始终全高 |
+| `overflow: hidden` 在**直接子元素**上 | 内容被裁掉，`fr` 才能把行高压到 0 | 内容溢出，框体已"打开" |
 | `transition` 在 `grid-template-rows` 上 | 让 `fr` 值可插值 | 瞬间跳变 |
 
 ### 3.1 为什么不用 `height` 动画
@@ -268,18 +239,13 @@ R6.2 说的是**正文行内**混排。只有截图显示偏移时，才给 flex
 | 内容高度未知 | 思考过程是流式追加的，展开时还在变长 |
 | `height: auto` 不可插值 | CSS 过渡不支持到 `auto`，必须知道两端具体值 |
 | JS 量高会失准 | `scrollHeight` 在动画开始那一刻取，之后内容变高，底部被截 |
-| 中途变高要重算 | 需要 `ResizeObserver`，每次变化打断并重启过渡，产生卡顿 |
-| 收起时还要再量一次 | 双向都要监听 |
+| 中途变高要重算 | 需 `ResizeObserver`，每次变化打断并重启过渡，产生卡顿 |
 
 `0fr → 1fr` 把"高度是多少"交给浏览器：`0fr` 时 track 高度为 0，`1fr` 时为内容所需高度，过渡在两者之间插值。**内容在动画中途变高，目标值下一帧自动更新，动画依然正确**——这是它唯一胜过一切的属性。
 
-### 3.2 时长与缓动
+时长 **280ms**（`--dur-slow` 320ms 太长，`--dur-base` 200ms 对大面积展开太快），缓动 `cubic-bezier(.2,.7,.2,1)`，只动高度。280ms 是**时长**不是结构尺寸，不受 R1 网格约束。**不要加 `opacity` 过渡**——展开过程中内容透明度在变，用户会以为"还在加载"。
 
-时长 **280ms**（`--dur-slow` 320ms 太长，`--dur-base` 200ms 对大面积展开太快），缓动 `cubic-bezier(.2,.7,.2,1)`，只动高度。
-
-**不要给思考框加 `opacity` 过渡。** 展开过程中内容透明度在变，用户会以为"还在加载"。280ms 是**时长**不是结构尺寸，不受 R1 网格约束。
-
-### 3.3 降级链
+### 3.2 降级链
 
 | 浏览器能力 | 方案 |
 |---|---|
@@ -305,9 +271,9 @@ R6.2 说的是**正文行内**混排。只有截图显示偏移时，才给 flex
 }
 ```
 
-`prefers-reduced-motion` 下**不要改成"淡入"**——高度变化是布局变化，用户预期内容移动；"布局跳了但内容淡入"会更难理解。
+降低动效时**不要改成"淡入"**——高度变化是布局变化，用户预期内容移动；"布局跳了但内容淡入"会更难理解。
 
-### 3.4 无障碍
+### 3.3 无障碍
 
 ```html
 <section class="think" data-open="false">
@@ -334,22 +300,14 @@ R6.2 说的是**正文行内**混排。只有截图显示偏移时，才给 flex
 
 ## 4. 三条的组合场景
 
-```html
-<article class="msg">
-  <header><span>助手</span><svg class="ico-inline" aria-hidden="true">…</svg><time>14:02</time></header>
-  <section class="think" data-open="true">…</section>          <!-- R6.3 -->
-  <div class="stream" aria-hidden="true">…</div>               <!-- R6.1 -->
-  <div class="sr-only" role="status" aria-live="polite" aria-atomic="true">…</div>
-</article>
-```
+真实气泡里三条同时出现：header 的行内图标（R6.2）→ 思考框（R6.3）→ 流式正文（R6.1）+隐藏的 `aria-live` 节点。
 
 | 冲突点 | 处理 |
 |---|---|
 | 思考框里也有流式文字 | 同样走 R6.1，但**错峰减半**（15ms），次要内容放慢会让人一直等 |
-| 流式文字撑高气泡 | 思考框收起时不影响；展开时 `fr` 动画让气泡高度平滑跟随 |
 | 行内图标出现在流式文本里 | 图标**不参与错峰**，直接渲染 |
 | 流式增长时用户展开思考框 | 两者互不干扰（transform + filter vs grid 行高） |
-| 思考框内流式文字何时开始 | **展开动画结束后**再开始；否则 `fr` 目标高度每帧在变，动画"跳着长" |
+| 思考框内流式文字何时开始 | **展开动画结束后**再开始，否则 `fr` 目标高度每帧在变 |
 
 ---
 
@@ -358,16 +316,12 @@ R6.2 说的是**正文行内**混排。只有截图显示偏移时，才给 flex
 | 反例 | 为什么错 |
 |---|---|
 | 逐字 `setInterval` 追加 + `scrollIntoView` | 持续回流；长回答掉帧；滚动打断用户 |
-| 整段一次性 `innerHTML` 替换 | 已渲染内容重排，前文会闪 |
 | 给每个字永久保留 `.glyph` | 上千个合成层，移动端内存爆 |
-| 动画层直接挂 `aria-live` | 屏幕阅读器逐字朗读碎片 |
-| 每来一个字符更新一次 `aria-live` | 朗读队列堆积，用户听到几秒前的内容 |
+| 动画层直接挂 `aria-live`，或每来一字就更新 | 朗读队列堆积，用户听到几秒前的内容 |
 | 用 `split('')` 切字 | 拆坏 emoji 与组合字符 |
-| 图标用 `vertical-align: middle` | 仍然偏高，且各引擎偏差不同 |
-| 图标用固定 `px` 偏移 | 字号一变就错位 |
+| 图标用 `vertical-align: middle` 或固定 `px` | 仍然偏高；字号一变就错位 |
 | 思考框用 `max-height: 0 → 1000px` | 内容少时一顿一顿，内容多时被截断 |
-| 思考框用 JS 量 `scrollHeight` | 动画中途内容变高就失准 |
-| 思考框加 `opacity` 淡入 | 内容看起来像还在加载 |
+| 思考框用 JS 量 `scrollHeight`，或加 `opacity` 淡入 | 动画中途内容变高就失准；内容看起来像还在加载 |
 | reduced-motion 下只把时长改短 | 前庭敏感用户仍看到运动；必须去掉 blur 与位移 |
 
 ---

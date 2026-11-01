@@ -28,7 +28,7 @@
 | 中性色温度 | H 90 / C 0.020（暖米黄纸感；C 比常规高一个量级，因为底色要参与撞色） |
 | 彩度上限 | C ≤ 0.160；高饱和色 1 个，允许 1 个辅助撞色用于装饰块 |
 | 圆角 | `--r-sm` 0 · `--r-md` 0 · `--r-lg` 0 · `--r-full` 999（仅头像/徽章） |
-| 边框 | 2px solid `--fg`；输入框聚焦时改为 2px `--accent` + 4px 外环 |
+| 边框 | 2px solid `--fg`；输入框不做 inset 内环（见 R4 等价方案），聚焦改 2px `--accent` + 偏移硬阴影 |
 | 阴影 | `--shadow-1` 4px 4px 0 · `--shadow-2` 6px 6px 0 · `--shadow-3` 浮层 8px 8px 0 |
 | 字重 | 浅色 400 / 700 / 800 · 暗色 350 / 650 / 750（粗野靠字号与描边，暗色仍需降档） |
 | 动效 | 80–120ms，无缓动（`linear` 或 `steps`）；只做位移，不做淡入 |
@@ -159,18 +159,18 @@ reason: 硬边阴影的 AA 缝 · approvedBy: user · verification: check-tokens
 **6 · 压制与 R4 的等价方案**
 
 ```css
-/* 输入框不用 inset 内环，改用"外围加硬边 + 按下位移"表达嵌入 */
+/* R4 等价方案：柔光三件套 → 硬边 + 偏移硬阴影 + 推向光源的位移
+   参数与 references/rules/02-input-inset.md §7 一致，不要另立一套 */
 .field {
   background: var(--bg);
   border: 2px solid var(--fg);
-  box-shadow: inset 2px 2px 0 color-mix(in oklab, var(--fg) 18%, transparent);
+  border-radius: 0;
+  box-shadow: 4px 4px 0 var(--fg);
+  transform: translate(-1px, -1px);
 }
-.field:focus-visible {
-  border-color: var(--fg);
-  box-shadow: inset 2px 2px 0 color-mix(in oklab, var(--fg) 18%, transparent),
-              3px 3px 0 var(--accent);
-}
-/* 验收：R4 override 已登记，verification 指向本段"inset 硬边 + 偏移外影" */
+.field:focus-visible { border-color: var(--accent); box-shadow: 4px 4px 0 var(--accent); }
+.field:active { box-shadow: none; transform: translate(2px, 2px); }
+/* 验收：R4 override 已登记，scope = neo-brutalism.field，verification 指向本段 */
 ```
 
 ## 必须压制的东西
