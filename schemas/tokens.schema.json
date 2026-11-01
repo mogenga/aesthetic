@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aesthetic.local/schemas/tokens.schema.json",
+  "title": "aesthetic tokens.json (derived)",
+  "type": "object",
+  "required": ["schemaVersion", "sourceFile", "sourceHash", "generatedAt", "generatorVersion", "color"],
+  "additionalProperties": true,
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "sourceFile": { "type": "string", "pattern": "decisions\\.json$" },
+    "sourceHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "generatorVersion": { "type": "string", "pattern": "^aesthetic-v\\d+$" },
+    "style": {
+      "type": ["object", "null"],
+      "properties": {
+        "card": { "type": "string" },
+        "variant": { "type": "string" }
+      }
+    },
+    "color": {
+      "type": "object",
+      "required": ["light"],
+      "propertyNames": { "enum": ["light", "dark"] },
+      "additionalProperties": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": { "$ref": "#/$defs/resolved" }
+      }
+    },
+    "surfaceLadder": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["theme", "from", "to", "deltaL"],
+        "properties": {
+          "theme": { "enum": ["light", "dark"] },
+          "from": { "type": "string" },
+          "to": { "type": "string" },
+          "deltaL": { "type": "number", "minimum": 0, "maximum": 1 }
+        }
+      }
+    },
+    "weights": {
+      "type": ["object", "null"],
+      "properties": {
+        "light": { "$ref": "#/$defs/weightSet" },
+        "dark": { "$ref": "#/$defs/weightSet" }
+      }
+    },
+    "weightLadder": { "type": ["object", "null"] },
+    "translation": { "type": ["object", "null"] },
+    "overrides": { "type": ["array", "null"] }
+  },
+  "$defs": {
+    "resolved": {
+      "type": "object",
+      "required": ["oklch", "hex", "l"],
+      "additionalProperties": true,
+      "properties": {
+        "oklch": { "type": "string", "pattern": "^oklch\\(" },
+        "hex": { "type": "string", "pattern": "^#[0-9a-f]{6}$" },
+        "l": { "type": "number", "minimum": 0, "maximum": 1 },
+        "clipped": { "type": "boolean" }
+      }
+    },
+    "weightSet": {
+      "type": "object",
+      "required": ["body", "strong", "display"],
+      "properties": {
+        "body": { "type": "integer", "minimum": 100, "maximum": 900 },
+        "strong": { "type": "integer", "minimum": 100, "maximum": 900 },
+        "display": { "type": "integer", "minimum": 100, "maximum": 900 }
+      }
+    }
+  }
+}

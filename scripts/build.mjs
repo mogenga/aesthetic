@@ -72,10 +72,12 @@ function resolveColor(entry) {
     return { oklch: formatOklch(parsed), hex, l: round(parsed.L, 4), clipped };
   }
   const parsed = parseOklch(entry.oklch);
-  const resolved = entry.hex ? { hex: entry.hex, clipped: false } : oklchToHex(parsed);
+  const resolved = entry.hex
+    ? { hex: entry.hex.toLowerCase(), clipped: false }
+    : oklchToHex(parsed);
   return {
     oklch: formatOklch(parsed),
-    hex: resolved.hex,
+    hex: resolved.hex.toLowerCase(),
     l: typeof entry.l === 'number' ? entry.l : round(parsed.L, 4),
     clipped: resolved.clipped || !!entry.gamutClipped,
   };

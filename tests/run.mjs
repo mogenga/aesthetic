@@ -378,6 +378,18 @@ test('chain: 产物不含未替换占位符', () => {
   eq(leftovers, null, `contract.md 残留占位符：${leftovers}`);
 });
 
+test('schema: tokens.json 符合 tokens.schema.json', () => {
+  const dir = makeProject();
+  writeDecisions(dir, sampleDecisions());
+  run('build.mjs', ['--project', dir, '--quiet']);
+  const tokens = JSON.parse(
+    fs.readFileSync(path.join(dir, 'design', 'aesthetic', 'tokens.json'), 'utf8'),
+  );
+  const ts = JSON.parse(fs.readFileSync(path.join(ROOT, 'schemas', 'tokens.schema.json'), 'utf8'));
+  const r = validate(ts, tokens);
+  truthy(r.valid, r.errors.join('\n'));
+});
+
 test('chain: 改决策后 consistency 报过期', () => {
   const dir = makeProject();
   const d = sampleDecisions();

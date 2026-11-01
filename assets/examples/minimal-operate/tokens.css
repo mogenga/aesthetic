@@ -7,16 +7,16 @@
 
 :root {
   /* color */
-  --bg: oklch(0.985 0.002 85); /* #FBFAF9 */
-  --surface-1: oklch(0.975 0.002 85); /* #F6F5F4 */
-  --surface-2: oklch(0.96 0.002 85); /* #F1F0EF */
-  --surface-3: oklch(0.943 0.002 85); /* #ECEBEA */
-  --surface-sunken: oklch(0.968 0.002 85); /* #F4F3F2 */
-  --fg: oklch(0.217 0.002 106.6); /* #1A1A19 */
+  --bg: oklch(0.985 0.002 85); /* #fbfaf9 */
+  --surface-1: oklch(0.975 0.002 85); /* #f6f5f4 */
+  --surface-2: oklch(0.96 0.002 85); /* #f1f0ef */
+  --surface-3: oklch(0.943 0.002 85); /* #ecebea */
+  --surface-sunken: oklch(0.968 0.002 85); /* #f4f3f2 */
+  --fg: oklch(0.217 0.002 106.6); /* #1a1a19 */
   --fg-muted: oklch(0.52 0.004 85); /* #757371 */
-  --accent: oklch(0.52 0.09 250); /* #2F6690 */
-  --line-1: oklch(0.9 0.002 85); /* #E0DFDD */
-  --line-inset: oklch(0.86 0.002 85); /* #D2D1CF */
+  --accent: oklch(0.52 0.09 250); /* #2f6690 */
+  --line-1: oklch(0.9 0.002 85); /* #e0dfdd */
+  --line-inset: oklch(0.86 0.002 85); /* #d2d1cf */
 
   /* space — 8pt 结构值 */
   --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px;
@@ -51,14 +51,14 @@
 :root[data-theme="dark"] {
   /* color */
   --bg: oklch(0.18 0.002 85); /* #161514 */
-  --surface-1: oklch(0.202 0.002 85); /* #1D1C1B */
+  --surface-1: oklch(0.202 0.002 85); /* #1d1c1b */
   --surface-2: oklch(0.226 0.002 85); /* #232221 */
-  --surface-3: oklch(0.252 0.002 85); /* #2A2928 */
+  --surface-3: oklch(0.252 0.002 85); /* #2a2928 */
   --surface-sunken: oklch(0.16 0.002 85); /* #121110 */
-  --fg: oklch(0.94 0.002 85); /* #EDECEB */
-  --fg-muted: oklch(0.72 0.004 85); /* #ACABA9 */
-  --accent: oklch(0.72 0.09 250); /* #7FB3D6 */
-  --line-1: oklch(0.3 0.002 85); /* #3B3A39 */
+  --fg: oklch(0.94 0.002 85); /* #edeceb */
+  --fg-muted: oklch(0.72 0.004 85); /* #acaba9 */
+  --accent: oklch(0.72 0.09 250); /* #7fb3d6 */
+  --line-1: oklch(0.3 0.002 85); /* #3b3a39 */
   --line-inset: oklch(0.34 0.002 85); /* #464544 */
 
   /* type weight — R5 降一档 */
