@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "cards": [
+    {
+      "id": "minimalism",
+      "name": "极简主义",
+      "variants": ["minimalism"],
+      "file": "minimalism.md"
+    },
+    {
+      "id": "bento",
+      "name": "便当盒",
+      "variants": ["bento"],
+      "file": "bento.md"
+    },
+    {
+      "id": "neumorphism",
+      "name": "新拟态",
+      "variants": ["neumorphism"],
+      "file": "neumorphism.md"
+    },
+    {
+      "id": "neo-brutalism",
+      "name": "新粗野主义",
+      "variants": ["neo-brutalism"],
+      "file": "neo-brutalism.md"
+    },
+    {
+      "id": "cyberpunk",
+      "name": "赛博朋克",
+      "variants": ["cyberpunk"],
+      "file": "cyberpunk.md"
+    },
+    {
+      "id": "dark-tech",
+      "name": "黑色科技极简",
+      "variants": ["dark-tech"],
+      "file": "dark-tech.md"
+    },
+    {
+      "id": "pixel",
+      "name": "像素风",
+      "variants": ["pixel"],
+      "file": "pixel.md"
+    },
+    {
+      "id": "material",
+      "name": "材料设计",
+      "variants": ["material"],
+      "file": "material.md"
+    },
+    {
+      "id": "gradient-aurora",
+      "name": "渐变·弥散光",
+      "variants": ["gradient-aurora"],
+      "file": "gradient-aurora.md"
+    },
+    {
+      "id": "glassmorphism",
+      "name": "玻璃拟态",
+      "variants": ["glass-liquid", "glass-frosted", "glass-transparent"],
+      "file": "glassmorphism.md"
+    }
+  ],
+  "variants": [
+    { "id": "minimalism", "card": "minimalism", "css": "minimalism.css" },
+    { "id": "bento", "card": "bento", "css": "bento.css" },
+    { "id": "neumorphism", "card": "neumorphism", "css": "neumorphism.css" },
+    { "id": "neo-brutalism", "card": "neo-brutalism", "css": "neo-brutalism.css" },
+    { "id": "cyberpunk", "card": "cyberpunk", "css": "cyberpunk.css" },
+    { "id": "dark-tech", "card": "dark-tech", "css": "dark-tech.css" },
+    { "id": "pixel", "card": "pixel", "css": "pixel.css" },
+    { "id": "material", "card": "material", "css": "material.css" },
+    { "id": "gradient-aurora", "card": "gradient-aurora", "css": "gradient-aurora.css" },
+    { "id": "glass-liquid", "card": "glassmorphism", "css": "glass-liquid.css" },
+    { "id": "glass-frosted", "card": "glassmorphism", "css": "glass-frosted.css" },
+    { "id": "glass-transparent", "card": "glassmorphism", "css": "glass-transparent.css" }
+  ]
+}
