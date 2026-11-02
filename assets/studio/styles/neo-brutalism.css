@@ -41,7 +41,7 @@
   --shadow-2: 6px 6px 0 var(--fg);
   --shadow-3: 8px 8px 0 var(--fg);
   --shadow-field-outer: 3px 3px 0 var(--fg);
-  --shadow-field-inner: none;                 /* R4 等价方案，见下 */
+  --shadow-field-inner: 0 0 0 0 transparent;                 /* R4 等价方案，见下 */
 
   --fw-body: 400;
   --fw-strong: 700;
@@ -76,7 +76,7 @@
   --shadow-2: 6px 6px 0 var(--fg);
   --shadow-3: 8px 8px 0 var(--fg);
   --shadow-field-outer: 3px 3px 0 var(--fg);
-  --shadow-field-inner: none;
+  --shadow-field-inner: 0 0 0 0 transparent;
 
   --fw-body: 350;
   --fw-strong: 650;

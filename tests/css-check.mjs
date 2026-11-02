@@ -153,7 +153,9 @@ function checkFile(file) {
     const isLocal = t.startsWith('--glass-') || t.startsWith('--aurora-') ||
       t.startsWith('--tint-') || t.startsWith('--text-scrim') || t.startsWith('--edge-') ||
       t.startsWith('--fallback-') || t === '--cut' || t === '--px' || t === '--grid-gap' ||
-      t === '--bento-cols' || t === '--hyalite' || t === '--hyalite-edge';
+      t === '--bento-cols' || t === '--hyalite' || t === '--hyalite-edge' ||
+      // 声明字体可用字重的元 token：供 audit.mjs 识别单字重字体（R5 例外）
+      t === '--font-weights-declared';
     if (!SEMANTIC_TOKENS.has(t) && !isLocal) {
       add('warn', name, 0, `新增了非语义 token ${t}（确认 base.css 会消费它）`);
     }

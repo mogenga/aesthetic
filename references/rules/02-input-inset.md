@@ -322,10 +322,22 @@ R4 明确允许：新粗野主义 / 像素风用硬边框时，用 `inset 0 0 0 
 
 `audit.mjs`（L2）对每个匹配 `input` / `textarea` / `select` / `[contenteditable]` 的元素读 `getComputedStyle`：
 
+R4 要的是**控件读作"凹进页面"**，不是"必须有三层阴影"。三层是默认做法，不是唯一做法。因此判定分三档，满足任一即通过：
+
 ```
-1. boxShadow 包含至少一条非 inset 投影        → 否则 ✗ "缺外投影"
-2. boxShadow 包含 inset 0 0 0 1px（或 2px）    → 否则 ✗ "缺内环"
-3. boxShadow 包含 inset 0 1px 2px              → 缺则 ⚠ "缺内投影"
+A. 三层法（默认）
+   boxShadow 同时含 非 inset 投影 + inset 内环 + inset 内投影
+B. 硬边框法（新粗野主义 / 像素风 / 硬边风格）
+   borderStyle = solid 且 borderWidth ≥ 2px  +  至少一条非 inset 投影
+   —— 硬边框承担"咬合线"，偏移硬阴影承担"嵌入"
+C. 填充凹陷法（Material / 赛博朋克 / 新拟态等无边框风格）
+   boxShadow 含至少两条 inset 投影（内投影 + 内环，或双色成对下沉）
+   —— 控件靠内阴影整体压进表面，外投影反而会让它浮起来
+```
+
+三种都不满足 → ✗。只看 `box-shadow` 而不看 `border` 会把 B 判错；要求非 inset 投影会把 C 判错。
+
+```
 4. :focus-visible 态的内环颜色 = --accent      → 否则 ✗
 5. :focus-visible 态存在外环且宽度 ≥ 3px        → 否则 ⚠
 6. borderStyle = solid 且宽度 ≥ 1px            → 否则 ⚠ "forced-colors 风险"

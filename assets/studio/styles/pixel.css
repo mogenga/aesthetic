@@ -37,7 +37,7 @@
   --shadow-2: 8px 8px 0 var(--fg);
   --shadow-3: 0 8px 0 var(--fg);
   --shadow-field-outer: 4px 4px 0 var(--fg);
-  --shadow-field-inner: none;
+  --shadow-field-inner: 0 0 0 0 transparent;
 
   /* 像素字体通常单字重，"降一档"落在同一值上，记 actualWeight */
   --fw-body: 400;
@@ -46,6 +46,9 @@
 
   /* base.css 消费 --font-sans；像素风把正文也换成等宽，标题另用像素字 */
   --font-sans: "Chivo Mono", "Cascadia Mono", "SF Mono", monospace;
+  /* 像素字体只有单字重，R5 的降档在此不适用（见 models/style card）。
+     这个 token 让 audit.mjs 认出该例外，而不是靠猜。 */
+  --font-weights-declared: "700";
   --font-display: "Press Start 2P", "Silkscreen", "Chivo Mono", monospace;
   --font-mono: "Chivo Mono", "Cascadia Mono", monospace;
 

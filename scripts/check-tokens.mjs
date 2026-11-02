@@ -239,6 +239,14 @@ function checkColorPolicy(data, file, report) {
       ['accent', 3.0, '焦点指示 / 非文本控件', bgHex],
       ['accent', 3.0, '焦点内环 vs 输入框底', sunkenHex],
     ];
+    // Filled controls put text on a saturated ground. Comparing fg/bg says
+    // nothing about them, and this is exactly where a palette breaks silently.
+    if (c['on-accent']) checks.push(['on-accent', 4.5, '主按钮文字', toHex(c.accent)]);
+    if (c['on-danger']) checks.push(['on-danger', 4.5, '危险按钮文字', toHex(c.danger)]);
+    if (c['on-danger'] && !c.danger) {
+      report.warn('A11Y', file, 0,
+        `${theme}.on-danger 已定义但 ${theme}.danger 没有，无法校验按钮文字对比度。`);
+    }
     for (const [name, min, label, against] of checks) {
       if (!c[name]) continue;
       const fgHex = toHex(c[name]);
@@ -246,7 +254,9 @@ function checkColorPolicy(data, file, report) {
       if (!bgForCheck || !fgHex) continue;
       const ratio = contrastHex(fgHex, bgForCheck);
       if (ratio < min) {
-        const surface = bgForCheck === sunkenHex && against !== bgHex ? '输入框底' : 'bg';
+        const surface = name === 'on-accent' ? 'accent'
+          : name === 'on-danger' ? 'danger'
+            : bgForCheck === sunkenHex && against !== bgHex ? '输入框底' : 'bg';
         report.error('A11Y', file, 0,
           `${theme}.${name}（${label}）对 ${surface} 的对比度 ${ratio.toFixed(2)}:1 < ${min}:1。`);
       }

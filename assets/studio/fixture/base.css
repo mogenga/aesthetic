@@ -329,7 +329,7 @@ select.field-control {
 .checkbox__box {
   display: grid; place-items: center;
   flex: 0 0 auto; width: var(--s-5);
-  height: var(--s-5); margin-top: 1px;
+  height: var(--s-5); margin-top: var(--optical-checkbox-y);
   border-radius: var(--r-sm); background: var(--surface-sunken);
   box-shadow: var(--shadow-field-outer), var(--shadow-field-inner), inset 0 0 0 1px var(--line-inset); color: var(--on-accent);
   transition: background-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
@@ -427,7 +427,7 @@ select.field-control {
 .delta[data-trend="down"] { color: var(--danger); }
 .delta[data-trend="down-good"] { color: var(--success); }
 .delta .ico { width: var(--icon-sm); height: var(--icon-sm); }
-.stat__spark { display: flex; align-items: flex-end; gap: 2px; height: var(--s-6); margin-top: auto; }
+.stat__spark { display: flex; align-items: flex-end; gap: var(--optical-bar-gap); height: var(--s-6); margin-top: auto; }
 .stat__spark span { flex: 1 1 auto; min-height: 2px; border-radius: var(--r-full); background: var(--accent-soft); }
 .stat__spark span:last-child { background: var(--accent); }
 /* 四层表面叠放：每一层是上一层的子层，演示 ΔL 阶梯 */
@@ -460,7 +460,7 @@ select.field-control {
   font-size: var(--fs-xs); font-weight: var(--fw-small); font-variant-numeric: tabular-nums;
   line-height: var(--lh-snug);
 }
-.timeline__marker { display: flex; justify-content: center; padding-top: var(--marker-shift); }
+.timeline__marker { display: flex; justify-content: center; padding-top: var(--optical-marker-y); }
 .timeline__title { font-size: var(--fs-sm); font-weight: var(--fw-small-strong); line-height: var(--lh-snug); }
 .timeline__body { margin-top: var(--s-1); color: var(--fg-muted); font-size: var(--fs-xs); font-weight: var(--fw-small); line-height: var(--lh-body); }
 .dash-split { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: var(--s-5); align-items: start; }
@@ -577,7 +577,7 @@ select.field-control {
   font-size: var(--fs-xs); font-weight: var(--fw-small); line-height: var(--lh-snug);
 }
 .field__error { display: flex; align-items: flex-start; gap: var(--s-1); color: var(--danger); }
-.field__error .ico { flex: 0 0 auto; width: var(--s-4); height: var(--s-4); margin-top: 0.05em; }
+.field__error .ico { flex: 0 0 auto; width: var(--s-4); height: var(--s-4); margin-top: var(--optical-error-icon-y); }
 .field__help[hidden], .field__error[hidden] { display: none; }
 .field-row { display: flex; align-items: center; justify-content: space-between; gap: var(--s-5); min-height: var(--control-h); }
 .field-row__text { display: flex; flex-direction: column; gap: var(--s-1); }

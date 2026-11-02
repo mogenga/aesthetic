@@ -481,6 +481,40 @@ test('lint: 暗色未降字重被报', () => {
   truthy(r.out.includes('R5'), '应报 R5');
 });
 
+test('lint: 按钮文字对比度不足被报', () => {
+  const dir = makeProject();
+  const d = sampleDecisions();
+  d.color.light['on-accent'] = { oklch: 'oklch(0.80 0.02 250)', hex: '#c3c7cd', l: 0.8 };
+  writeDecisions(dir, d);
+  const r = run('check-tokens.mjs', ['--project', dir], 1);
+  truthy(r.out.includes('on-accent'), '应报主按钮文字对比度');
+});
+
+test('lint: 小字字重被降档时被报', () => {
+  const dir = makeProject();
+  const d = sampleDecisions();
+  d.weights.dark.small = 350;
+  writeDecisions(dir, d);
+  const r = run('check-tokens.mjs', ['--project', dir], 1);
+  truthy(r.out.includes('小字') || r.out.includes('small'), '应报小字被降档');
+});
+
+test('build: 小字字重跨主题恒定', () => {
+  const dir = makeProject();
+  writeDecisions(dir, sampleDecisions());
+  run('build.mjs', ['--project', dir, '--quiet']);
+  const css = fs.readFileSync(path.join(dir, 'design', 'aesthetic', 'tokens.css'), 'utf8');
+  const light = css.split('[data-theme="dark"]')[0];
+  const dark = css.split('[data-theme="dark"]')[1] || '';
+  const pick = (block, name) => {
+    const m = block.match(new RegExp(`--${name}:\\s*([0-9.]+)`));
+    return m ? Number(m[1]) : null;
+  };
+  eq(pick(light, 'fw-small'), pick(dark, 'fw-small'), '--fw-small 暗色应等于浅色');
+  eq(pick(light, 'fw-small-strong'), pick(dark, 'fw-small-strong'), '--fw-small-strong 暗色应等于浅色');
+  truthy(pick(dark, 'fw-body') < pick(light, 'fw-body'), '--fw-body 暗色应低于浅色');
+});
+
 // ---------------------------------------------------------------------------
 // 7. path safety
 // ---------------------------------------------------------------------------

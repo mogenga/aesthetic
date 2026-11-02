@@ -329,6 +329,11 @@ function collectFacts(cfg) {
         body: pick('--fw-body'),
         strong: pick('--fw-strong'),
         display: pick('--fw-display'),
+        small: pick('--fw-small'),
+        smallStrong: pick('--fw-small-strong'),
+        // 页面若声明了字体可用字重（如 @font-face 的 font-weight 范围），
+        // 用来识别「单字重字体降不了档」这一已知例外
+        fontWeightsDeclared: pick('--font-weights-declared') || '',
       };
     };
     const dark = readWeights();
@@ -464,11 +469,20 @@ function collectFacts(cfg) {
         continue;
       }
       if (!authorDeclared(el, prop)) continue;
+      // `auto` / `inherit` 等关键字没有可校验的数值；`margin: auto` 算出来的
+      // 是剩余空间（例如 459.625px），把它当间距判会制造大量假警告。
+      const declaredRaw = String(declaredByProp[prop].get(el) || '').trim().toLowerCase();
+      if (/^(auto|inherit|initial|unset|revert)\b/.test(declaredRaw)) continue;
       const value = num(cs.getPropertyValue(prop));
       if (value === null || value === 0) continue;
       out.structureChecked++;
       const token = opticalSource(el, prop);
       if (token) {
+        out.structureExplained++;
+        continue;
+      }
+      // 负值几乎都是视觉裁剪（.visually-hidden 的 -1px），不是间距。
+      if (value < 0) {
         out.structureExplained++;
         continue;
       }
@@ -500,30 +514,63 @@ function collectFacts(cfg) {
     if (type && SKIP_INPUT_TYPES[type]) return;
     if (!isVisible(el)) return;
     const cs = getComputedStyle(el);
+    const bw = (side) => num(cs[`border${side}Width`]) || 0;
+    const borderMax = Math.max(bw('Top'), bw('Right'), bw('Bottom'), bw('Left'));
     out.inputs.push({
       selector: selectorFor(el),
       tag: el.tagName.toLowerCase(),
       type: type || null,
       boxShadow: String(cs.boxShadow || '').trim(),
       borderTop: String(cs.borderTopWidth || '') + ' ' + String(cs.borderTopStyle || ''),
+      // R4 的替代方案：≥2px 的实心边框承担「咬合线」职责
+      borderMaxWidth: borderMax,
+      borderStyle: String(cs.borderTopStyle || '').trim(),
+      borderBottomWidth: num(cs.borderBottomWidth) || 0,
+      // 策略 D：填充凹陷 —— 输入框底色比页面更深即读作凹进
+      background: String(cs.backgroundColor || '').trim(),
+      pageBackground: String(getComputedStyle(document.body).backgroundColor || '').trim(),
     });
   });
 
   // ---- R7：计时器
+  // R7 判的是「数字等宽」，不是「这个元素自己声明了 tabular-nums」。
+  // 外层 .timer 是标签容器，真正显示数字的是里面的 [data-timer]；
+  // 而且 font-variant-numeric 会继承，所以要在元素自己或任意祖先上找到它。
   Array.prototype.forEach.call(document.querySelectorAll('.timer, [data-timer]'), (el) => {
     if (!isVisible(el)) return;
+    // 容器不算：如果里面还有另一个计时器元素，真正的数字在子元素上，
+    // 子元素会被单独检查。否则外层 .timer（标签 + 数字）会被误判。
+    if (el.querySelector('.timer, [data-timer]')) return;
+
     const cs = getComputedStyle(el);
+    // 元素自身没写时，向上找最近的已声明值（font-variant-numeric 会继承）
+    let source = el;
+    let variant = String(cs.fontVariantNumeric || '').trim();
+    if (!/tabular-nums/i.test(variant)) {
+      for (let p = el.parentElement; p; p = p.parentElement) {
+        const pv = String(getComputedStyle(p).fontVariantNumeric || '').trim();
+        if (/tabular-nums/i.test(pv)) { source = p; variant = pv; break; }
+      }
+    }
     out.timers.push({
       selector: selectorFor(el),
-      fontVariantNumeric: String(cs.fontVariantNumeric || '').trim(),
+      fontVariantNumeric: variant,
+      inheritedFrom: source === el ? null : selectorFor(source),
+      hasDigits: /\d/.test(el.textContent || ''),
       fontFamily: String(cs.fontFamily || '').trim(),
     });
   });
 
   // ---- R8：设置行
-  const LABEL_SEL = 'label, [data-label], .label, .field-label, .settings-label, .row-label';
+  // R8 说的是「名称在左、控件在右」，不要求名称必须是 <label>。
+  // 设置行的名称常是纯文本（它不带 for=，因为控件在右边单独一处），
+  // 所以除了 label 还要认这些约定俗成的名称容器。
+  const LABEL_SEL = [
+    'label', '[data-label]', '.label', '.field-label', '.settings-label', '.row-label',
+    '.settings-row__name', '.settings-row__text', '.row-name', '.setting-name',
+  ].join(', ');
   const CONTROL_SEL = '[data-control], input, select, textarea, button, [role="switch"], '
-    + '[role="checkbox"], [role="combobox"], .switch, .toggle, .control';
+    + '[role="checkbox"], [role="combobox"], .switch, .toggle, .control, .settings-row__control';
   Array.prototype.forEach.call(document.querySelectorAll('[data-settings-row]'), (row) => {
     if (!isVisible(row)) return;
     const cs = getComputedStyle(row);
@@ -551,11 +598,19 @@ function collectFacts(cfg) {
   });
 
   // ---- R9：表单字段
+  // R9 只约束「录入型」字段：名称在上、输入区在下、输入全宽。
+  // 开关与勾选属于「一行一个判断」，是 R8 的形态（名称在左、控件在右），
+  // 它们的 input 常常是视觉隐藏的，宽度比必然接近 0，不应被 R9 判错。
+  const NON_ENTRY = 'checkbox, radio';
   Array.prototype.forEach.call(document.querySelectorAll('[data-field]'), (field) => {
     if (!isVisible(field)) return;
     const cs = getComputedStyle(field);
     const label = field.querySelector(LABEL_SEL);
     const input = field.querySelector('input:not([type="hidden"]), textarea, select');
+    const inputType = input
+      ? (input.tagName === 'INPUT' ? String(input.type || 'text').toLowerCase() : input.tagName.toLowerCase())
+      : null;
+    const isEntry = !!input && !NON_ENTRY.split(', ').includes(inputType);
     const fr = field.getBoundingClientRect();
     const padL = num(cs.paddingLeft) || 0;
     const padR = num(cs.paddingRight) || 0;
@@ -566,6 +621,8 @@ function collectFacts(cfg) {
       selector: selectorFor(field),
       hasLabel: !!label,
       hasInput: !!input,
+      inputType,
+      isEntry,
       labelBottom: lr ? round(lr.bottom, 2) : null,
       labelLeft: lr ? round(lr.left, 2) : null,
       inputTop: ir ? round(ir.top, 2) : null,
@@ -676,6 +733,30 @@ class Findings {
 
 const fmt = (n, p = 2) => (typeof n === 'number' && Number.isFinite(n) ? Number(n.toFixed(p)) : n);
 
+/** 是否为半透明：rgb/rgba 的 alpha，或 oklch 的 / a */
+function isTranslucent(value) {
+  const s = String(value || '');
+  const rgba = s.match(/rgba?\([^)]*[,\/]\s*([\d.]+)\s*\)$/i);
+  if (rgba) return Number(rgba[1]) < 0.99;
+  const ok = s.match(/\/\s*([\d.]+)%?\s*\)$/);
+  if (ok) return Number(ok[1]) < 0.99;
+  return false;
+}
+
+/**
+ * 判断控件底色是否比页面更深（读作"凹进去"）。
+ * 浏览器算出来的颜色可能是 `oklch(...)`、`oklab(...)` 或 `rgb(...)`，
+ * 统一走既有的 parseCssColor 转成 OKLCH 再比 L 通道。
+ * 返回 true = 更深，false = 更浅或相同，null = 无法解析。
+ */
+function isDarkerThan(fg, bg) {
+  if (isTranslucent(fg) || isTranslucent(bg)) return null;
+  const a = parseCssColor(fg);
+  const b = parseCssColor(bg);
+  if (!a || !b) return null;
+  return a.L < b.L - 0.002;          // 半个 ΔL 步长以下的差视为相同
+}
+
 function checkR1(facts, findings, rules) {
   const rule = 'R1-structure';
   if (!rules.has(rule)) return;
@@ -781,20 +862,40 @@ function checkR4(facts, findings, rules) {
     const isNone = shadows.length === 1 && shadows[0].toLowerCase() === 'none';
     const outer = isNone ? [] : shadows.filter((s) => !/\binset\b/i.test(s));
     const inset = isNone ? [] : shadows.filter((s) => /\binset\b/i.test(s));
+    const solidBorder = (el.borderMaxWidth || 0) >= 2 && /solid/i.test(el.borderStyle || '');
 
-    const problems = [];
-    if (!outer.length) problems.push('缺外投影');
-    if (!inset.length) problems.push('缺 inset 内环');
+    // R4 要的是「控件读作凹进页面」，三种做法都成立
+    // （见 references/rules/02-input-inset.md §10）：
+    //   A 三层法   —— 外投影 + inset 内环（+ 内投影）
+    //   B 硬边框法 —— ≥2px 实心边框 + 非 inset 投影
+    //   C 填充凹陷 —— 仅靠 inset 投影压进表面，不要外投影
+    // D 填充法：底色明显深于页面 + 一条底部/完整描边（Material filled、暗色仪表面板）
+    const fillSunken = isDarkerThan(el.background, el.pageBackground) === true;
+    const underline = (el.borderBottomWidth || 0) >= 1;
 
-    if (!problems.length) {
-      findings.pass(rule, el.selector, '外投影 + inset 内环', `${shadows.length} 层 shadow`);
+    const strategy =
+      (outer.length && solidBorder) ? 'B-硬边框'
+        : (outer.length && inset.length >= 2) ? 'A-三层'
+          : (inset.length >= 2) ? 'C-内阴影凹陷'
+            : (fillSunken && underline) ? 'D-填充凹陷'
+              : null;
+
+    if (strategy) {
+      findings.pass(rule, el.selector,
+        'A 三层 / B 硬边框 / C 填充凹陷',
+        `策略 ${strategy}：外 ${outer.length} / inset ${inset.length} / border ${el.borderMaxWidth || 0}px`,
+        strategy === 'B' ? '硬边框承担咬合线'
+          : strategy === 'C' ? '内阴影整体压进表面，不应有外投影'
+            : strategy === 'D' ? '底色深于页面 + 底线，读作填充型凹陷'
+              : '外投影 + 内环');
       continue;
     }
+
     const actual = isNone ? 'box-shadow: none' : `外投影 ${outer.length} 层 / inset ${inset.length} 层`;
     findings.error(rule, el.selector,
-      '外投影 + 至少一条 inset 内环',
+      'A 外投影+内环 / B 硬边框+外投影 / C ≥2 条 inset / D 深底填充+底线',
       actual,
-      `${problems.join('，')}：${actual}`);
+      `没有任何一种凹陷表达：${actual}`);
   }
 }
 
@@ -810,6 +911,13 @@ function checkR5(facts, findings, rules, theme) {
     findings.skip(rule, '页面没有返回 --fw-* 计算值');
     return;
   }
+  // R5 的「降一档」有已知例外：单字重字体（像素风）只有一档可用，
+  // 无法降级也不能为凑数换字族。判定方式是字体声明里只有一个字重值。
+  const fontWeightsDeclared = String(w.dark?.fontWeightsDeclared || '').trim();
+  const singleWeightFamily = fontWeightsDeclared
+    && !/\s/.test(fontWeightsDeclared.replace(/[,\s]+$/, ''))
+    && !/\d+\s+\d+/.test(fontWeightsDeclared);
+
   const roles = [
     { key: 'body', token: '--fw-body', min: 300 },
     { key: 'strong', token: '--fw-strong', min: 0 },
@@ -829,6 +937,9 @@ function checkR5(facts, findings, rules, theme) {
     if (!Number.isFinite(lightVal)) {
       findings.warn(rule, ':root', `${token} 有 light 基线`, lightRaw,
         `读不到 ${token} 的 light 基线，无法比较降档`);
+    } else if (darkVal >= lightVal && singleWeightFamily) {
+      findings.skip(rule, ':root',
+        `字体只有单字重（${fontWeightsDeclared}），无法降档`);
     } else if (darkVal >= lightVal) {
       findings.error(rule, ':root',
         `${token} dark < light (${lightVal})`,
@@ -845,6 +956,41 @@ function checkR5(facts, findings, rules, theme) {
         `${token} 暗色 ${darkVal} 低于护栏 ${min}`);
     }
   }
+
+  // R5 只降 ≥16px 的字重。<16px 的文字用 --fw-small / --fw-small-strong，
+  // 暗色下必须与浅色完全同值 —— 否则小字会从"清楚"变成"发虚"。
+  const smallRoles = [
+    { key: 'small', token: '--fw-small' },
+    { key: 'smallStrong', token: '--fw-small-strong' },
+  ];
+  for (const { key, token } of smallRoles) {
+    const rawDark = String(w.dark[key] ?? '').trim();
+    const rawLight = String(w.light?.[key] ?? '').trim();
+    if (!rawDark && !rawLight) {
+      findings.warn(rule, ':root', `${token} 已定义`, '(缺省)',
+        `${token} 未定义：<16px 的文字会继承降档后的 --fw-body，违反「小字不降」。`);
+      continue;
+    }
+    const darkVal = parseFloat(rawDark);
+    const lightVal = parseFloat(rawLight);
+    if (!Number.isFinite(darkVal)) {
+      findings.error(rule, ':root', `${token} 有数值`, rawDark || '(空)',
+        `读不到 ${token} 的暗色计算值`);
+      continue;
+    }
+    if (!Number.isFinite(lightVal)) {
+      findings.warn(rule, ':root', `${token} 有 light 基线`, rawLight || '(空)',
+        `读不到 ${token} 的浅色基线，无法确认小字未降档`);
+      continue;
+    }
+    if (darkVal !== lightVal) {
+      findings.error(rule, ':root', `${token} 暗色 = 浅色 (${lightVal})`, `${darkVal}`,
+        `${token} 暗色 ${darkVal} ≠ 浅色 ${lightVal}：小字不应参与降档`);
+    } else {
+      findings.pass(rule, ':root', `${token} 暗色 = 浅色 (${lightVal})`, `${darkVal}`,
+        `${token} 小字未降档`);
+    }
+  }
 }
 
 function checkR7(facts, findings, rules) {
@@ -856,10 +1002,15 @@ function checkR7(facts, findings, rules) {
     return;
   }
   for (const el of timers) {
+    if (el.hasDigits === false) {
+      findings.skip(rule, el.selector, '该元素不含数字，R7 不适用');
+      continue;
+    }
     const value = el.fontVariantNumeric || '';
     const ok = /tabular-nums/i.test(value);
+    const where = el.inheritedFrom ? `（继承自 ${el.inheritedFrom}）` : '';
     if (ok) {
-      findings.pass(rule, el.selector, '含 tabular-nums', value);
+      findings.pass(rule, el.selector, '含 tabular-nums', value, `${value}${where}`);
     } else {
       findings.error(rule, el.selector, 'font-variant-numeric 含 tabular-nums',
         value || '(空 / normal)',
@@ -919,6 +1070,11 @@ function checkR9(facts, findings, rules) {
     return;
   }
   for (const f of fields) {
+    if (f.isEntry === false) {
+      findings.skip(rule, f.selector,
+        `输入类型 ${f.inputType || '未知'} 属于判断型控件，R9 不适用（其形态由 R8 约束）`);
+      continue;
+    }
     const problems = [];
     if (!f.hasLabel || !f.hasInput) {
       problems.push(!f.hasLabel ? '找不到标签' : '找不到输入控件');
@@ -1000,6 +1156,7 @@ function collectConfig(cfg) {
     customProps: [
       '--surface-1', '--surface-2', '--surface-3',
       '--fw-body', '--fw-strong', '--fw-display',
+      '--fw-small', '--fw-small-strong',
     ],
   };
 }

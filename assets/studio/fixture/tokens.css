@@ -108,6 +108,14 @@
   --label-gap: 8px;                        /* 标签 → 输入，6–8px */
   --icon-shift: -0.125em;                  /* 行内图标下移 1/8 字高 */
   --focus-ring: 0 0 0 3px color-mix(in oklab, var(--accent) 26%, transparent);
+  /* 微型柱状图的柱间距：2px 是密度上限，再宽就看不出"一条趋势" */
+  --optical-bar-gap: 2px;
+  /* 时间线标记点的基线修正：让 6px 圆点与首行文字的视觉中线对齐 */
+  --optical-marker-y: 6px;
+  /* 错误提示里 16px 图标的基线微调（em 跟随字号，不随主题变） */
+  --optical-error-icon-y: 0.05em;
+  /* 勾选框与首行文字的视觉居中对齐 */
+  --optical-checkbox-y: 1px;
 
   /* ---- 布局结构值 -------------------------------------------------------- */
   --content-max: 1120px;
@@ -151,7 +159,6 @@
   --composer-max: 160px;
   --select-min: 176px;
   --search-icon-inset: 40px;
-  --marker-shift: 6px;
 }
 
 /* ==========================================================================

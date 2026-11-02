@@ -37,7 +37,7 @@
   --shadow-2: 10px 10px 20px rgb(0 0 0 / 0.12), -10px -10px 20px rgb(255 255 255 / 0.95);
   --shadow-3: 16px 16px 32px rgb(0 0 0 / 0.16), -16px -16px 32px rgb(255 255 255 / 0.95);
   /* 下沉：inset 版，输入框用 */
-  --shadow-field-outer: none;
+  --shadow-field-outer: 0 0 0 0 transparent;
   --shadow-field-inner: inset 3px 3px 6px rgb(0 0 0 / 0.12), inset -3px -3px 6px rgb(255 255 255 / 0.90);
 
   --fw-body: 500;

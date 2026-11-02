@@ -181,6 +181,7 @@
   border-radius: var(--r-md);
   box-shadow:
     var(--shadow-field-outer),
+    var(--shadow-field-inner),
     inset 0 0 0 1px var(--line-inset);
 }
 :root[data-style="glass-transparent"] .field-control:focus-visible {
