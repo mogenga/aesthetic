@@ -1,5 +1,5 @@
 <!-- aesthetic:begin v2 — 由 aesthetic 生成，勿手改；重跑只覆盖此块 -->
-<!-- sourceHash: sha256:f9e40363655ff3b29194d9966c809868e3f888db14a609b038b8dce5298c6209 · generatorVersion: aesthetic-v2 -->
+<!-- sourceHash: sha256:8bbf24d5b1dda415a9cab2a4ba5f18eba680a8097eb226876fa21c4e3edee378 · generatorVersion: aesthetic-v2 -->
 ## 非协商项（本项目取值）
 
 > 完整合同：`design/aesthetic/contract.md` · 令牌：`design/aesthetic/tokens.css`
@@ -10,7 +10,7 @@
 
 **AI 界面**：流式文字逐字 30ms 错峰、高斯模糊→瞬间对焦；正文行内图标 `vertical-align: -0.125em`；思考框用 `0fr → 1fr` 网格撑开。
 
-**暗色模式**：全站文字字重降一档（body 350 / strong 500 / display 600），正文不低于 300，小于 16px 不低于 400。
+**暗色模式**：**大字号**文字字重降一档（body 350 / strong 500 / display 600），正文不低于 300。**小于 16px 的文字不降**，保持 `--fw-small: 400` —— 小字在暗底上本来已细，再降会糊。
 
 **色彩**：表面层级 ΔL ∈ [0.010, 0.030]；禁止场景不用纯黑，正文用 `#1A1A19`。
 

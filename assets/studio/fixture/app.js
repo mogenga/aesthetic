@@ -101,7 +101,8 @@ function mount(view) {
 
   main.innerHTML = route.render(route.data);
   main.dataset.view = view;
-  if (window.innerWidth <= 600) app.dataset.rail = "closed";
+  // 窄屏换页时收起抽屉；桌面端保留用户选择的 collapsed
+  if (window.innerWidth <= 600) setDrawer(false);
   else if (!app.dataset.rail) app.dataset.rail = "expanded";
 
   updateRailButton();
@@ -117,6 +118,17 @@ function handleRoute() {
 }
 
 /* ---------------------------------------------------------------- 侧栏 ---- */
+/* 注意：railOpenBtn 必须在 mount() 首次运行前初始化，所以这一段放在路由调用之前。 */
+
+const railOpenBtn = document.querySelector("[data-rail-open]");
+
+function setDrawer(open) {
+  // 抽屉只表达「窄屏侧栏可见与否」，不覆盖桌面端的 collapsed / expanded
+  if (window.innerWidth <= 600) app.dataset.rail = open ? "open" : "closed";
+  else if (open) app.dataset.rail = "expanded";
+  else if (app.dataset.rail === "closed") app.dataset.rail = "expanded";
+  railOpenBtn?.setAttribute("aria-expanded", String(!!open));
+}
 
 function updateRailButton() {
   if (!railToggle) return;
@@ -129,6 +141,11 @@ railToggle?.addEventListener("click", () => {
   if (app.dataset.rail === "closed") app.dataset.rail = "open";
   else app.dataset.rail = app.dataset.rail === "collapsed" ? "expanded" : "collapsed";
   updateRailButton();
+});
+
+railOpenBtn?.addEventListener("click", () => setDrawer(app.dataset.rail !== "open"));
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") setDrawer(false);
 });
 
 /* ------------------------------------------- 计时器（R7：等宽、不位移） ---- */
@@ -334,5 +351,12 @@ function boot() {
 
 boot();
 
-// 供人工排查：控制台可直接查看登记表
-window.__fixture = { ROUTES, GLYPH_LIMIT, formatClock };
+// 供人工排查与自动化验收：控制台可直接切主题、看登记表
+window.__fixture = {
+  ROUTES,
+  GLYPH_LIMIT,
+  formatClock,
+  setTheme: (theme) => applyTheme(theme === "dark" ? "dark" : "light", true),
+  getTheme: () => doc.dataset.theme,
+  route: () => main.dataset.view,
+};

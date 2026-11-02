@@ -1,6 +1,6 @@
 /*
  * tokens.css — 由 decisions.json 派生，请勿手改。
- * sourceHash: sha256:2ca631b611f7f26bc52f083f3c20f9fa02e527740405ef21e2afe4f9dd0ca9c2
+ * sourceHash: sha256:8bbf24d5b1dda415a9cab2a4ba5f18eba680a8097eb226876fa21c4e3edee378
  * generatedAt: 2026-11-01T00:00:00Z
  * generatorVersion: aesthetic-v2
  */
@@ -52,7 +52,9 @@
   --fw-body: 400;
   --fw-strong: 600;
   --fw-display: 700;
+  /* 小字专用档：<16px 用这两档，暗色下也不降 */
   --fw-small: 400;
+  --fw-small-strong: 600;
 }
 
 :root[data-theme="dark"] {
@@ -68,9 +70,11 @@
   --line-1: oklch(0.3 0.002 85); /* #3b3a39 */
   --line-inset: oklch(0.34 0.002 85); /* #464544 */
 
-  /* type weight — R5 降一档 */
+  /* type weight — R5 降一档，仅 ≥16px */
   --fw-body: 350;
   --fw-strong: 500;
   --fw-display: 600;
+  /* 小字不动：<16px 保持浅色档。显式重写，读到 dark 块不必往上翻 */
   --fw-small: 400;
+  --fw-small-strong: 600;
 }

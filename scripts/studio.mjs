@@ -1,20 +1,20 @@
 #!/usr/bin/env node
 /**
- * studio.mjs — Aesthetic Studio：本地设计工作台 + 六个写回端点。
+ * studio.mjs — Aesthetic Studio：本地工作台 + 六个写回端点。
  * 零运行时第三方依赖，只用 node: 内置模块。assets/studio/ 映射到 /studio/。
  *
  * 本地安全（七条，全部生效）：
  *   1. 只监听 127.0.0.1
  *   2. 一次性 token，所有 POST 必须带 X-Studio-Token，否则 403
- *   3. 默认关闭 CORS   4. JSON body ≤ 256 KB，超限 413
+ *   3. 默认关闭 CORS（不回 Access-Control-Allow-*）
+ *   4. JSON body ≤ 256 KB，超限 413
  *   5. 路径 resolve → realpath（取最近已存在祖先）→ 允许根校验；
  *      拒绝 `..`、绝对路径、符号链接逃逸、非预期扩展名
  *   6. 原子替换：临时文件 → rename；覆盖前留 .bak
  *   7. --dry-run：只打印路径与 diff，不落盘
  *
  * Exit codes: 0 ok · 1 failed · 2 environment unavailable · 3 invalid input
- * Usage: node studio.mjs --project <dir> [--port 4318] [--open]
- *                        [--design-file <path>] [--dry-run] [--quiet]
+ * Usage: node studio.mjs --project <dir> [--port 4318] [--open] [--design-file <path>] [--dry-run] [--quiet]
  */
 
 import fs from 'node:fs';
@@ -45,17 +45,12 @@ const EXIT = { OK: 0, FAIL: 1, ENV: 2, INPUT: 3 };
 class HttpError extends Error {
   constructor(status, code, message, detail) {
     super(message);
-    this.status = status;
-    this.code = code;
-    this.detail = detail;
+    Object.assign(this, { status, code, detail });
   }
 }
 
 function parseArgs(argv) {
-  const o = {
-    project: null, port: 4318, open: false, designFile: null,
-    dryRun: false, quiet: false, help: false,
-  };
+  const o = { project: null, port: 4318, open: false, designFile: null, dryRun: false, quiet: false, help: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--project' || a === '-p') o.project = argv[++i];
@@ -165,20 +160,12 @@ function writeAtomic(file, text) {
   fs.renameSync(tmp, file);
 }
 
-function readJsonFile(file) {
-  try {
-    return JSON.parse(fs.readFileSync(file, 'utf8'));
-  } catch {
-    return null;
-  }
-}
+const readJsonFile = (file) => {
+  try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; }
+};
 
 const listCss = (dir) => {
-  try {
-    return fs.readdirSync(dir).filter((f) => f.endsWith('.css')).sort();
-  } catch {
-    return [];
-  }
+  try { return fs.readdirSync(dir).filter((f) => f.endsWith('.css')).sort(); } catch { return []; }
 };
 
 /** Minimal LCS line diff; unchanged runs >6 lines collapse, output capped. */
@@ -190,9 +177,7 @@ function lineDiff(oldText, newText, label) {
   }
   const dp = Array.from({ length: a.length + 1 }, () => new Uint16Array(b.length + 1));
   for (let i = a.length - 1; i >= 0; i--) {
-    for (let j = b.length - 1; j >= 0; j--) {
-      dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
-    }
+    for (let j = b.length - 1; j >= 0; j--) dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
   }
   const raw = [];
   let i = 0;
@@ -204,7 +189,6 @@ function lineDiff(oldText, newText, label) {
   }
   while (i < a.length) raw.push(`- ${a[i++]}`);
   while (j < b.length) raw.push(`+ ${b[j++]}`);
-
   const out = [];
   for (let k = 0; k < raw.length; k++) {
     let run = 0;
@@ -217,7 +201,7 @@ function lineDiff(oldText, newText, label) {
 
 // === http helpers ===
 
-// Static MIME allowlist. Anything not listed is refused.
+// 静态 MIME 允许清单：不在表里的扩展一律拒绝。
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
@@ -229,26 +213,17 @@ const MIME = {
 };
 
 const baseHeaders = () => ({
-  'X-Content-Type-Options': 'nosniff',
-  'Referrer-Policy': 'no-referrer',
-  'Cache-Control': 'no-store',
+  'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'Cache-Control': 'no-store',
 });
 
-function sendJson(res, status, obj) {
-  const body = Buffer.from(`${JSON.stringify(obj, null, 2)}\n`, 'utf8');
-  res.writeHead(status, {
-    ...baseHeaders(), 'Content-Type': 'application/json; charset=utf-8', 'Content-Length': body.length,
-  });
-  res.end(body);
+function send(res, status, body, type) {
+  const buf = Buffer.from(body, 'utf8');
+  res.writeHead(status, { ...baseHeaders(), 'Content-Type': type, 'Content-Length': buf.length });
+  res.end(buf);
 }
 
-function sendText(res, status, text) {
-  const body = Buffer.from(text, 'utf8');
-  res.writeHead(status, {
-    ...baseHeaders(), 'Content-Type': 'text/plain; charset=utf-8', 'Content-Length': body.length,
-  });
-  res.end(body);
-}
+const sendJson = (res, status, obj) => send(res, status, `${JSON.stringify(obj, null, 2)}\n`, 'application/json; charset=utf-8');
+const sendText = (res, status, text) => send(res, status, text, 'text/plain; charset=utf-8');
 
 /** Read a JSON body; >256 KB → 413. `optional` allows an empty body. */
 function readJsonBody(req, { optional = false } = {}) {
@@ -274,23 +249,16 @@ function readJsonBody(req, { optional = false } = {}) {
     });
     req.on('error', (e) => finish(false, e));
     req.on('end', () => {
-      if (size > MAX_BODY) {
-        finish(false, new HttpError(413, 'BODY_TOO_LARGE', '请求体超过 256 KB 上限'));
-        return;
-      }
+      if (size > MAX_BODY) return finish(false, new HttpError(413, 'BODY_TOO_LARGE', '请求体超过 256 KB 上限'));
       const text = Buffer.concat(chunks).toString('utf8').trim();
-      if (!text) {
-        finish(optional, optional ? {} : new HttpError(400, 'BODY_EMPTY', '请求体为空'));
-        return;
-      }
+      if (!text) return finish(optional, optional ? {} : new HttpError(400, 'BODY_EMPTY', '请求体为空'));
       try { finish(true, JSON.parse(text)); } catch { finish(false, new HttpError(400, 'BODY_JSON', '请求体不是合法 JSON')); }
     });
   });
 }
 
 const timingEqual = (a, b) => {
-  const ba = Buffer.from(String(a));
-  const bb = Buffer.from(String(b));
+  const [ba, bb] = [Buffer.from(String(a)), Buffer.from(String(b))];
   return ba.length === bb.length && crypto.timingSafeEqual(ba, bb);
 };
 
@@ -301,8 +269,7 @@ function runScript(scriptName, argv, { timeoutMs = 120000 } = {}) {
   return new Promise((resolve) => {
     const script = path.join(HERE, scriptName);
     if (!fs.existsSync(script)) {
-      resolve({ ok: false, code: 'ENV', status: 503, stdout: '', stderr: '',
-        message: `找不到 ${scriptName}（该功能尚未实现或未安装）` });
+      resolve({ ok: false, code: 'ENV', status: 503, stdout: '', stderr: '', message: `找不到 ${scriptName}（该功能尚未实现或未安装）` });
       return;
     }
     const child = spawn(process.execPath, [script, ...argv], {
@@ -311,7 +278,7 @@ function runScript(scriptName, argv, { timeoutMs = 120000 } = {}) {
     let stdout = '';
     let stderr = '';
     let killed = false;
-    const cap = (s, c) => (s.length > 65536 ? s : s + c.toString('utf8'));
+    const cap = (acc, c) => (acc.length > 65536 ? acc : acc + c.toString('utf8'));
     child.stdout.on('data', (c) => { stdout = cap(stdout, c); });
     child.stderr.on('data', (c) => { stderr = cap(stderr, c); });
     const timer = setTimeout(() => { killed = true; child.kill(); }, timeoutMs);
@@ -321,10 +288,7 @@ function runScript(scriptName, argv, { timeoutMs = 120000 } = {}) {
     });
     child.on('close', (code) => {
       clearTimeout(timer);
-      if (killed) {
-        resolve({ ok: false, code: 'TIMEOUT', status: 504, message: `${scriptName} 超时`, stdout, stderr });
-        return;
-      }
+      if (killed) return resolve({ ok: false, code: 'TIMEOUT', status: 504, message: `${scriptName} 超时`, stdout, stderr });
       const status = code === 0 ? 200 : code === 2 ? 503 : code === 3 ? 400 : 422;
       resolve({ ok: code === 0, code, status, message: code === 0 ? null : `退出码 ${code}`, stdout, stderr });
     });
@@ -350,7 +314,7 @@ function createApi(config, schema) {
     return { dryRun: false, diff: null, bytes };
   }
 
-  /** Run a child script with --project (+ extras + --dry-run), return its log. */
+  /** 跑子脚本（带 --project / 额外参数 / 可选 --dry-run），返回其 stdout。 */
   async function call(script, extra = [], opts) {
     const argv = ['--project', projectRoot, ...extra];
     if (dryRun) argv.push('--dry-run');
@@ -369,11 +333,8 @@ function createApi(config, schema) {
       const target = safeTarget(outDir, body.path || 'decisions.json', { exts: ['.json'], label: 'decisions 路径' });
       const stored = readJsonFile(decisionsPath) || {};
       const meta = { schemaVersion: 1, theme: 'light-dark', ...(stored.meta || {}), ...(incoming.meta || {}) };
-      if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(String(meta.generatedAt || ''))) {
-        meta.generatedAt = new Date().toISOString();
-      }
-      meta.schemaVersion = 1;
-      meta.generatorVersion = GENERATOR;
+      if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(String(meta.generatedAt || ''))) meta.generatedAt = new Date().toISOString();
+      Object.assign(meta, { schemaVersion: 1, generatorVersion: GENERATOR });
       const merged = { ...stored, ...incoming, meta };
 
       const { valid, errors } = validate(schema, merged);
@@ -385,30 +346,20 @@ function createApi(config, schema) {
         sourceHash: `sha256:${hashDecisions(merged)}`, ...plan,
       };
     },
-
     async tokens() {
-      const log = await call('build.mjs', ['--only', 'tokens']);
-      return { ok: true, outputs: [`${OUT_REL}/tokens.json`, `${OUT_REL}/tokens.css`], log };
+      return { ok: true, outputs: [`${OUT_REL}/tokens.json`, `${OUT_REL}/tokens.css`], log: await call('build.mjs', ['--only', 'tokens']) };
     },
-
     async contract() {
-      const log = await call('build.mjs', ['--only', 'contract']);
-      return { ok: true, outputs: [`${OUT_REL}/contract.md`], log };
+      return { ok: true, outputs: [`${OUT_REL}/contract.md`], log: await call('build.mjs', ['--only', 'contract']) };
     },
-
     async inject() {
       const log = await call('inject.mjs', ['--design-file', designFile]);
-      return {
-        ok: true, file: toPosix(path.relative(projectRoot, designFile)), log,
-        designFileOutsideProject: !isInside(projectRoot, designFile),
-      };
+      return { ok: true, log, file: toPosix(path.relative(projectRoot, designFile)),
+        designFileOutsideProject: !isInside(projectRoot, designFile) };
     },
-
     async recipe(req) {
       const body = await readJsonBody(req);
-      if (typeof body.css !== 'string' || !body.css.trim()) {
-        throw new HttpError(400, 'RECIPE_CSS', 'css 字段必须是非空字符串');
-      }
+      if (typeof body.css !== 'string' || !body.css.trim()) throw new HttpError(400, 'RECIPE_CSS', 'css 字段必须是非空字符串');
       const name = typeof body.name === 'string' ? body.name.trim() : '';
       if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$/.test(name)) {
         throw new HttpError(400, 'RECIPE_NAME', 'name 只能含字母、数字、点、下划线、短横，长度 1–64');
@@ -425,12 +376,10 @@ function createApi(config, schema) {
         `${RECIPE_REL}/${target.rel}`);
       return { ok: true, file: `${RECIPE_REL}/${target.rel}`, ...plan };
     },
-
     async shot(req) {
       const body = await readJsonBody(req, { optional: true });
       if (!fs.existsSync(path.join(HERE, 'shoot.mjs'))) {
-        throw new HttpError(503, 'ENV',
-          'shoot.mjs 尚未实现（批次 3 接入）。当前请手工截图并放到 design/aesthetic/shots/。');
+        throw new HttpError(503, 'ENV', 'shoot.mjs 尚未实现（批次 3 接入）。当前请手工截图并放到 design/aesthetic/shots/。');
       }
       const extra = ['--out', path.join(outDir, 'shots')];
       if (['desktop', 'tablet', 'mobile'].includes(body.view)) extra.push('--view', body.view);
@@ -446,11 +395,7 @@ function createApi(config, schema) {
 
 function resolveStatic(urlPath) {
   let rel;
-  try {
-    rel = decodeURIComponent(urlPath);
-  } catch {
-    throw new HttpError(400, 'URL_ENCODING', 'URL 编码非法');
-  }
+  try { rel = decodeURIComponent(urlPath); } catch { throw new HttpError(400, 'URL_ENCODING', 'URL 编码非法'); }
   if (rel !== '/studio' && !rel.startsWith('/studio/')) throw new HttpError(404, 'NOT_FOUND', '未找到');
   let rest = rel === '/studio' ? '' : rel.slice('/studio/'.length);
   if (!rest || rest.endsWith('/')) rest = `${rest}index.html`;
@@ -468,35 +413,28 @@ function resolveStatic(urlPath) {
   try {
     real = fs.realpathSync(abs);
     realRoot = fs.realpathSync(STUDIO_ASSETS);
-  } catch {
-    throw new HttpError(404, 'NOT_FOUND', '未找到');
-  }
+  } catch { throw new HttpError(404, 'NOT_FOUND', '未找到'); }
   if (!isInside(realRoot, real)) throw new HttpError(403, 'PATH_SYMLINK', '符号链接逃出静态根目录');
   if (!fs.statSync(real).isFile()) throw new HttpError(404, 'NOT_FOUND', '未找到');
   return real;
 }
 
-const CSP = [
-  "default-src 'self'", "script-src 'self' 'unsafe-inline'", "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:", "font-src 'self' data:", "frame-src 'self'", "connect-src 'self'",
-  "base-uri 'none'", "form-action 'none'", "frame-ancestors 'self'",
-].join('; ');
+const CSP = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
+  + "img-src 'self' data: blob:; font-src 'self' data:; frame-src 'self'; connect-src 'self'; "
+  + "base-uri 'none'; form-action 'none'; frame-ancestors 'self'";
 
 function serveStatic(req, res, urlPath, token) {
   const file = resolveStatic(urlPath);
   const ext = path.extname(file).toLowerCase();
   const type = MIME[ext];
   if (!type) throw new HttpError(403, 'MIME', `不提供该扩展名：${ext || '(无)'}`);
-  const buf = fs.readFileSync(file);
   // 一次性 token 内联进外壳；前端从 window.__STUDIO_TOKEN__ 读。
-  const body = file === path.join(UI_DIR, 'index.html')
-    ? Buffer.from(buf.toString('utf8').replace(
-      '</head>', `<script>window.__STUDIO_TOKEN__ = ${JSON.stringify(token)};</script>\n</head>`,
-    ), 'utf8')
-    : buf;
-  res.writeHead(200, {
-    ...baseHeaders(), 'Content-Type': type, 'Content-Length': body.length, 'Content-Security-Policy': CSP,
-  });
+  let body = fs.readFileSync(file);
+  if (file === path.join(UI_DIR, 'index.html')) {
+    body = Buffer.from(body.toString('utf8').replace('</head>',
+      `<script>window.__STUDIO_TOKEN__ = ${JSON.stringify(token)};</script>\n</head>`), 'utf8');
+  }
+  res.writeHead(200, { ...baseHeaders(), 'Content-Type': type, 'Content-Length': body.length, 'Content-Security-Policy': CSP });
   res.end(req.method === 'HEAD' ? undefined : body);
 }
 
@@ -506,27 +444,22 @@ function createReads(config) {
   const { projectRoot, designFile, outDir } = config;
   return {
     '/api/health': () => ({
-      ok: true, project: projectRoot, designFile: toPosix(path.relative(projectRoot, designFile)),
-      outDir: OUT_REL, generatorVersion: GENERATOR, node: process.version,
+      ok: true, project: projectRoot, outDir: OUT_REL, generatorVersion: GENERATOR, node: process.version,
+      designFile: toPosix(path.relative(projectRoot, designFile)),
     }),
     '/api/state': () => {
       const decisions = readJsonFile(path.join(outDir, 'decisions.json'));
       const tokens = readJsonFile(path.join(outDir, 'tokens.json'));
-      let designBlock = false;
-      try {
-        designBlock = /<!--\s*aesthetic:begin/.test(fs.readFileSync(designFile, 'utf8'));
-      } catch { designBlock = false; }
+      const designBlock = (() => {
+        try { return /<!--\s*aesthetic:begin/.test(fs.readFileSync(designFile, 'utf8')); } catch { return false; }
+      })();
       return {
-        ok: true,
-        decisions,
+        ok: true, decisions,
         sourceHash: decisions ? `sha256:${hashDecisions(decisions)}` : null,
         tokensSourceHash: tokens?.sourceHash || null,
         artifacts: {
-          decisions: !!decisions,
-          tokens: !!tokens,
-          contract: fs.existsSync(path.join(outDir, 'contract.md')),
-          designFile: fs.existsSync(designFile),
-          designBlock,
+          decisions: !!decisions, tokens: !!tokens, designBlock,
+          contract: fs.existsSync(path.join(outDir, 'contract.md')), designFile: fs.existsSync(designFile),
         },
         studio: {
           styles: listCss(path.join(STUDIO_ASSETS, 'styles')).length,
@@ -541,14 +474,14 @@ function createReads(config) {
 
 // === server ===
 
+/** 端口被占用时自动 +1，最多试 attempts 次。 */
 function listen(server, port, host, attempts = 20) {
   return new Promise((resolve, reject) => {
     let current = port;
     let left = attempts;
     const onError = (e) => {
       if (e.code === 'EADDRINUSE' && left > 0 && port !== 0) {
-        left -= 1;
-        current += 1;
+        left -= 1; current += 1;
         setTimeout(() => server.listen(current, host), 0);
         return;
       }
@@ -564,18 +497,16 @@ function listen(server, port, host, attempts = 20) {
   });
 }
 
+/** --open 只调用系统 open 命令；失败就留着 URL 让用户自己点。 */
 function openBrowser(url) {
   const [cmd, args] = process.platform === 'darwin' ? ['open', [url]]
-    : process.platform === 'win32' ? ['cmd', ['/c', 'start', '', url]]
-      : ['xdg-open', [url]];
+    : process.platform === 'win32' ? ['cmd', ['/c', 'start', '', url]] : ['xdg-open', [url]];
   try {
     const child = spawn(cmd, args, { detached: true, stdio: 'ignore', windowsHide: true });
-    child.on('error', () => { /* 打不开就只留 URL */ });
+    child.on('error', () => { /* ignore */ });
     child.unref();
     return true;
-  } catch {
-    return false;
-  }
+  } catch { return false; }
 }
 
 const PROXY_RE = /^\/studio\/proxy\/([a-z0-9-]{1,40})\/(.*)$/;
@@ -584,9 +515,7 @@ const VARIANTS = (() => {
   try {
     const idx = JSON.parse(fs.readFileSync(path.join(STUDIO_ASSETS, 'styles', 'style-index.json'), 'utf8'));
     return new Set((idx.variants || []).map((v) => v.id));
-  } catch {
-    return new Set();
-  }
+  } catch { return new Set(); }
 })();
 
 /**
@@ -596,22 +525,16 @@ const VARIANTS = (() => {
  * 并在 base.css 之后插入变体 CSS、在 <html> 上加 data-style。
  */
 function proxyVariant(variant, file, res, req) {
+  if (!VARIANTS.has(variant)) throw new HttpError(404, 'UNKNOWN_VARIANT', `未知变体：${variant}`);
   const target = path.join(STUDIO_ASSETS, 'fixture', file || 'index.html');
-  if (!fs.existsSync(target) || !fs.statSync(target).isFile()) {
-    throw new HttpError(404, 'NOT_FOUND', '夹具文件不存在');
-  }
-  if (!VARIANTS.has(variant)) {
-    throw new HttpError(404, 'UNKNOWN_VARIANT', `未知变体：${variant}`);
-  }
+  if (!fs.existsSync(target) || !fs.statSync(target).isFile()) throw new HttpError(404, 'NOT_FOUND', '夹具文件不存在');
   if (file && file !== 'index.html') {
-    // 非 HTML 资源照常返回原始文件
     const body = fs.readFileSync(target);
     const type = MIME[path.extname(target).toLowerCase()] || 'application/octet-stream';
     res.writeHead(200, { ...baseHeaders(), 'Content-Type': type, 'Content-Length': body.length, 'Content-Security-Policy': CSP });
     res.end(req.method === 'HEAD' ? undefined : body);
     return;
   }
-
   const html = fs.readFileSync(target, 'utf8')
     .replace(/<html([^>]*)lang="zh-CN"/, `<html$1lang="zh-CN" data-style="${variant}"`)
     .replace(/<link rel="stylesheet" href="tokens\.css">/g,
@@ -620,9 +543,7 @@ function proxyVariant(variant, file, res, req) {
       `<link rel="stylesheet" href="/studio/fixture/base.css">\n    <link rel="stylesheet" href="/studio/styles/${variant}.css">`)
     .replace(/(<script type="module" src=")app\.js(")/, '$1/studio/fixture/app.js$2');
   const body = Buffer.from(html, 'utf8');
-  res.writeHead(200, {
-    ...baseHeaders(), 'Content-Type': MIME['.html'], 'Content-Length': body.length, 'Content-Security-Policy': CSP,
-  });
+  res.writeHead(200, { ...baseHeaders(), 'Content-Type': MIME['.html'], 'Content-Length': body.length, 'Content-Security-Policy': CSP });
   res.end(req.method === 'HEAD' ? undefined : body);
 }
 
@@ -639,7 +560,6 @@ async function main() {
     console.error('缺少 --project <目标项目路径>（--help 查看用法）');
     process.exit(EXIT.INPUT);
   }
-
   const projectRoot = path.resolve(o.project);
   if (!fs.existsSync(projectRoot) || !fs.statSync(projectRoot).isDirectory()) {
     console.error(`项目目录不存在：${projectRoot}`);
@@ -649,11 +569,9 @@ async function main() {
     console.error(`缺少 Studio 界面：${path.relative(SKILL_ROOT, UI_DIR)}`);
     process.exit(EXIT.ENV);
   }
-
   const designFile = path.resolve(o.designFile || path.join(projectRoot, 'DESIGN.md'));
   const outDir = path.join(projectRoot, OUT_REL);
   const config = { projectRoot, designFile, outDir, dryRun: o.dryRun };
-
   if (!o.dryRun) fs.mkdirSync(outDir, { recursive: true });
   if (!isInside(projectRoot, designFile)) {
     console.warn(`注意：DESIGN_FILE 在项目目录外（${designFile}），注入端点只写该文件的 marker 块。`);
@@ -682,8 +600,7 @@ async function main() {
         // CORS 默认关闭：不返回任何 Access-Control-Allow-*。
         res.writeHead(405, { ...baseHeaders(), Allow: 'GET, HEAD, POST' });
         res.end();
-        log(405);
-        return;
+        return log(405);
       }
 
       if (urlPath.startsWith('/api/')) {
@@ -694,8 +611,7 @@ async function main() {
           const payload = fn();
           if (name === 'state') payload.tokenAccepted = timingEqual(req.headers['x-studio-token'] || '', token);
           sendJson(res, 200, payload);
-          log(200);
-          return;
+          return log(200);
         }
         if (req.method !== 'POST') throw new HttpError(405, 'METHOD', '该端点只接受 POST');
         if (!timingEqual(req.headers['x-studio-token'] || '', token)) {
@@ -706,36 +622,30 @@ async function main() {
           throw new HttpError(404, 'API_NOT_FOUND', `未知端点：/api/${name}`);
         }
         sendJson(res, 200, await endpoints[name](req));
-        log(200);
-        return;
+        return log(200);
       }
 
       if (req.method !== 'GET' && req.method !== 'HEAD') throw new HttpError(405, 'METHOD', '静态资源只支持 GET');
-
       const proxied = urlPath.match(PROXY_RE);
-      if (proxied) {
-        proxyVariant(proxied[1], proxied[2], res, req);
-        log(200);
-        return;
-      }
-
+      if (proxied) { proxyVariant(proxied[1], proxied[2], res, req); return log(200); }
       if (urlPath === '/' || urlPath === '/index.html') {
         res.writeHead(302, { ...baseHeaders(), Location: `/studio/ui/index.html${url.search}` });
         res.end();
-        log(302);
-        return;
+        return log(302);
       }
       serveStatic(req, res, urlPath, token);
       log(200);
     } catch (err) {
       const e = err instanceof HttpError ? err : new HttpError(500, 'INTERNAL', err?.message || '内部错误');
       if (!(err instanceof HttpError) && !o.quiet) console.error(err);
+      const status = e.status || 500;
       if (urlPath.startsWith('/api/')) {
-        sendJson(res, e.status || 500, { ok: false, code: e.code, message: e.message, detail: e.detail ?? null });
+        sendJson(res, status, { ok: false, code: e.code, message: e.message, detail: e.detail ?? null });
       } else {
-        sendText(res, e.status || 500, `${e.status || 500} ${e.message}\n`);
+        sendText(res, status, `${status} ${e.message}
+`);
       }
-      log(e.status || 500);
+      log(status);
     }
   });
 
@@ -746,26 +656,24 @@ async function main() {
   try {
     port = await listen(server, o.port, HOST);
   } catch (e) {
-    if (e.code === 'EADDRINUSE') {
-      console.error(`端口 ${o.port}–${o.port + 20} 都被占用，请用 --port 指定其他端口。`);
-      process.exit(EXIT.ENV);
-    }
-    console.error(`监听 ${HOST} 失败：${e.message}`);
+    console.error(e.code === 'EADDRINUSE'
+      ? `端口 ${o.port}–${o.port + 20} 都被占用，请用 --port 指定其他端口。`
+      : `监听 ${HOST} 失败：${e.message}`);
     process.exit(EXIT.ENV);
   }
 
   const url = `http://${HOST}:${port}/studio/ui/index.html?t=${encodeURIComponent(token)}`;
-  console.log('');
-  console.log('  Aesthetic Studio');
-  console.log(`  项目      ${projectRoot}`);
-  console.log(`  设计文档  ${path.relative(projectRoot, designFile) || designFile}`);
-  console.log(`  监听      http://${HOST}:${port}/`);
-  console.log(`  Token     ${token}`);
-  console.log('            浏览器打开时自动带上，不要外传；进程退出即失效。');
-  console.log(`  Studio    ${url}`);
-  if (o.dryRun) console.log('  模式      --dry-run：所有写操作只打印，不落盘');
-  console.log('');
-  console.log('  Ctrl+C 停止。');
+  console.log([
+    '', '  Aesthetic Studio',
+    `  项目      ${projectRoot}`,
+    `  设计文档  ${path.relative(projectRoot, designFile) || designFile}`,
+    `  监听      http://${HOST}:${port}/`,
+    `  Token     ${token}`,
+    '            浏览器打开时自动带上，不要外传；进程退出即失效。',
+    `  Studio    ${url}`,
+    ...(o.dryRun ? ['  模式      --dry-run：所有写操作只打印，不落盘'] : []),
+    '', '  Ctrl+C 停止。',
+  ].join('\n'));
 
   if (o.open && !openBrowser(url)) console.log('  无法调用系统打开命令，请手动打开上面的 Studio URL。');
 

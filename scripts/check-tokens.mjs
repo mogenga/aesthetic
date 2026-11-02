@@ -320,9 +320,29 @@ function checkDarkWeights(data, file, report) {
         && darkWeights[role] >= lightW[role]) {
         report.error('R5', file, 0,
           `weights.dark.${role} (${darkWeights[role]}) 未低于 weights.light.${role} (${lightW[role]})。`,
-          '暗色下字重必须降一档。');
+          '暗色下大字号字重必须降一档。');
       }
     }
+  }
+
+  // R5 only touches text at or above 16px. Small text keeps the light-mode
+  // weight: halation correction scales with stroke width, so dropping 15px from
+  // 400 to 350 doesn't read as "one step lighter" — it just goes soft.
+  const smallDark = data.weights?.dark?.small;
+  if (smallDark !== undefined) {
+    const expected = Math.max(400, data.weights?.light?.body ?? 400);
+    if (typeof smallDark !== 'number') {
+      report.error('R5', file, 0, `weights.dark.small 必须是数字，实际 ${typeof smallDark}`);
+    } else if (smallDark !== expected) {
+      report.error('R5', file, 0,
+        `weights.dark.small = ${smallDark}，应为 ${expected}（与浅色同值，不降档）。`,
+        '小于 16px 的文字不参与 R5 降档。');
+    }
+  } else {
+    report.warn('R5', file, 0,
+      'weights.dark.small 未声明。',
+      `建议显式写 ${Math.max(400, data.weights?.light?.body ?? 400)}，表示小字不降档——` +
+      '否则 --fw-small 只能靠 build.mjs 推断，绕过这层校验。');
   }
 }
 

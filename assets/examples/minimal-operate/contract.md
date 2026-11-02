@@ -3,7 +3,7 @@
 <!-- contract-meta
 schemaVersion: 1
 sourceFile: design/aesthetic/decisions.json
-sourceHash: sha256:2ca631b611f7f26bc52f083f3c20f9fa02e527740405ef21e2afe4f9dd0ca9c2
+sourceHash: sha256:8bbf24d5b1dda415a9cab2a4ba5f18eba680a8097eb226876fa21c4e3edee378
 generatedAt: 2026-11-01T00:00:00Z
 generatorVersion: aesthetic-v2
 -->
@@ -238,7 +238,7 @@ generatorVersion: aesthetic-v2
 
 **AI 界面**：流式文字逐字 30ms 错峰、高斯模糊→瞬间对焦；正文行内图标 `vertical-align: -0.125em`；思考框用 `0fr → 1fr` 网格撑开。
 
-**暗色模式**：全站文字字重降一档（body 350 / strong 500 / display 600），正文不低于 300，小于 16px 不低于 400。
+**暗色模式**：**大字号**文字字重降一档（body 350 / strong 500 / display 600），正文不低于 300。**小于 16px 的文字不降**，保持 `--fw-small: 400` —— 小字在暗底上本来已细，再降会糊。
 
 **色彩**：表面层级 ΔL ∈ [0.010, 0.030]；禁止场景不用纯黑，正文用 `#1A1A19`。
 

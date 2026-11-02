@@ -167,7 +167,13 @@
       "properties": {
         "body": { "type": "integer", "minimum": 100, "maximum": 900 },
         "strong": { "type": "integer", "minimum": 100, "maximum": 900 },
-        "display": { "type": "integer", "minimum": 100, "maximum": 900 }
+        "display": { "type": "integer", "minimum": 100, "maximum": 900 },
+        "small": {
+          "type": "integer",
+          "minimum": 400,
+          "maximum": 900,
+          "description": "< 16px 文字的专用字重。R5 只降大字号，这一档在暗色下保持浅色值。"
+        }
       }
     },
     "colorEntry": {

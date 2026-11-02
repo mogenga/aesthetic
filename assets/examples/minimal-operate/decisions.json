@@ -188,12 +188,14 @@
     "light": {
       "body": 400,
       "strong": 600,
-      "display": 700
+      "display": 700,
+      "small": 400
     },
     "dark": {
       "body": 350,
       "strong": 500,
-      "display": 600
+      "display": 600,
+      "small": 400
     }
   },
   "overrides": []

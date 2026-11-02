@@ -140,6 +140,15 @@ function cssVar(entry) {
 }
 
 /**
+ * Small text keeps its light-mode weight in dark mode, so these read from the
+ * light set regardless of which theme block is being emitted.
+ */
+const smallNormal = (darkW, lightW) => darkW.small
+  ?? Math.max(400, lightW.body ?? 400);
+const smallStrong = (darkW, lightW) => darkW['small-strong']
+  ?? Math.max(400, lightW.strong ?? 400);
+
+/**
  * Radius comes from the translation table, not from a hard-coded default —
  * otherwise contract.md (§5.3 reads decisions) and tokens.css disagree.
  */
@@ -212,15 +221,28 @@ function buildTokensCss(tokens, decisions) {
     }
 
     const w = tokens.weights?.[theme];
+    const lightW = tokens.weights?.light || {};
     if (w) {
       L.push('');
-      L.push(`  /* type weight — R5 ${theme === 'dark' ? '降一档' : '基准'} */`);
-      L.push(`  --fw-body: ${w.body};`);
-      L.push(`  --fw-strong: ${w.strong};`);
-      L.push(`  --fw-display: ${w.display};`);
-      // 小字专用档：<16px 的护栏要求 ≥400，暗色降档时这一档不跟着降
-      const small = Math.max(400, w.body);
-      L.push(`  --fw-small: ${small};`);
+      if (theme === 'dark') {
+        // R5 只降「大字号」（≥16px）。小字在暗底上本来笔画就窄，再降一档
+        // 读不出「细了一档」，只会变虚 —— 所以小字整组不降。
+        L.push('  /* type weight — R5 降一档，仅 ≥16px */');
+        L.push(`  --fw-body: ${w.body};`);
+        L.push(`  --fw-strong: ${w.strong};`);
+        L.push(`  --fw-display: ${w.display};`);
+        L.push('  /* 小字不动：<16px 保持浅色档。显式重写，读到 dark 块不必往上翻 */');
+        L.push(`  --fw-small: ${smallNormal(w, lightW)};`);
+        L.push(`  --fw-small-strong: ${smallStrong(w, lightW)};`);
+      } else {
+        L.push('  /* type weight — R5 基准 */');
+        L.push(`  --fw-body: ${w.body};`);
+        L.push(`  --fw-strong: ${w.strong};`);
+        L.push(`  --fw-display: ${w.display};`);
+        L.push('  /* 小字专用档：<16px 用这两档，暗色下也不降 */');
+        L.push(`  --fw-small: ${Math.max(400, w.body)};`);
+        L.push(`  --fw-small-strong: ${Math.max(400, w.strong)};`);
+      }
     }
 
     L.push('}');
@@ -551,6 +573,8 @@ function extractSection8FromDecisions(d) {
   const layout = d.layout || {};
   const ai = d.ai || {};
   const wd = d.weights?.dark || {};
+  const wl = d.weights?.light || {};
+  const smallDark = Math.max(400, wl.body ?? 400);
   const lines = [];
   lines.push(`**设置页**：名称在左、控件在右，一行一项；无外层卡片，页面即背景；组标题 + 组间 ${px(layout.settingsGroupGap, 44)}px / 组内 0；行间仅 1px 细线；行高 ${px(layout.settingsRowH, 54)}px；危险操作单独成组置于最后。`);
   lines.push('');
@@ -558,7 +582,7 @@ function extractSection8FromDecisions(d) {
   lines.push('');
   lines.push(`**AI 界面**：流式文字逐字 ${px(ai.staggerMs, 30)}ms 错峰、高斯模糊→瞬间对焦；正文行内图标 \`vertical-align: -0.125em\`；思考框用 \`0fr → 1fr\` 网格撑开。`);
   lines.push('');
-  lines.push(`**暗色模式**：全站文字字重降一档（body ${wd.body ?? 350} / strong ${wd.strong ?? 500} / display ${wd.display ?? 600}），正文不低于 300，小于 16px 不低于 400。`);
+  lines.push(`**暗色模式**：**大字号**文字字重降一档（body ${wd.body ?? 350} / strong ${wd.strong ?? 500} / display ${wd.display ?? 600}），正文不低于 300。**小于 16px 的文字不降**，保持 \`--fw-small: ${smallDark}\` —— 小字在暗底上本来已细，再降会糊。`);
   lines.push('');
   lines.push('**色彩**：表面层级 ΔL ∈ [0.010, 0.030]；禁止场景不用纯黑，正文用 `#1A1A19`。');
   lines.push('');

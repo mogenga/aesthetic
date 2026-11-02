@@ -2,14 +2,6 @@ import { icon } from "../content.js";
 
 function thinkingBlock(think) {
   return `
-    <div class="think" data-open="true" data-think>
-      <div class="think__body">
-        <div class="think__inner">
-          <p><strong>${think.title}</strong> · <span class="think__meta">${think.meta}</span></p>
-          ${think.body.map((p) => `<p>${p}</p>`).join("")}
-        </div>
-      </div>
-    </div>
     <button
       class="think__toggle"
       type="button"
@@ -19,8 +11,16 @@ function thinkingBlock(think) {
     >
       ${icon("chevron")}
       <span>思考过程</span>
-      <span class="think__meta">${think.body.length} 步</span>
-    </button>`;
+      <span class="think__meta">${think.title} · ${think.body.length} 步</span>
+    </button>
+    <div class="think" id="think-1" data-open="true" data-think>
+      <div class="think__body">
+        <div class="think__inner">
+          <p><strong>${think.title}</strong> · <span class="think__meta">${think.meta}</span></p>
+          ${think.body.map((p) => `<p>${p}</p>`).join("")}
+        </div>
+      </div>
+    </div>`;
 }
 
 function toolStrip(tools) {
@@ -106,7 +106,7 @@ export default function render(content) {
       <div class="chat__log" data-chat-log aria-live="polite" aria-relevant="additions text">
         ${content.messages.map(message).join("")}
 
-        <article class="msg" data-role="assistant" data-stream-msg hidden style="display:none">
+        <article class="msg" data-role="assistant" data-stream-msg hidden>
           <div class="msg__who">
             <span class="msg__avatar" data-role="assistant">${icon("spark")}</span>
             <span>Northwind 助理</span>

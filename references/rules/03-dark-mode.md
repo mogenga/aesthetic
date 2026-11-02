@@ -173,21 +173,41 @@ weightLadder.available = [300, 400, 500, 600, 700]
 | 护栏 | 阈值 | 检查对象 | 违反后果 |
 |---|---|---|---|
 | **正文下限** | `--fw-body` ≥ 300 | 暗色 body | 低于 300 的正文在暗底上笔画像灰雾 |
-| **小字下限** | 字号 < 16px 的文字 ≥ 400 | 所有 `< 16px` 的文本节点 | 12–13px 的 300 字重无法辨认，尤其 CJK |
+| **小字恒定** | `< 16px` 用 `--fw-small` / `--fw-small-strong`，**暗色与浅色完全同值** | 所有 `< 16px` 的文本节点 | 小字一旦跟着降，就从"清楚"变成"发虚"，没有任何视觉收益 |
 | **对比度复测** | 降档后仍 ≥ 4.5:1 | 每个前景/背景组合 | 不达标回退一档，**不是调深背景** |
 
-### 5.1 小字下限怎么落地
+### 5.1 小字根本不降档
 
-只有三个字重 token 时，13px 的帮助文本会继承 `--fw-body: 350`（映射后 300），直接踩线。用一个显式的小字 token 钳回：
+**规则：R5 的"降一档"只作用于大字号（≥ 16px）。小于 16px 的文字在暗色下保持浅色档的字重，一个字重都不减。**
+
+理由不是"小字需要护栏"，而是**小字降档本身没有收益**：halation 让暗底文字看起来更粗，这个效应随笔画绝对宽度增长——15px 的 400 降到 350，笔画从 2px 变成 1.75px，视觉上并没有"变细一档"，只是变糊了。
+
+所以小字用独立 token，跨主题恒定：
 
 ```css
-:root[data-theme="dark"] { --fw-small: 400; }   /* 浅色也是 400，不降 */
-.text-sm, .help, .label, button.sm { font-weight: var(--fw-small); }
+:root {
+  --fw-body: 400; --fw-strong: 600; --fw-display: 700;
+  --fw-small: 400;          /* 小字常规 */
+  --fw-small-strong: 600;   /* 小字加粗 */
+}
+:root[data-theme="dark"] {
+  --fw-body: 350; --fw-strong: 500; --fw-display: 600;
+  --fw-small: 400;          /* 与浅色同值，不降 */
+  --fw-small-strong: 600;   /* 同上 */
+}
+
+/* 所有 < 16px 的文字必须显式绑定这两个之一 */
+.text-sm, .help, .label, .btn--sm, .eyebrow { font-weight: var(--fw-small); }
+.card__title, .settings-row__name             { font-weight: var(--fw-small-strong); }
 ```
 
-**不要写成 `font-weight: max(var(--fw-body), 400)`。** 它有名字、可审计、`audit.mjs` 读得到具体值；`max()` 在 `getComputedStyle` 里只是算好一个数，看不出意图。
+**两档，不是一档。** 小字里也有常规与加粗之分；如果只给 `--fw-small` 一个值，所有加粗小标题都会被压成 400，层级消失。所以 `--fw-small-strong` 是必需的，不是可选优化。
 
-这也解释了为什么 `--fs-sm`（13px）与 `--fs-xs`（12px）在暗色下**不参与降档**：字号已经低于护栏线。
+**边界怎么划**：按 `font-size` 判断，不是按语义角色。`--fs-xs`(12) / `--fs-sm`(13) / `--fs-md`(15) 三档都属于"小字"；`--fs-lg`(18) 及以上才参与降档。
+
+**必须显式绑定，不能靠继承。** `body { font-weight: var(--fw-body) }` 会把 350 传下去；每个用到 `--fs-xs/sm/md` 的规则都要写 `font-weight: var(--fw-small 或 --fw-small-strong)`。`check-tokens.mjs` 守的是数据层（暗色 `weights.dark.small` 必须等于浅色值），元素层由 `audit.mjs` L2 抽样验证。
+
+**不要写成 `font-weight: max(var(--fw-body), 400)`。** 它有名字、可审计；`max()` 在 `getComputedStyle` 里只是算好一个数，看不出意图。
 
 ### 5.2 对比度复测到底测什么
 
@@ -202,25 +222,27 @@ weightLadder.available = [300, 400, 500, 600, 700]
 
 **回退一档 ≠ 调暗背景。** 改背景会连锁破坏 ΔL 阶梯与全部对比度组合。
 
-### 5.3 护栏与 R5 的冲突点
+### 5.3 `--fs-md` 是分界线，不是"正文"
 
-有一处真实张力，必须知道：
+`--fs-md` 取 15px 时，它**低于 16px 分界**，因此按 §5.1 属于"小字"，暗色不降档。这不是漏洞，是定义：
 
-```
-浅色 body 400  →  暗色必须更低（check-tokens 要求严格小于）
-但 15px 正文在暗色下必须 ≥ 400（小字护栏）
-```
+| 正文字号 | 归类 | 暗色处理 |
+|---|---|---|
+| 12 / 13 / 15px | 小字 | `--fw-small`，与浅色同值，**不降** |
+| 18px 及以上 | 大字号 | `--fw-body` 降一档 |
 
-两条同时成立时**无解**——除非正文提到 16px 以上，或浅色基准抬到 500。这正是为什么 `--fs-md` 取 **15px** 的项目要特别小心：
+所以一个 15px 正文的项目，暗色下 `body` 确实**不变**——只有标题（`--fs-lg` 以上）降档。这看起来和"全站降一档"的直觉相反，但符合 R5 的真实目的：**halation 的视觉补偿只对大字有意义**。
 
-| 正文字号 | 推荐浅色 body | 推荐暗色 body | 是否满足两条 |
-|---|---|---|---|
-| 15px | 400 | 350 | ✗ 小字护栏（<16px 需 ≥400） |
-| 15px | **500** | 400 | ✓ |
-| 16px | 400 | 350 | ✓ |
-| 18px | 400 | 350 | ✓ |
+想验证效果对不对，看的是"暗色下整页读起来会不会太闷"，不是"字重数字有没有变小"。如果 15px 在暗色下确实发闷，处理方式是**抬字号到 18px**或**换更细的字体家族**，不是硬降字重。
 
-**在 Phase 2 定 `--fs-md` 时就要把这条算进去**，不要等 L1 报错才回头改字体尺寸或字重——那会连带重做签样。
+### 5.4 检查项
+
+`check-tokens.mjs` 验两件事：
+
+1. 暗色块存在 `--fw-small`，且**等于浅色块的值**（不降）
+2. 暗色 `--fw-body/strong/display` 均严格小于浅色对应值
+
+`audit.mjs` 验一件：暗色下 `< 16px` 的元素 `font-weight` 等于 `--fw-small` 的值（抽样最近 200 个文本节点）。这条抓的是"忘了绑定"——继承 `--fw-body` 的小字会被报出来。
 
 ---
 
@@ -323,24 +345,25 @@ weightLadder.available = [300, 400, 500, 600, 700]
 | 启用了暗色就必须有 `weights.dark` | `data.color.dark` 存在时 | `✗` "没有 weights.dark" |
 | 三档齐全且是数字 | `body` / `strong` / `display` | `✗` |
 | 暗色 body ≥ 300 | — | `✗` "低于护栏 300" |
-| 三档都严格低于浅色 | `dark < light` | `✗` "未低于 weights.light" |
-| 值在 `weightLadder.available` 内 | — | `⚠` 要求补 `actualWeight` |
+| `--fw-small` 在暗色块里存在且**等于浅色值** | `Math.max(400, weights.light.body)` | `✗` "小字被降档了" |
+| 值在 `weightLadder.available` 内 | 仅静态字重 | `⚠` 要求补 `actualWeight` |
 | `weightLadder.available` 非空 | — | `✗` |
 
 `audit.mjs`（L2）在浏览器里读计算值，补上 L1 看不到的部分：
 
 ```
-1. 每个文本节点 computed font-weight 等于对应 token 的暗色值
-2. 字号 < 16px 的节点 computed font-weight ≥ 400
+1. 字号 < 16px 的文本节点 computed font-weight 等于 --fw-small（不是 --fw-body）
+   —— 抓「忘了绑定」，继承下来的小字会被报
+2. 字号 ≥ 16px 的文本节点 computed font-weight 等于对应 token 的暗色值
 3. 图标 / SVG 的 font-weight / stroke-width 与浅色一致
 4. 切换 data-theme 前后，主要容器的 offsetHeight 变化为 0
 ```
 
 人工复核（L3）：
 
-- [ ] 浅色与暗色各截一张同页面图，并排看正文粗细是否"感觉一样"
+- [ ] 浅色与暗色各截一张同页面图，并排看**标题**粗细是否"感觉一样"
+- [ ] 13px 帮助文本在暗色下与浅色粗细一致（本来就不该变）
 - [ ] 中文与英文混排的一行里，两者粗细是否协调
-- [ ] 13px 帮助文本在暗色 100% 缩放下一眼可读
 - [ ] 200% 缩放下，最细的正文笔画仍连续
 - [ ] 切主题时页面不跳
 

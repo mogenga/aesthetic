@@ -68,13 +68,18 @@
   --r-full: 999px;
 
   /* ---- 字体 -------------------------------------------------------------- */
+  /* 不联网、不装字体：Inter 只在本机已安装时生效，否则落到系统中文与 UI 字体。
+     字重阶梯按可变字体取值（350 / 500 / 600），静态字体下由浏览器映射到最近档。 */
   --font-sans: "Inter", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
     system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "SF Mono", "Cascadia Mono", "Roboto Mono", "Consolas", monospace;
 
   --fs-xs: 12px;
   --fs-sm: 13px;
-  --fs-md: 15px;
+  /* 16px 是 R5 的分界线：≥16px 参与暗色降档，<16px 不降。
+     本夹具把 --fs-md 定在 16px，所以正文在暗色下会降到 350；
+     xs / sm 两档低于分界线，锁定在 --fw-small，跨主题不变。 */
+  --fs-md: 16px;
   --fs-lg: 18px;
   --fs-xl: 24px;
   --fs-2xl: 32px;
@@ -87,8 +92,9 @@
   --fw-body: 400;
   --fw-strong: 600;
   --fw-display: 700;
-  /* R5 护栏：小于 16px 的文字不低于 400，因此这一档在暗色下不降 */
+  /* 小字两档：暗色下不降，所以浅色值就是最终值 */
   --fw-small: 400;
+  --fw-small-strong: 600;
 
   /* ---- 动效 -------------------------------------------------------------- */
   --dur-fast: 120ms;
@@ -144,7 +150,6 @@
   --textarea-min: 120px;
   --composer-max: 160px;
   --select-min: 176px;
-  --rail-w-phone: var(--s-6);
   --search-icon-inset: 40px;
   --marker-shift: 6px;
 }
@@ -185,9 +190,12 @@
   --shadow-field-outer: 0 2px 6px -2px rgb(0 0 0 / 0.45);
   --shadow-field-inner: inset 0 1px 2px rgb(0 0 0 / 0.28);
 
-  /* R5：全站文字降一档（body 400→350，strong 600→500，display 700→600）
-     小字（<16px）受护栏约束不降，见 --fw-small */
+  /* R5：只有 ≥16px 的文字降一档（body 400→350，strong 600→500，display 700→600）
+     小字（<16px）不降：15px 的 400→350 只让笔画变虚，读不出"细一档" */
   --fw-body: 350;
   --fw-strong: 500;
   --fw-display: 600;
+  /* 小字两档与浅色同值 —— 显式重写，读到 dark 块的人不必往上翻 */
+  --fw-small: 400;
+  --fw-small-strong: 600;
 }

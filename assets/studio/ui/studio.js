@@ -45,9 +45,8 @@ const post = (path, body) => request('POST', path, body);
 const get = (path) => request('GET', path);
 
 // === 颜色 ===
-// oklch() → hex 交给浏览器自己做：canvas fillStyle 往返拿到的就是平台真实渲染值，
-// 已包含 CSS Color 4 的 gamut mapping，不用手写转换公式。
-
+// oklch() → hex 交给浏览器自己做：canvas fillStyle 往返拿到的就是平台真实渲染值
+// （含 CSS Color 4 gamut mapping），不用手写转换公式。
 const swatchCtx = document.createElement('canvas').getContext('2d');
 function toHex(oklch) {
   swatchCtx.fillStyle = '#000000';
@@ -56,17 +55,17 @@ function toHex(oklch) {
 }
 
 const fmtOklch = ({ L, C, H }) => `oklch(${Number(L.toFixed(3))} ${Number(C.toFixed(3))} ${Number(H.toFixed(1))})`;
-const toColor = (L, C, H) => ({
-  oklch: fmtOklch({ L, C, H }), hex: toHex(fmtOklch({ L, C, H })), l: Number(L.toFixed(4)),
-});
+const toColor = (L, C, H) => {
+  const oklch = fmtOklch({ L, C, H });
+  return { oklch, hex: toHex(oklch), l: Number(L.toFixed(4)) };
+};
 
 const hexToRgb = (hex) => [0, 2, 4].map((i) => parseInt(hex.replace('#', '').slice(i, i + 2), 16) / 255);
 const toLinear = (c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
 const luminance = ([r, g, b]) => 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
 
 function contrastOf(hexA, hexB) {
-  const a = luminance(hexToRgb(hexA));
-  const b = luminance(hexToRgb(hexB));
+  const [a, b] = [luminance(hexToRgb(hexA)), luminance(hexToRgb(hexB))];
   return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
 }
 
@@ -74,7 +73,6 @@ const fmtRatio = (v) => `${v.toFixed(2)}:1`;
 
 // === state ===
 // 七维转写表：key / 中文名 / 默认取值 / 默认依据（null = 无方向依据，按规则取默认）
-
 const DIM_KEYS = [
   ['neutralTemp', '中性色温度', 'H 250, C 0.002', '像瑞士铁路时刻表'],
   ['chromaCap', '彩度上限', 0.12, '不要糖水感'],
@@ -165,9 +163,7 @@ function cssVars(theme) {
 }
 
 // === 状态提示 ===
-
 let statusTimer = null;
-
 /** kind: ok | warn | error；ms<=0 表示常驻（错误提示不自动消失）。 */
 function setStatus(kind, message, ms = 7000) {
   const box = $('#status');
@@ -178,11 +174,7 @@ function setStatus(kind, message, ms = 7000) {
   if (ms > 0) statusTimer = setTimeout(() => { box.hidden = true; }, ms);
 }
 
-$('#status-close').addEventListener('click', () => { $('#status').hidden = true; });
-
 // === 转写表 ===
-
-const stringifyValue = (v) => (Array.isArray(v) ? v.join(' / ') : v === null || v === undefined ? '' : String(v));
 
 /** "0 / 2 / 4 / 999" → [0,2,4,999]；纯数字 → number；其余原样保留。 */
 function parseValue(text) {
@@ -205,7 +197,8 @@ function renderTranslation() {
   for (const [key, label] of DIM_KEYS) {
     host.append(el('div', { class: 'trow' },
       el('span', { class: 'dim', text: label }),
-      input(key, 'value', stringifyValue(state.translation[key]?.value), label),
+      input(key, 'value', Array.isArray(state.translation[key]?.value)
+        ? state.translation[key].value.join(' / ') : state.translation[key]?.value ?? '', label),
       input(key, 'from', state.translation[key]?.from ?? '', label)));
   }
 
@@ -237,7 +230,6 @@ function applyVars(root) {
 
 function applyPreview() {
   applyVars($('#preview-root'));
-
   // 夹具存在时把变量写进 iframe 的 :root（内联样式压过夹具 tokens.css）。
   const frame = $('#fixture-frame');
   if (state.fixture === 'ready' && !frame.hidden) {
@@ -275,10 +267,10 @@ function loadFrame() {
     applyPreview();
     try { frame.contentDocument.documentElement.dataset.theme = state.theme; } catch { /* ignore */ }
   }, { once: true });
-  $('#frame-url').textContent = fixtureSrc().replace('/studio/fixture', '');
+  $('#frame-url').textContent = fixtureSrc().replace('/studio/fixture ', '');
 }
 
-// === 色板 / 层级阶梯 / 校验读数 ===
+// === 色板 / 层级阶梯 / 校验读数（一次渲染，共用同一份 colorSet）===
 
 function renderPanels() {
   const light = colorSet(state.theme);
@@ -291,7 +283,7 @@ function renderPanels() {
       title: `${name} · ${e.oklch} · ${e.hex}` }));
   }
 
-  // 层级阶梯：ΔL = |L₁ − L₂|（OKLCH L 绝对差），超出 [0.010, 0.030] 标红。
+  // 层级阶梯：ΔL = |L₁ − L₂|，超出 [0.010, 0.030] 标红。
   const order = ['bg', 'surface-1', 'surface-2', 'surface-3'];
   const ladder = $('#ladder');
   ladder.textContent = '';
@@ -310,7 +302,6 @@ function renderPanels() {
       })));
   });
 
-  // 可读性：表面 ΔL 不能代替对比度检查。
   const rows = [
     ['正文对比度', light.fg.hex, light.bg.hex, 4.5],
     ['次要对比度', light['fg-muted'].hex, light.bg.hex, 4.5],
@@ -330,7 +321,6 @@ function renderPanels() {
 }
 
 // === 写入链 ===
-
 function setArtifacts(partial) {
   const a = Object.assign(state.artifacts, partial);
   $('#artifact-hint').textContent = `${a.committed ? '' : '未'}写 decisions · `
@@ -345,9 +335,9 @@ const markDirty = () => setArtifacts({ committed: false, tokens: false });
 /** schema 对 direction 有 minItems / maxItems 约束：补齐再发送，避免 422。 */
 function ensureDirection() {
   const d = state.direction || {};
-  const pad = (list, min, max, fallback) => {
+  const pad = (list, min, max, filler) => {
     const clean = (Array.isArray(list) ? list : []).filter((x) => typeof x === 'string' && x.trim());
-    return clean.length >= min ? clean.slice(0, max) : [...clean, ...fallback.slice(clean.length, min)];
+    return clean.length >= min ? clean.slice(0, max) : clean.concat(filler.slice(clean.length, min));
   };
   const oneOf = (v, allowed, fallback) => (allowed.includes(v) ? v : fallback);
   return {
@@ -419,7 +409,6 @@ const doTokens = (auto) => runStep({
   onOk: () => setArtifacts({ tokens: true }),
   describe: () => `${auto ? '已自动' : ''}生成 tokens.css / tokens.json。下一步：注入 DESIGN.md。`,
 });
-
 const doInject = () => runStep({
   buttonId: '#btn-inject', busyLabel: '注入中…', doneLabel: '已注入', path: '/api/inject',
   onOk: () => setArtifacts({ injected: true }),
@@ -448,8 +437,7 @@ function setView(view) {
   state.view = view;
   updateFrameSize();
   for (const f of $$('#gallery-grid iframe')) {
-    f.style.width = `${VIEWS[view][0]}px`;
-    f.style.height = `${VIEWS[view][1]}px`;
+    [f.style.width, f.style.height] = VIEWS[view].map((v) => `${v}px`);
   }
 }
 
@@ -466,11 +454,10 @@ function setContent(content) {
   if (state.fixture === 'ready') {
     try { $('#fixture-frame').contentWindow.location.hash = `#/${route}`; applyPreview(); } catch { /* ignore */ }
   }
-  $('#frame-url').textContent = `/studio/fixture/index.html#/${route}`;
+  $('#frame-url').textContent = fixtureSrc();
 }
 
 // === 画廊（空壳：变体 CSS 尚未生成，批次 6 之前不出候选）===
-
 let galleryBuilt = false;
 
 function renderGallery() {
@@ -483,11 +470,12 @@ function renderGallery() {
   grid.textContent = '';
 
   if (!load) {
+    const note = '自导模式未启用（需先完成批次 6 的 12 个风格变体）。当前请使用导演层定方向。'
+      + '<br><code>assets/studio/styles/style-index.json</code> 与变体 CSS 完成后，'
+      + '这里会并排渲染最多 6 个候选并支持同步滚动。';
     grid.append(el('div', { class: 'gallery-card' },
       el('header', {}, el('span', { class: 'g-num', text: '01–06' }), el('span', { text: '风格变体未生成' })),
-      el('div', { class: 'g-body', html: '自导模式未启用（需先完成批次 6 的 12 个风格变体）。'
-        + '当前请使用导演层定方向。<br><code>assets/studio/styles/style-index.json</code> '
-        + '与变体 CSS 完成后，这里会并排渲染最多 6 个候选并支持同步滚动。' })));
+      el('div', { class: 'g-body', html: note })));
     return;
   }
 
@@ -525,10 +513,7 @@ function renderGallery() {
 }
 
 // === 组件实验室 ===
-
-const LAB_CLASS = {
-  button: 'lab-btn', input: 'lab-input', switch: 'lab-switch', card: 'lab-card', badge: 'lab-badge',
-};
+const LAB_CLASS = { button: 'lab-btn', input: 'lab-input', switch: 'lab-switch', card: 'lab-card', badge: 'lab-badge' };
 
 /** 按组件类型造一个静态样例；状态与尺寸走 data-*，由 studio.css 表现。 */
 function labElement(comp, size, labState) {
@@ -557,19 +542,14 @@ function renderLab() {
   mount.textContent = '';
   mount.append(labElement(comp, $('#lab-size').value, $('#lab-state').value));
   $('#lab-stage').dataset.bg = $('#lab-bg').value;
-  const name = $('#recipe-name');
-  if (name.value !== comp) name.value = comp;
-  $('#recipe-path').textContent = `assets/recipes/${name.value || comp}.css`;
+  $('#recipe-name').value = comp;
+  $('#recipe-path').textContent = `assets/recipes/${comp}.css`;
 }
 
 const LAB_STATE_CSS = {
-  default: '',
-  hover: 'filter: brightness(1.12);',
-  focus: 'outline: 2px solid var(--accent); outline-offset: 3px;',
-  active: 'filter: brightness(.9); transform: translateY(1px);',
-  disabled: 'opacity: .4; cursor: not-allowed;',
-  loading: 'opacity: .75; cursor: progress;',
-  error: 'background: var(--danger, #A42C22); color: #fff;',
+  default: '', hover: 'filter: brightness(1.12);', focus: 'outline: 2px solid var(--accent); outline-offset: 3px;',
+  active: 'filter: brightness(.9); transform: translateY(1px);', disabled: 'opacity: .4; cursor: not-allowed;',
+  loading: 'opacity: .75; cursor: progress;', error: 'background: var(--danger, #A42C22); color: #fff;',
 };
 
 /** 把实验室当前配置写成一段可直接落盘的 CSS 片段。 */
@@ -605,9 +585,9 @@ async function writeRecipe() {
     buttonId: '#btn-recipe', busyLabel: '写入中…', doneLabel: '已写入 recipe',
     path: '/api/recipe', body: { name, path: `${name}.css`, css: recipeCss(), overwrite: true },
     describe: (r) => {
-      const suffix = r.dryRun ? '（dry-run，未落盘）' : '';
-      $('#recipe-hint').textContent = `已写入 ${r.file}${suffix}。`;
-      return `recipe 已写入 ${r.file}${suffix}。`;
+      const msg = `recipe 已写入 ${r.file}${r.dryRun ? '（dry-run，未落盘）' : ''}。`;
+      $('#recipe-hint').textContent = msg;
+      return msg;
     },
   });
 }
@@ -615,21 +595,19 @@ async function writeRecipe() {
 // === 初始化 ===
 
 function updatePaletteOutputs() {
-  const set = (sel, text) => { $(sel).textContent = text; };
-  set('#accent-hue-out', `${Math.round(state.accentHue)}°`);
-  set('#accent-chroma-out', `C ${state.accentChroma.toFixed(3)}`);
-  set('#neutral-temp-out', `H ${Math.round(neutralHue())} · ${tempLabel()}`);
-  set('#palette-sub', colorSet(state.theme).bg.hex);
+  $('#accent-hue-out').textContent = `${Math.round(state.accentHue)}°`;
+  $('#accent-chroma-out').textContent = `C ${state.accentChroma.toFixed(3)}`;
+  $('#neutral-temp-out').textContent = `H ${Math.round(neutralHue())} · ${tempLabel()}`;
+  $('#palette-sub').textContent = colorSet(state.theme).bg.hex;
 }
 
 function syncControls() {
-  const set = (sel, value) => { $(sel).value = String(value); };
-  set('#view-select', state.view);
-  set('#theme-select', state.theme);
-  set('#content-select', state.content);
-  set('#accent-hue', state.accentHue);
-  set('#accent-chroma', Math.round((state.accentChroma / 0.20) * 100));
-  set('#neutral-temp', state.neutral);
+  $('#view-select').value = state.view;
+  $('#theme-select').value = state.theme;
+  $('#content-select').value = state.content;
+  $('#accent-hue').value = String(state.accentHue);
+  $('#accent-chroma').value = String(Math.round((state.accentChroma / 0.20) * 100));
+  $('#neutral-temp').value = String(state.neutral);
   updatePaletteOutputs();
 }
 
@@ -637,10 +615,8 @@ const OKLCH_RE = /oklch\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)/;
 
 /** 把已有 decisions 读进面板状态（色板控件位置由 OKLCH 反推）。 */
 function applyRemoteDecisions(d) {
-  if (d.translation) {
-    for (const [key] of DIM_KEYS) {
-      if (d.translation[key]) state.translation[key] = structuredClone(d.translation[key]);
-    }
+  for (const [key] of DIM_KEYS) {
+    if (d.translation?.[key]) state.translation[key] = structuredClone(d.translation[key]);
   }
   if (d.weights) state.weights = { ...state.weights, ...structuredClone(d.weights) };
   if (d.direction) state.direction = { ...state.direction, ...d.direction };
@@ -649,8 +625,9 @@ function applyRemoteDecisions(d) {
 
   const pick = (oklch, i) => Number(String(oklch || '').match(OKLCH_RE)?.[i] ?? NaN);
   const accent = d.color?.light?.accent?.oklch;
-  if (Number.isFinite(pick(accent, 2))) state.accentChroma = pick(accent, 2);
-  if (Number.isFinite(pick(accent, 3))) state.accentHue = pick(accent, 3);
+  const [c, h] = [pick(accent, 2), pick(accent, 3)];
+  if (Number.isFinite(c)) state.accentChroma = c;
+  if (Number.isFinite(h)) state.accentHue = h;
   const bgH = pick(d.color?.light?.bg?.oklch, 3);
   if (Number.isFinite(bgH)) state.neutral = Math.round(Math.min(100, Math.max(0, (250 - bgH) / 165 * 100)));
 }
@@ -658,11 +635,8 @@ function applyRemoteDecisions(d) {
 async function loadState() {
   try {
     const s = await get('/api/state');
-    state.artifacts = {
-      committed: !!s.artifacts?.decisions,
-      tokens: !!s.artifacts?.tokens,
-      injected: !!s.artifacts?.designBlock,
-    };
+    state.artifacts = { committed: !!s.artifacts?.decisions, tokens: !!s.artifacts?.tokens,
+      injected: !!s.artifacts?.designBlock };
     if (s.decisions) applyRemoteDecisions(s.decisions);
     state.fixture = s.studio?.fixture ? 'ready' : 'missing';
     setArtifacts({});
@@ -680,6 +654,7 @@ function bindEvents() {
     applyPreview();
   });
 
+  on('#status-close', 'click', () => { $('#status').hidden = true; });
   for (const tab of $$('.mode-tab')) tab.addEventListener('click', () => setMode(tab.dataset.mode));
   on('#view-select', 'change', (e) => setView(e.target.value));
   on('#theme-select', 'change', (e) => setTheme(e.target.value));
