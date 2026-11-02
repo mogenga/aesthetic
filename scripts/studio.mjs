@@ -419,8 +419,12 @@ function resolveStatic(urlPath) {
   return real;
 }
 
+// frame-src 额外放行 localhost / 127.0.0.1 的任意端口：
+// 调色模式要能把「项目自己的 dev server」嵌进预览区（见 UI 的预览切换）。
+// 只放行本机回环地址，外网域名仍然被 CSP 挡住。
 const CSP = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
-  + "img-src 'self' data: blob:; font-src 'self' data:; frame-src 'self'; connect-src 'self'; "
+  + "img-src 'self' data: blob:; font-src 'self' data:; "
+  + "frame-src 'self' http://127.0.0.1:* http://localhost:*; connect-src 'self'; "
   + "base-uri 'none'; form-action 'none'; frame-ancestors 'self'";
 
 function serveStatic(req, res, urlPath, token) {

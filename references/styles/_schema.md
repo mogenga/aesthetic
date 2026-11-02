@@ -171,7 +171,7 @@ references/styles/
 
 加一张卡会打破"10 卡 / 12 变体"的口径，而这句口径写在 SKILL.md、SKILL-DESIGN.md 与 Studio 里。因此：
 
-- 加卡必须同时改 `style-index.json`、SKILL.md §2、SKILL-DESIGN.md §1.2/§5.2，三处口径一致；
+- 加卡必须同时改 `style-index.json`、SKILL.md §3、SKILL-DESIGN.md §1.2/§5.2，三处口径一致；
 - 必须同步新增一个 CSS 变体文件，否则 index 与磁盘不一致，批次 6 验收直接失败；
 - 玻璃那种"一卡多变体"的拆法必须单独说明，并写清判定法（遮住背景看是变形、糊了、还是只染色）。
 

@@ -101,7 +101,7 @@
 1. references/styles/<id>.md          ← 按 _schema.md 八段写
 2. references/styles/style-index.json ← cards +1，variants +1
 3. assets/studio/styles/<id>.css      ← 变体 CSS（另一批产物）
-4. SKILL.md §2 Phase 1 候选判据        ← 补一行"什么场景推荐它"
+4. SKILL.md §3 Phase 1 候选判据        ← 补一行"什么场景推荐它"
 5. SKILL-DESIGN.md §1.2 / §5.2         ← 口径与表格同步
 ```
 

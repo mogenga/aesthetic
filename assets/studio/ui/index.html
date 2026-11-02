@@ -60,6 +60,15 @@
     <div class="stage">
       <div class="frame-shell" id="frame-shell">
         <div class="frame-bar">
+          <label class="frame-target">
+            <span>预览</span>
+            <select id="preview-target">
+              <option value="fixture">夹具（组件与规则全覆盖）</option>
+              <option value="project">项目自身页面</option>
+            </select>
+          </label>
+          <input type="url" id="preview-url" class="frame-url-input" hidden
+                 placeholder="http://127.0.0.1:5173/" spellcheck="false">
           <span class="frame-url" id="frame-url">/studio/fixture/index.html</span>
           <span class="frame-meta" id="frame-meta">1440 × 900</span>
         </div>

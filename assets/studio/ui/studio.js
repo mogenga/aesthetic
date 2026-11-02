@@ -45,13 +45,49 @@ const post = (path, body) => request('POST', path, body);
 const get = (path) => request('GET', path);
 
 // === 颜色 ===
-// oklch() → hex 交给浏览器自己做：canvas fillStyle 往返拿到的就是平台真实渲染值
-// （含 CSS Color 4 gamut mapping），不用手写转换公式。
-const swatchCtx = document.createElement('canvas').getContext('2d');
-function toHex(oklch) {
-  swatchCtx.fillStyle = '#000000';
-  swatchCtx.fillStyle = oklch;
-  return swatchCtx.fillStyle.toUpperCase();
+//
+// oklch() → hex 必须自己算。两条「交给浏览器」的路都不成立：
+//   · canvas fillStyle 往返：Chrome 把 oklch 原样保留，不转 rgb
+//   · getComputedStyle：同样返回 oklch(...) 字符串
+// 所以实现 OKLCH → 线性 sRGB → sRGB，含 CSS Color 4 的色域映射
+// （保持 L 与 H，二分降低 C 直到进入色域）。
+
+const clamp01 = (v) => Math.min(1, Math.max(0, v));
+const linToSrgb = (c) => (c <= 0.0031308 ? c * 12.92 : 1.055 * c ** (1 / 2.4) - 0.055);
+
+function oklchToLinear(L, C, H) {
+  const hr = (H * Math.PI) / 180;
+  const a = C * Math.cos(hr);
+  const b = C * Math.sin(hr);
+  const l_ = L + 0.3963377774 * a + 0.2158037573 * b;
+  const m_ = L - 0.1055613458 * a - 0.0638541728 * b;
+  const s_ = L - 0.0894841775 * a - 1.2914855480 * b;
+  const l = l_ ** 3, m = m_ ** 3, s = s_ ** 3;
+  return [
+    4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+    -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+    -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s,
+  ];
+}
+
+const inGamut = (rgb, eps = 1e-4) => rgb.every((v) => v >= -eps && v <= 1 + eps);
+
+function toHex(oklchStr) {
+  const m = String(oklchStr).match(/oklch\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)/);
+  if (!m) return String(oklchStr).toUpperCase();
+  const L = Number(m[1]), C = Number(m[2]), H = Number(m[3]);
+
+  let rgb = oklchToLinear(L, C, H);
+  if (!inGamut(rgb)) {
+    let lo = 0, hi = C;
+    for (let i = 0; i < 24; i++) {
+      const mid = (lo + hi) / 2;
+      if (inGamut(oklchToLinear(L, mid, H))) lo = mid; else hi = mid;
+    }
+    rgb = oklchToLinear(L, lo, H);
+  }
+  const to = (v) => Math.round(clamp01(linToSrgb(v)) * 255).toString(16).padStart(2, '0');
+  return `#${to(rgb[0])}${to(rgb[1])}${to(rgb[2])}`.toUpperCase();
 }
 
 const fmtOklch = ({ L, C, H }) => `oklch(${Number(L.toFixed(3))} ${Number(C.toFixed(3))} ${Number(H.toFixed(1))})`;
@@ -101,7 +137,41 @@ const neutralHue = () => ((250 + (85 - 250) * (state.neutral / 100)) + 360) % 36
 const tempLabel = () => (state.neutral < 33 ? '冷' : state.neutral > 66 ? '暖' : '近中性');
 
 /** 表面阶梯只动 L；色相与彩度锁死在基色上（R2）。暗色往更亮的方向走。 */
+const OKLCH_PARTS = /oklch\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)/;
+const parseParts = (e) => {
+  const m = String(e?.oklch || '').match(OKLCH_PARTS);
+  return m ? { L: Number(m[1]), C: Number(m[2]), H: Number(m[3]) } : null;
+};
+
+/**
+ * 当前主题的色板。
+ *
+ * 关键：**以项目里真实的 token 为基准**，调色控件只在此基础上改主色与中性温度。
+ * 早先这里从硬编码公式现算一整套，结果面板显示的是「Studio 觉得应该长什么样」，
+ * 而不是 decisions.json 里写了什么 —— 项目自定义的状态色、表面阶梯全丢了。
+ */
 function colorSet(theme) {
+  // 项目没有这个主题就直接返回空集，不要走兜底公式假装它存在
+  if (state.remoteColor && !state.remoteColor[theme]) return {};
+  const remote = state.remoteColor?.[theme];
+  if (remote && Object.keys(remote).length) {
+    const out = {};
+    for (const [name, entry] of Object.entries(remote)) {
+      const p = parseParts(entry);
+      if (!p) continue;
+      // 只有主色跟随控件；其余保持项目原值
+      if (name === 'accent') out[name] = toColor(p.L, state.accentChroma, state.accentHue);
+      else out[name] = toColor(p.L, p.C, p.H);
+    }
+    // 控件可能把主色改到项目原值之外，补一条 hover
+    if (out.accent && !out['accent-hover']) {
+      const a = parseParts(remote.accent);
+      if (a) out['accent-hover'] = toColor(Math.max(0, a.L - 0.045), state.accentChroma, state.accentHue);
+    }
+    return out;
+  }
+
+  // 没有项目数据时的兜底（首次使用、或 decisions.json 还没有 color 段）
   const H = neutralHue();
   const dark = theme === 'dark';
   const base = dark ? 0.180 : 0.985;
@@ -221,6 +291,17 @@ function renderTranslation() {
 
 const fixtureSrc = () => `/studio/fixture/index.html#/${FIXTURE_ROUTE[state.content] || 'dashboard'}`;
 
+/**
+ * 预览源。两种：
+ *   fixture —— 技能自带的夹具，覆盖全部组件与规则，用于调 token
+ *   project —— 项目自己的页面（用户填 URL），用于看 token 在真实界面上的效果
+ * 早先只能看夹具，等于「在别人的页面上调自己的色板」。
+ */
+function previewSrc() {
+  if (state.previewTarget === 'project' && state.previewUrl) return state.previewUrl;
+  return fixtureSrc();
+}
+
 function applyVars(root) {
   const vars = cssVars(state.theme);
   for (const [k, v] of Object.entries(vars)) root.style.setProperty(k, v);
@@ -261,13 +342,13 @@ function updateFrameSize() {
 function loadFrame() {
   const frame = $('#fixture-frame');
   if (!frame || state.fixture !== 'ready') return;
-  frame.src = fixtureSrc();
+  frame.src = previewSrc();
   frame.addEventListener('load', () => {
     // 夹具 app.js 的 boot() 会按 prefers-color-scheme 重写 data-theme，所以 load 后再推一次。
     applyPreview();
     try { frame.contentDocument.documentElement.dataset.theme = state.theme; } catch { /* ignore */ }
   }, { once: true });
-  $('#frame-url').textContent = fixtureSrc().replace('/studio/fixture ', '');
+  $('#frame-url').textContent = previewSrc().replace('/studio/fixture ', '');
 }
 
 // === 色板 / 层级阶梯 / 校验读数（一次渲染，共用同一份 colorSet）===
@@ -302,16 +383,22 @@ function renderPanels() {
       })));
   });
 
+  // 只检查「真的存在」的组合。单主题项目没有 dark，
+  // 硬读 dark.fg.hex 会得到 undefined → 对比度算出 NaN，面板显示一行红叉。
+  const hasDark = !!(dark && dark.fg && dark.bg);
   const rows = [
-    ['正文对比度', light.fg.hex, light.bg.hex, 4.5],
-    ['次要对比度', light['fg-muted'].hex, light.bg.hex, 4.5],
-    ['焦点对比度', light.accent.hex, light.bg.hex, 3],
-    ['暗色正文', dark.fg.hex, dark.bg.hex, 4.5],
+    ['正文对比度', light?.fg, light?.bg, 4.5],
+    ['次要对比度', light?.['fg-muted'], light?.bg, 4.5],
+    ['焦点对比度', light?.accent, light?.bg, 3],
+    ['主按钮文字', light?.['on-accent'], light?.accent, 4.5],
   ];
+  if (hasDark) rows.push(['暗色正文', dark.fg, dark.bg, 4.5]);
+
   const checks = $('#checks');
   checks.textContent = '';
-  for (const [label, fg, bg, min] of rows) {
-    const ratio = contrastOf(fg, bg);
+  for (const [label, fgE, bgE, min] of rows) {
+    if (!fgE?.hex || !bgE?.hex) continue;          // 这一组没定义就跳过
+    const ratio = contrastOf(fgE.hex, bgE.hex);
     const pass = ratio >= min;
     checks.append(el('li', { class: pass ? 'ok' : 'bad' },
       el('span', { class: 'flag', text: pass ? '✓' : '✗' }),
@@ -744,6 +831,10 @@ function applyRemoteDecisions(d) {
   for (const [key] of DIM_KEYS) {
     if (d.translation?.[key]) state.translation[key] = structuredClone(d.translation[key]);
   }
+  // 保留项目真实的色值。colorSet() 只是「调色控件作用在什么基准上」，
+  // 没有这份缓存它就会从硬编码的公式现场算一套，而不是读项目的 token。
+  if (d.color?.light) state.remoteColor = structuredClone(d.color);
+  if (d.style) { state.styleCard = d.style.card || state.styleCard; state.styleVariant = d.style.variant || state.styleVariant; }
   if (d.weights) state.weights = { ...state.weights, ...structuredClone(d.weights) };
   if (d.direction) state.direction = { ...state.direction, ...d.direction };
   if (d.weightLadder) state.weightLadder = d.weightLadder;
@@ -783,6 +874,15 @@ function bindEvents() {
   on('#status-close', 'click', () => { $('#status').hidden = true; });
   for (const tab of $$('.mode-tab')) tab.addEventListener('click', () => setMode(tab.dataset.mode));
   on('#view-select', 'change', (e) => setView(e.target.value));
+  on('#preview-target', 'change', (e) => {
+    state.previewTarget = e.target.value;
+    $('#preview-url').hidden = state.previewTarget !== 'project';
+    loadFrame();
+  });
+  on('#preview-url', 'change', (e) => {
+    state.previewUrl = e.target.value.trim();
+    if (state.previewTarget === 'project') loadFrame();
+  });
   on('#theme-select', 'change', (e) => setTheme(e.target.value));
   on('#content-select', 'change', (e) => setContent(e.target.value));
   on('#btn-commit', 'click', doCommit);
@@ -803,11 +903,15 @@ function bindEvents() {
 }
 
 async function init() {
-  renderTranslation();
-  syncControls();
   bindEvents();
   setArtifacts({});
   await loadState();
+
+  // 必须放在 loadState() 之后：applyRemoteDecisions() 只是把远程值写进 state，
+  // 面板要重画才看得见。先画后载会让面板一直显示硬编码的默认值
+  // —— 转写表写着别人的「依据」，色板也不是当前项目的主色。
+  renderTranslation();
+  syncControls();
 
   const ready = state.fixture === 'ready';
   $('#fixture-frame').hidden = !ready;
