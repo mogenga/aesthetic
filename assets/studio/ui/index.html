@@ -160,11 +160,11 @@
   <!-- ------------------------------------------------ 画廊模式 -->
   <section id="mode-gallery" class="mode mode-gallery" hidden>
     <div class="notice">
-      <strong>自导模式未启用（需先完成批次 6 的 12 个风格变体）。当前请使用导演层定方向。</strong>
-      <p>画廊用于并排比较候选风格。变体 CSS 位于 <code>assets/studio/styles/</code>，在生成之前这里只有空壳；
-        调色与转写不受影响。</p>
+      <strong>并排比较候选风格。</strong>
+      <p>每帧是同一套夹具内容在某个变体下的真实渲染（<code>assets/studio/styles/</code> 的 CSS）。
+        选中的变体会写进 <code>decisions.json</code> 的 <code>style</code> 段，调色与实验室都跟着它走。</p>
       <label class="inline-check">
-        <input type="checkbox" id="gallery-load"> 加载夹具预览（仅用于检查同步滚动，不代表风格差异）
+        <input type="checkbox" id="gallery-load"> 加载全部候选（不勾选只看前 3 个，省渲染开销）
       </label>
     </div>
     <div class="gallery-grid" id="gallery-grid"></div>

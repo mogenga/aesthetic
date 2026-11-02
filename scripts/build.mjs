@@ -199,6 +199,8 @@ function buildTokensCss(tokens, decisions) {
       L.push('  --label-gap: 8px;');
       L.push('  --icon-shift: -0.125em;');
       L.push('  --focus-ring: 3px;');
+      L.push('  /* 小胶囊（徽章 / 计数 / 标签）的左右内距：6px 是让 2 个字贴合边界的最小值 */');
+      L.push('  --optical-pill-x: 6px;');
       L.push('');
       L.push('  /* layout — R8/R9 的结构值 */');
       L.push('  --row-h: 52px;');       // R8 行高下沿；54 由内容撑出，不写成 min-height
@@ -372,12 +374,29 @@ function blockTranslation(d) {
   return lines.join('\n');
 }
 
+/**
+ * 语义状态色（todo / in-progress / review / done / blocked 之类）不是通用 token。
+ * 名字是项目自定义的，所以用白名单 + 前缀识别，把它们从表面阶梯里拿出来，
+ * 单独列一张表 —— 否则 「--in-progress」 会被当成表面层，ΔL 列全是 —。
+ */
+const STATE_NAME_RE = /^(state-|status-)|^(todo|doing|in-progress|review|done|blocked|success|warning|danger|error|info)$/i;
+
+function splitColors(themeColors) {
+  const surfaces = {};
+  const states = {};
+  for (const [k, v] of Object.entries(themeColors || {})) {
+    if (STATE_NAME_RE.test(k) && !k.startsWith('on-')) states[k] = v;
+    else surfaces[k] = v;
+  }
+  return { surfaces, states };
+}
+
 function blockColorTable(tokens) {
   const order = ['bg', 'surface-1', 'surface-2', 'surface-3', 'surface-sunken',
     'fg', 'fg-muted', 'accent', 'line-1', 'line-inset'];
   const names = new Set();
   for (const theme of Object.keys(tokens.color)) {
-    for (const n of Object.keys(tokens.color[theme])) names.add(n);
+    for (const n of Object.keys(splitColors(tokens.color[theme]).surfaces)) names.add(n);
   }
   const sorted = [...names].sort((a, b) => {
     const ia = order.indexOf(a), ib = order.indexOf(b);
@@ -421,7 +440,37 @@ function blockColorTable(tokens) {
   if (tokens.color.light && Object.values(tokens.color.light).some((e) => e.clipped)) {
     lines.push('> ⚠ 标记表示该色超出 sRGB，已按 CSS Color 4 做 gamut mapping（降 C，保 L 与 H）。');
   }
+
+  // 状态色单列：它们是语义色，不参与表面阶梯。
+  // 判据是「能否两两区分 + 作为文字色时对 bg 达 3:1」，不是 ΔL。
+  const stateNames = new Set();
+  for (const theme of Object.keys(tokens.color)) {
+    for (const n of Object.keys(splitColors(tokens.color[theme]).states)) stateNames.add(n);
+  }
+  if (stateNames.size) {
+    lines.push('', '### 3.1b 状态色', '');
+    lines.push('| Token | 浅色 | 暗色 | 用途 |');
+    lines.push('|---|---|---|---|');
+    for (const n of [...stateNames].sort()) {
+      const li = splitColors(tokens.color.light).states[n];
+      const da = tokens.color.dark ? splitColors(tokens.color.dark).states[n] : null;
+      const cell = (e) => (e ? `\`${e.oklch}\`<br>\`${e.hex}\`` : '—');
+      lines.push(`| \`--${n}\` | ${cell(li)} | ${cell(da)} | ${statePurpose(n)} |`);
+    }
+    lines.push('');
+    lines.push('> 状态色不参与 ΔL 阶梯，也不替代可读性检查。'
+      + '它们必须能两两区分，且作为文字/图标色时对 `--bg` 达 3:1 以上。');
+  }
+
   return lines.join('\n');
+}
+
+function statePurpose(name) {
+  return {
+    todo: '待开始', 'in-progress': '进行中', review: '待确认',
+    done: '已完成', blocked: '阻塞', success: '成功', warning: '警告',
+    danger: '危险 / 错误', error: '错误', info: '信息',
+  }[name] || '状态';
 }
 
 function blockContrast(tokens) {
@@ -582,7 +631,12 @@ function extractSection8FromDecisions(d) {
   lines.push('');
   lines.push(`**AI 界面**：流式文字逐字 ${px(ai.staggerMs, 30)}ms 错峰、高斯模糊→瞬间对焦；正文行内图标 \`vertical-align: -0.125em\`；思考框用 \`0fr → 1fr\` 网格撑开。`);
   lines.push('');
-  lines.push(`**暗色模式**：**大字号**文字字重降一档（body ${wd.body ?? 350} / strong ${wd.strong ?? 500} / display ${wd.display ?? 600}），正文不低于 300。**小于 16px 的文字不降**，保持 \`--fw-small: ${smallDark}\` —— 小字在暗底上本来已细，再降会糊。`);
+  // 只有项目真的做了暗色模式，这一段才成立。浅色单主题的项目写它是错的。
+  const hasDark = !!d.color?.dark;
+  if (hasDark) {
+    lines.push(`**暗色模式**：**大字号**文字字重降一档（body ${wd.body ?? 350} / strong ${wd.strong ?? 500} / display ${wd.display ?? 600}），正文不低于 300。**小于 16px 的文字不降**，保持 \`--fw-small: ${smallDark}\` —— 小字在暗底上本来已细，再降会糊。`);
+    lines.push('');
+  }
   lines.push('');
   lines.push('**色彩**：表面层级 ΔL ∈ [0.010, 0.030]；禁止场景不用纯黑，正文用 `#1A1A19`。');
   lines.push('');

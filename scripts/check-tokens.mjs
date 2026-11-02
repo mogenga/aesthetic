@@ -399,9 +399,22 @@ function scanSources(project, files, allowed, report) {
     if (rel === tokenFileHint) continue; // the generated token file defines them
 
     const lines = src.split(/\r?\n/);
+
+    // 多行声明的上下文：`box-shadow:` 换行后，阴影值在下一行，
+    // 逐行判上下文会把它们误报成「非阴影场景的裸色」。这里回溯到声明开头。
+    const declHead = (idx) => {
+      for (let i = idx; i >= 0 && i >= idx - 12; i--) {
+        const l = lines[i];
+        if (/^\s*[a-z-]+\s*:/.test(l)) return l;       // 找到属性名所在行
+        if (/[;{}]/.test(l)) break;                     // 越过声明边界就停
+      }
+      return '';
+    };
+
     lines.forEach((line, idx) => {
       const lineNo = idx + 1;
       if (/^\s*(\/\/|\*|\/\*)/.test(line)) return; // comment-only lines
+      const context = line + ' ' + declHead(idx);
 
       for (const m of line.matchAll(HEX_LITERAL)) {
         const v = m[0].toLowerCase();
@@ -423,7 +436,7 @@ function scanSources(project, files, allowed, report) {
       }
       for (const m of line.matchAll(RGB_LITERAL)) {
         // rgb()/rgba() in shadows and hairlines is legal (R3 exemption).
-        const shadowContext = /shadow|inset|border|outline|filter|::?before|::?after/i.test(line);
+        const shadowContext = /shadow|inset|border|outline|filter|::?before|::?after/i.test(context);
         if (!shadowContext) {
           report.warn('T2', rel, lineNo,
             `裸 rgb()/rgba() 值 ${m[0]}；非阴影/边框场景建议改用 token。`);
@@ -431,7 +444,7 @@ function scanSources(project, files, allowed, report) {
       }
       for (const re of PURE_BLACK) {
         if (re.test(line)) {
-          const ctx = /shadow|inset|color-mix|rgba?\(|oklch\([^)]*\/|transparent/i.test(line);
+          const ctx = /shadow|inset|color-mix|rgba?\(|oklch\([^)]*\/|transparent/i.test(context);
           const transparentBlack = /rgba\(\s*0\s*[, ]\s*0\s*[, ]\s*0\s*[,/]\s*0?\.\d+/.test(line);
           if (!ctx && !transparentBlack) {
             report.error('R3', rel, lineNo,

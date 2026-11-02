@@ -457,39 +457,96 @@ function setContent(content) {
   $('#frame-url').textContent = fixtureSrc();
 }
 
-// === 画廊（空壳：变体 CSS 尚未生成，批次 6 之前不出候选）===
-let galleryBuilt = false;
+// === 画廊 ===
+//
+// 候选来自 assets/studio/styles/style-index.json，按逻辑卡计数
+// （玻璃卡的三个变体都列出来，其余卡片一卡一帧）。
+// 每帧走 /studio/proxy/<variant>/，由 studio.mjs 把夹具 HTML 改写成
+// 引用该变体 CSS 的版本 —— 不用前端自己拼 CSS 覆盖。
 
-function renderGallery() {
+let galleryBuilt = false;
+let galleryIndex = null;
+
+async function loadStyleIndex() {
+  if (galleryIndex) return galleryIndex;
+  try {
+    const res = await fetch('/studio/styles/style-index.json', { credentials: 'same-origin' });
+    const idx = await res.json();
+    galleryIndex = { variants: idx.variants || [] };
+  } catch {
+    galleryIndex = { variants: [] };
+  }
+  return galleryIndex;
+}
+
+/** 按逻辑卡去重：玻璃卡三支全留，其余每卡只出第一帧。 */
+function galleryCandidates(variants) {
+  const seen = new Set();
+  const out = [];
+  for (const v of variants) {
+    const isGlass = v.card === 'glassmorphism';
+    if (!isGlass) {
+      if (seen.has(v.card)) continue;
+      seen.add(v.card);
+    }
+    out.push(v);
+  }
+  return out;
+}
+
+async function renderGallery() {
   const grid = $('#gallery-grid');
   const load = $('#gallery-load')?.checked;
   if (galleryBuilt && grid.dataset.load === String(load)) return;
+
+  const { variants } = await loadStyleIndex();
   galleryBuilt = true;
   grid.dataset.load = String(load);
-  grid.dataset.count = String(load ? 3 : 1);
   grid.textContent = '';
 
-  if (!load) {
-    const note = '自导模式未启用（需先完成批次 6 的 12 个风格变体）。当前请使用导演层定方向。'
-      + '<br><code>assets/studio/styles/style-index.json</code> 与变体 CSS 完成后，'
-      + '这里会并排渲染最多 6 个候选并支持同步滚动。';
+  if (!variants.length) {
+    grid.dataset.count = '1';
     grid.append(el('div', { class: 'gallery-card' },
-      el('header', {}, el('span', { class: 'g-num', text: '01–06' }), el('span', { text: '风格变体未生成' })),
-      el('div', { class: 'g-body', html: note })));
+      el('header', {}, el('span', { class: 'g-num', text: '—' }), el('span', { text: '读不到风格索引' })),
+      el('div', { class: 'g-body', html: '读不到 <code>assets/studio/styles/style-index.json</code>。'
+        + '请确认 Studio 是由 <code>scripts/studio.mjs</code> 启动的。' })));
     return;
   }
 
-  // 夹具预览：只验证并排尺寸与同步滚动，不代表任何风格差异。
+  let list = galleryCandidates(variants);
+  if (!load) list = list.slice(0, 3);
+  list = list.slice(0, 6);
+  grid.dataset.count = String(list.length);
+
   const frames = [];
-  for (let i = 0; i < 3; i++) {
+  list.forEach((variant, i) => {
     const frame = el('iframe', {
-      title: `候选 ${i + 1}`, src: fixtureSrc(),
+      title: `${variant.name} 候选 ${i + 1}`,
+      src: `/studio/proxy/${variant.id}/index.html#/${FIXTURE_ROUTE[state.content] || 'dashboard'}`,
       style: { width: `${VIEWS[state.view][0]}px`, height: `${VIEWS[state.view][1]}px` },
     });
-    grid.append(el('div', { class: 'gallery-card' },
-      el('header', {}, el('span', { class: 'g-num', text: String(i + 1).padStart(2, '0') }),
-        el('span', { text: '夹具（无变体）' })), frame));
+    const head = el('header', {},
+      el('span', { class: 'g-num', text: String(i + 1).padStart(2, '0') }),
+      el('span', { class: 'g-name', text: variant.name }));
+    if (variant.engine === 'chromium-only') {
+      head.append(el('span', { class: 'g-note', text: '仅 Chromium 折射' }));
+    }
+    head.append(el('button', { type: 'button', class: 'g-pick', dataset: { pick: variant.id }, text: '选择' }));
+    grid.append(el('div', { class: 'gallery-card', dataset: { variant: variant.id } }, head, frame));
     frames.push(frame);
+  });
+
+  for (const btn of $$('#gallery-grid .g-pick')) {
+    btn.addEventListener('click', () => {
+      const v = list.find((x) => x.id === btn.dataset.pick);
+      if (!v) return;
+      state.styleCard = v.card;
+      state.styleVariant = v.id;
+      for (const card of $$('#gallery-grid .gallery-card')) {
+        card.classList.toggle('is-picked', card.dataset.variant === v.id);
+      }
+      setStatus('ok', `已选 ${v.name}（${v.id}）。点「写入 decisions」保存。`);
+    });
   }
 
   // 同步滚动：滚动一个，其余按比例跟随。
