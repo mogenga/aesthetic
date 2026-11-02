@@ -11,6 +11,7 @@ import renderSettings from "./views/settings.js";
 import renderForm from "./views/form.js";
 import renderAi from "./views/ai.js";
 import renderComponents from "./views/components.js";
+import renderLab from "./views/lab.js";
 
 const ROUTES = {
   dashboard: { title: "总览", render: renderDashboard, data: content.dashboard },
@@ -18,6 +19,9 @@ const ROUTES = {
   form: { title: "发布活动", render: renderForm, data: content.form },
   ai: { title: "智能助理", render: renderAi, data: content.ai },
   components: { title: "组件架", render: renderComponents, data: content.components },
+  // Studio 组件实验台的裸渲染：只挂一个组件，视觉完全由当前 token + 变体决定。
+  // 路由是 #/lab，参数从 query 读（见 views/lab.js）。
+  lab: { title: "实验台", render: renderLab, data: null, bare: true },
 };
 const DEFAULT_ROUTE = "dashboard";
 
@@ -94,6 +98,8 @@ function renderNav(activeId) {
 
 function mount(view) {
   const route = ROUTES[view];
+  // 裸渲染路由（组件实验台）不挂顶栏/侧栏，让组件在纯背景上被看
+  if (app) app.dataset.bare = route.bare ? "true" : "false";
   renderNav(view);
   document.title = `${route.title} · ${brand.name} ${brand.product}`;
   const sub = document.querySelector("[data-brand-sub]");
@@ -345,6 +351,11 @@ function boot() {
 
   if (!window.location.hash) window.history.replaceState(null, "", `#/${DEFAULT_ROUTE}`);
   window.addEventListener("hashchange", handleRoute);
+  // 实验台靠 query 切组件；Studio 改 iframe src 会触发 load，但同一文档内改
+  // search 只发 popstate，所以这里也监听一次。
+  window.addEventListener("popstate", () => {
+    if (parseHash() === "lab") mount("lab");
+  });
   handleRoute();
   startTimer();
 }

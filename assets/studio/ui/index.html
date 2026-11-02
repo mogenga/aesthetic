@@ -180,14 +180,23 @@
           <option value="switch">开关</option>
           <option value="card">卡片</option>
           <option value="badge">徽章</option>
+          <option value="tag">标签</option>
+        </select>
+      </label>
+      <label class="ctl"><span>变体</span>
+        <select id="lab-variant">
+          <option value="primary">primary</option>
+          <option value="secondary">secondary</option>
+          <option value="ghost">ghost</option>
+          <option value="danger">danger</option>
+          <option value="link">link</option>
         </select>
       </label>
       <label class="ctl"><span>背景</span>
         <select id="lab-bg">
-          <option value="solid">纯色</option>
-          <option value="dark">深色</option>
-          <option value="image">图片</option>
-          <option value="mesh">渐变网格</option>
+          <option value="surface">页面底</option>
+          <option value="sunken">下沉面</option>
+          <option value="raised">抬升面</option>
         </select>
       </label>
       <label class="ctl"><span>状态</span>
@@ -210,8 +219,16 @@
       </label>
     </div>
 
-    <div class="lab-stage" id="lab-stage" data-bg="solid">
-      <div class="lab-mount" id="lab-mount"></div>
+    <!--
+      组件在 iframe 里渲染，不是在这里内联画。
+      原因：实验室要展示的必须是「当前项目的 token + 当前变体」下的样子；
+      内联画只能用 Studio 自己的 CSS 变量，那样预览的是 Studio 的皮肤，
+      写出来的 recipe 放进项目就是错的。
+      iframe 的 src 由 studio.js 拼：/studio/fixture/index.html?comp=…&variant=…#/lab
+    -->
+    <div class="lab-stage" id="lab-stage">
+      <iframe id="lab-frame" class="lab-frame" title="组件预览（当前 token 与变体下真实渲染）" src="about:blank"></iframe>
+      <p class="lab-hint" id="lab-hint"></p>
     </div>
 
     <div class="lab-foot">

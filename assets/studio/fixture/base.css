@@ -290,7 +290,10 @@ textarea.field-control { min-height: var(--textarea-min); resize: vertical; line
 .field-control:focus-visible {
   outline: none; box-shadow: var(--shadow-field-outer), var(--shadow-field-inner), inset 0 0 0 1px var(--accent), var(--focus-ring);
 }
-.field-control:disabled, .field-control[readonly] { cursor: not-allowed; opacity: 0.55; }
+.field-control:disabled,
+.field-control[readonly],
+.field-control[data-state="disabled"],
+.field[data-state="disabled"] .field-control { cursor: not-allowed; opacity: 0.55; }
 .field-control[aria-invalid="true"] { box-shadow: var(--shadow-field-outer), var(--shadow-field-inner), inset 0 0 0 1px var(--danger), var(--focus-ring); }
 .field-control[aria-invalid="true"]:focus-visible {
   box-shadow: var(--shadow-field-outer), var(--shadow-field-inner), inset 0 0 0 1px var(--danger), 0 0 0 3px color-mix(in oklab, var(--danger) 24%, transparent);
@@ -322,7 +325,9 @@ select.field-control {
   transform: translate(calc(var(--switch-w) - var(--switch-knob) - var(--switch-inset) * 2), -50%);
 }
 .switch input:focus-visible + .switch__track { box-shadow: var(--focus-ring); }
-.switch input:disabled + .switch__track { opacity: 0.45; cursor: not-allowed; }
+.switch input:disabled + .switch__track,
+.switch[data-state="disabled"] .switch__track,
+.switch[data-state="disabled"] { opacity: 0.45; cursor: not-allowed; }
 /* 复选框 */
 .checkbox { display: inline-flex; align-items: flex-start; gap: var(--s-3); cursor: pointer; }
 .checkbox input { position: absolute; opacity: 0; width: 1px; height: 1px; }
@@ -871,4 +876,75 @@ select.field-control {
     border: 1px solid CanvasText;
   }
   .nav-link[aria-current="page"] { outline: 2px solid Highlight; }
+}
+
+
+/* ==========================================================================
+   实验台（#/lab）—— 裸渲染
+   --------------------------------------------------------------------------
+   组件实验台只挂一个组件，所以要撤掉应用外壳，并且让舞台自己决定背景
+   （Studio 会传 ?bg=solid|dark|image|mesh）。这里的值全部是 token。
+   ========================================================================== */
+
+.app[data-bare="true"] { display: block; }
+.app[data-bare="true"] > .topbar,
+.app[data-bare="true"] > .rail { display: none; }
+.app[data-bare="true"] > .main { padding: 0; min-height: 100vh; display: grid; place-items: center; }
+
+.lab-view { display: grid; place-items: center; min-height: 100vh; width: 100%; }
+.lab-view .lab-mount { display: grid; place-items: center; padding: var(--s-7); }
+
+/* 舞台背景：Studio 通过 data-bg 指定，用 token 表达，不写死颜色 */
+.app[data-bare="true"][data-lab-bg="surface"] { background: var(--bg); }
+.app[data-bare="true"][data-lab-bg="sunken"] { background: var(--surface-sunken); }
+.app[data-bare="true"][data-lab-bg="raised"] { background: var(--surface-2); }
+
+/* 加载态的小转环：只在组件实验台出现 */
+.lab-spinner {
+  display: inline-block; width: 12px; height: 12px; margin-right: var(--s-2);
+  border: 2px solid color-mix(in oklab, currentColor 30%, transparent);
+  border-top-color: currentColor; border-radius: var(--r-full);
+  animation: lab-spin 640ms linear infinite;
+}
+@keyframes lab-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .lab-spinner { animation-duration: 2s; }
+}
+
+
+/* ==========================================================================
+   强制状态（组件实验台 / 组件架用）
+   --------------------------------------------------------------------------
+   :hover / :focus / :active 没法用脚本触发，所以这些元素用 data-state 强制。
+   这里只补「所有变体都该有」的那部分；各变体的差异仍在各自文件里。
+   ========================================================================== */
+
+.btn[data-state="loading"],
+[data-lab-target][data-state="loading"] { cursor: progress; opacity: .78; }
+
+/* 用 .btn.btn 提高一级特异度：变体文件（如 .btn[data-variant="primary"]）
+   也声明了 box-shadow，同特异度下后加载的会赢，强制状态就看不到了。 */
+[data-lab-target][data-state="hover"] .btn,
+.btn.btn[data-state="hover"] { filter: brightness(1.06); }
+[data-lab-target][data-state="focus"] .btn,
+.btn.btn[data-state="focus"] { box-shadow: var(--focus-ring) !important; }
+[data-lab-target][data-state="active"] .btn,
+.btn.btn[data-state="active"] { transform: translateY(1px) !important; }
+
+/* 非按钮控件（徽章 / 标签 / 卡片）的强制状态 */
+.badge[data-state="disabled"],
+.tag[data-state="disabled"],
+.card[data-state="disabled"] { opacity: .45; cursor: not-allowed; }
+.card[data-state="hover"] { box-shadow: var(--shadow-2); }
+.card[data-state="focus"] { box-shadow: var(--focus-ring); }
+.badge[data-state="error"],
+.tag[data-state="error"] { background: var(--danger-soft, var(--surface-2)); color: var(--danger, var(--fg)); }
+
+.field[data-state="error"] .field__help { color: var(--danger, inherit); }
+.field[data-state="error"] .field-control,
+.field-control[data-state="error"] { box-shadow: var(--shadow-field-outer), var(--shadow-field-inner), inset 0 0 0 1px var(--danger, var(--line-inset)); }
+.field[data-state="focus"] .field-control,
+.field[data-state="hover"] .field-control { box-shadow: var(--shadow-field-outer), var(--shadow-field-inner), inset 0 0 0 1px var(--line-2); }
+.field[data-state="focus"] .field-control {
+  box-shadow: var(--shadow-field-outer), var(--shadow-field-inner), inset 0 0 0 1px var(--accent), var(--focus-ring);
 }

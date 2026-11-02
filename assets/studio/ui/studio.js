@@ -513,66 +513,135 @@ function renderGallery() {
 }
 
 // === 组件实验室 ===
-const LAB_CLASS = { button: 'lab-btn', input: 'lab-input', switch: 'lab-switch', card: 'lab-card', badge: 'lab-badge' };
+//
+// 预览走 iframe，不用内联 DOM。区别很关键：内联画只能用 Studio 自己的
+// --ui-* 变量，预览出来的是 Studio 的皮肤；iframe 加载夹具的 #/lab 路由，
+// 那里挂的是当前项目的 tokens.css + 当前 data-style 的变体 CSS，
+// 所以实验室里看到的就是组件在真实项目里的样子。
 
-/** 按组件类型造一个静态样例；状态与尺寸走 data-*，由 studio.css 表现。 */
-function labElement(comp, size, labState) {
-  const base = { class: LAB_CLASS[comp] || 'lab-badge', dataset: { size, state: labState } };
-  if (comp === 'button') {
-    return el('button', { ...base, type: 'button', disabled: labState === 'disabled' || undefined,
-      html: labState === 'loading' ? '<span class="lab-spinner"></span>处理中' : '主操作' });
-  }
-  if (comp === 'input') {
-    return el('input', { ...base, readonly: true, value: labState === 'error' ? '请输入有效邮箱' : '输入内容' });
-  }
-  if (comp === 'switch') {
-    return el('button', { ...base, type: 'button', 'aria-label': '开关',
-      dataset: { ...base.dataset, on: String(labState !== 'disabled') } });
-  }
-  if (comp === 'card') {
-    return el('div', { ...base,
-      html: '<h3>卡片标题</h3><p>卡片正文使用次要色。阴影与圆角来自项目 token。</p>' });
-  }
-  return el('span', { ...base, text: { error: '失败', disabled: '已停用' }[labState] || '已启用' });
+const LAB_COMPONENTS = ['button', 'input', 'switch', 'card', 'badge', 'tag'];
+const LAB_VARIANT_COMPS = new Set(['button', 'badge', 'tag']);
+
+/** 当前实验台配置 → 夹具裸渲染 URL */
+function labSrc() {
+  const comp = $('#lab-component').value;
+  const params = new URLSearchParams({
+    comp,
+    variant: $('#lab-variant').value,
+    state: $('#lab-state').value,
+    size: $('#lab-size').value,
+    bg: $('#lab-bg').value,
+  });
+  const variant = state.styleVariant || 'minimalism';
+  // data-style 由 studio.mjs 的 proxy 路由注入，和画廊用同一条路径
+  return `/studio/proxy/${variant}/index.html?${params}#/lab`;
 }
+
+let labFrameReady = false;
 
 function renderLab() {
   const comp = $('#lab-component').value;
-  const mount = $('#lab-mount');
-  mount.textContent = '';
-  mount.append(labElement(comp, $('#lab-size').value, $('#lab-state').value));
-  $('#lab-stage').dataset.bg = $('#lab-bg').value;
+  const frame = $('#lab-frame');
+  if (!frame) return;
+
+  // 变体下拉只对按钮 / 徽章 / 标签有意义
+  const variantCtl = $('#lab-variant');
+  if (variantCtl) {
+    variantCtl.disabled = !LAB_VARIANT_COMPS.has(comp);
+    variantCtl.closest('.ctl')?.toggleAttribute('data-dim', !LAB_VARIANT_COMPS.has(comp));
+  }
+
   $('#recipe-name').value = comp;
   $('#recipe-path').textContent = `assets/recipes/${comp}.css`;
+
+  frame.src = labSrc();
+  labFrameReady = true;
 }
 
-const LAB_STATE_CSS = {
-  default: '', hover: 'filter: brightness(1.12);', focus: 'outline: 2px solid var(--accent); outline-offset: 3px;',
-  active: 'filter: brightness(.9); transform: translateY(1px);', disabled: 'opacity: .4; cursor: not-allowed;',
-  loading: 'opacity: .75; cursor: progress;', error: 'background: var(--danger, #A42C22); color: #fff;',
-};
+/**
+ * 提示栏文案。常驻监听 load，而不是每次 renderLab 挂一次性监听：
+ * renderLab 会在模块初始化时就跑一次（iframe 还是 about:blank），
+ * 那时挂的 once 监听会随一次空 load 消耗掉，之后的真正加载就没人更新提示了。
+ */
+function bindLabHint() {
+  const frame = $('#lab-frame');
+  const hint = $('#lab-hint');
+  if (!frame || !hint) return;
+  frame.addEventListener('load', () => {
+    // 变体名从 iframe 实际的 data-style 读，不从 state 猜：
+    // 画廊选了 A 而实验室加载 B 时，state 会撒谎。
+    let served = state.styleVariant || 'minimalism';
+    try {
+      const ds = frame.contentDocument?.documentElement?.dataset?.style;
+      if (ds) served = ds;
+    } catch { /* 跨域时保留 state 值 */ }
+    hint.textContent = `真实渲染：当前 token + 变体 ${served}`;
+  });
+}
 
-/** 把实验室当前配置写成一段可直接落盘的 CSS 片段。 */
+/**
+ * 从 iframe 里真实渲染的组件读出计算样式，生成 recipe。
+ *
+ * 为什么读计算样式而不是拼一份模板：实验室的全部价值在于「看到什么就固化成什么」。
+ * 模板拼出来的片段会和当前 token/变体脱节，写进项目就是错的。
+ */
 function recipeCss() {
+  const frame = $('#lab-frame');
   const comp = $('#lab-component').value;
-  const size = $('#lab-size').value;
   const labState = $('#lab-state').value;
-  const extra = LAB_STATE_CSS[labState];
-  const body = [
-    `  padding: ${{ sm: '5px 12px', md: '8px 16px', lg: '11px 22px' }[size]};`,
-    `  font-size: ${{ sm: '12px', md: '13px', lg: '15px' }[size]};`,
-    '  border: 0;',
-    '  border-radius: var(--r-sm);',
-    `  background: ${labState === 'error' ? 'var(--danger, #A42C22)' : 'var(--accent)'};`,
-    '  color: var(--on-accent, #fff);',
-    '  font-weight: var(--fw-strong);',
-    '  transition: filter var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);',
-    ...(extra ? [`  /* ${labState} */`, `  ${extra}`] : []),
+  const size = $('#lab-size').value;
+
+  let cs = null;
+  let el = null;
+  try {
+    el = frame.contentDocument?.querySelector('.lab-mount > *');
+    if (el) cs = frame.contentWindow.getComputedStyle(el);
+  } catch { /* 跨域或未加载完 */ }
+
+  if (!cs) {
+    // 读不到就明确说明，不编一份看起来对的 CSS
+    return [
+      `/* recipe: ${comp} —— 未能从预览读取计算样式 */`,
+      `/* 请确认 Studio 已启动且预览已加载（${labSrc()}） */`,
+      '',
+    ].join('\n');
+  }
+
+  const pick = (prop, fallback = '') => String(cs.getPropertyValue(prop) || '').trim() || fallback;
+  // 只固化「与 token 无关、且是这个状态特有」的部分
+  const lines = [
+    `/* === recipe: ${comp} · ${labState} · ${size} ===
+ * 读自 Studio 实验台的真实渲染（token + 变体 ${state.styleVariant || 'minimalism'}）
+ * 依赖：当前项目的 tokens.css；如与变体冲突，以变体为准
+ */`,
+    `.${el.className.split(' ')[0]}[data-state="${labState}"] {`,
   ];
-  return [
-    `.lab-${comp} {`, ...body, '}', '',
-    `/* 只覆盖目标状态：.lab-${comp}[data-state="${labState}"][data-size="${size}"] */`, '',
-  ].join('\n');
+
+  // 只固化「有视觉意义」的属性。逐个显式判断，不用一条正则糊过去：
+  // 浏览器会把未设置的 outline 算成 `rgb(0, 0, 0) none 3px`，
+  // 直接把计算值抄进 CSS 会写出一行无效声明。
+  const skip = (prop, v) => {
+    if (!v) return true;
+    if (v === 'none' || v === 'normal' || v === 'auto') return true;
+    if (/^0(px|%)?(\s+0(px|%)?)*$/.test(v)) return true;
+    if (v.includes('rgba(0, 0, 0, 0)')) return true;
+    // 浏览器把"没有 outline"算成 `rgb(0, 0, 0) none 3px`，抄进 CSS 是无效声明
+    if (prop === 'outline' && v.split(/\s+/).includes('none')) return true;
+    if (prop === 'transform' && v === 'none') return true;
+    return false;
+  };
+
+  const props = [
+    'background-color', 'color', 'border-radius', 'box-shadow',
+    'padding', 'font-size', 'font-weight', 'opacity', 'transform', 'outline',
+  ];
+  for (const prop of props) {
+    const v = pick(prop);
+    if (skip(prop, v)) continue;
+    lines.push(`  ${prop}: ${v};`);
+  }
+  lines.push('}', '');
+  return lines.join('\n');
 }
 
 async function writeRecipe() {
@@ -664,7 +733,7 @@ function bindEvents() {
   on('#btn-inject', 'click', doInject);
   on('#btn-recipe', 'click', writeRecipe);
   on('#gallery-load', 'change', () => { galleryBuilt = false; renderGallery(); });
-  for (const sel of ['#lab-component', '#lab-size', '#lab-state', '#lab-bg']) on(sel, 'change', renderLab);
+  for (const sel of ['#lab-component', '#lab-variant', '#lab-size', '#lab-state', '#lab-bg']) on(sel, 'change', renderLab);
   on('#recipe-name', 'input', () => {
     const v = $('#recipe-name').value.trim() || 'component';
     $('#recipe-path').textContent = `assets/recipes/${v}.css`;
@@ -689,6 +758,7 @@ async function init() {
   if (ready) loadFrame();
   applyPreview();
   updateFrameSize();
+  bindLabHint();
   renderLab();
 
   if (!TOKEN) {
