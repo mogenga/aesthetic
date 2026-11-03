@@ -72,7 +72,9 @@
           <span class="frame-url" id="frame-url">/studio/fixture/index.html</span>
           <span class="frame-meta" id="frame-meta">1440 × 900</span>
         </div>
-        <div class="frame-viewport" id="frame-viewport">
+        <!-- 初始 hidden：/api/state 返回前还不知道夹具是否存在，
+             先不占 705px 空白；init() 在确认 ready 后放开。 -->
+        <div class="frame-viewport" id="frame-viewport" hidden>
           <iframe id="fixture-frame" title="夹具预览"></iframe>
         </div>
 
@@ -111,38 +113,192 @@
 
     <aside class="panel" aria-label="调色面板">
 
+      <!-- 流程定位：七项参数不是孤立的表单，是第 2 步的一部分。 -->
+      <div class="step-strip">
+        <span class="step-now">第 2 步 · 确认这七项参数</span>
+        <span class="step-path">第 1 步定方向 → 第 2 步翻成数字 → 第 3 步定布局</span>
+      </div>
+
       <section class="block">
         <div class="block-head">
-          <h2>转写表</h2>
-          <span class="block-sub">七维 · 可编辑 · G2</span>
+          <h2>七项设计参数</h2>
+          <span class="block-sub" id="params-state">展开</span>
+          <!-- 收起 / 展开按钮留在 block-head 里，不放进被 hidden 的表格内部 ——
+               否则收起后按钮跟着消失，只剩缩略条可点，键盘用户找不到展开入口。 -->
+          <button type="button" id="params-collapse" class="params-collapse" aria-expanded="true"
+                  aria-controls="params-body">收起</button>
         </div>
-        <div class="trow thead" aria-hidden="true">
-          <span>维度</span><span>取值</span><span>依据（哪句话）</span>
+        <div class="params-body" id="params-body">
+          <p class="params-intro">
+            这七个数字决定了整套界面的手感；每一行左边是数值，右边是它长什么样。改完点下面的「确认这七项」。
+          </p>
+          <!-- 当前方向压成一行：它只是背景信息，不再是每一行的「来源」。
+               早先每行都有「来自哪句话」，但界面上根本没有那句话的出处，
+               用户看到的是一列他从未说过的引用。 -->
+          <div class="direction-bar" id="direction-bar" aria-label="当前方向"></div>
+          <div class="params-table" id="params-table"></div>
+          <div class="params-foot">
+            <button type="button" id="btn-confirm-params" class="btn confirm-btn"
+                    aria-describedby="params-confirm-note">确认这七项</button>
+            <span class="params-foot-note" id="params-confirm-note">确认只标记你逐项看过；落盘仍在底部「写入 decisions」。</span>
+          </div>
         </div>
-        <div id="translation-rows"></div>
-        <p class="note">「依据」为空表示没有方向来源、按规则取默认——这本身就是一条信息，合同第 9 段要标出来。</p>
       </section>
 
       <section class="block">
         <div class="block-head"><h2>色板</h2><span class="block-sub" id="palette-sub">OKLCH</span></div>
+        <p class="palette-intro">
+          色值框、色环与滑块改的是同一组值，任意一处改动其余同步。
+          它们只改主色与中性色系；状态色（danger / success / warning）保持项目原值，不随滑块走。
+        </p>
 
-        <label class="slider">
+        <!-- 当前主色：整个调色台的视觉锚点。
+             先前信息从色值框到 token 长列表平铺，没有一处回答「我现在选的是什么」。
+             色卡把色块、hex、oklch、对比度、复制、吸管收在一处（Chrome DevTools /
+             oklch.com 都把「当前色 + 读数」放在取色控件旁，而不是散在各处）。 -->
+        <div class="hero-card" id="hero-card">
+          <div class="hero-swatch" id="hero-swatch" aria-hidden="true"></div>
+          <div class="hero-body">
+            <div class="hero-head">
+              <span class="hero-label">当前主色</span>
+              <span class="hero-badges">
+                <button type="button" id="hero-eyedropper" class="icon-btn" hidden
+                        aria-label="用吸管从屏幕任意位置取色" title="吸管取色（EyeDropper）">
+                  <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
+                    <path d="M11.2 1.4a2 2 0 0 1 2.8 0l.6.6a2 2 0 0 1 0 2.8l-2 2 .7.7a.8.8 0 0 1-1.1 1.1l-.7-.7-5.8 5.8a1 1 0 0 1-.5.3l-2.3.6a.6.6 0 0 1-.7-.7l.6-2.3a1 1 0 0 1 .3-.5l5.8-5.8-.7-.7A.8.8 0 0 1 9.3 4l.7.7 2-2Z"
+                          fill="currentColor"/>
+                  </svg>
+                </button>
+                <button type="button" id="hero-copy-all" class="icon-btn" aria-label="复制 hex 色值">
+                  <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
+                    <path d="M5.5 2A1.5 1.5 0 0 1 7 3.5V4h3.5A1.5 1.5 0 0 1 12 5.5v6a1.5 1.5 0 0 1-1.5 1.5h-5A1.5 1.5 0 0 1 4 11.5v-8A1.5 1.5 0 0 1 5.5 2Zm0 1a.5.5 0 0 0-.5.5v8a.5.5 0 0 0 .5.5h5a.5.5 0 0 0 .5-.5v-6a.5.5 0 0 0-.5-.5H7v-.5A.5.5 0 0 0 6.5 3h-1Z"
+                          fill="currentColor"/>
+                  </svg>
+                </button>
+              </span>
+            </div>
+            <div class="hero-value-row">
+              <code class="hero-hex" id="hero-hex">#286CAB</code>
+              <code class="hero-oklch" id="hero-oklch">oklch(0.520 0.120 250.0)</code>
+            </div>
+            <!-- 对比度读数：与页面底色比。两个阈值分别着色，用户不必背 4.5 / 3。 -->
+            <div class="hero-ratio" id="hero-ratio" title="与页面底色的 WCAG 2.2 对比度"></div>
+          </div>
+        </div>
+
+        <!-- 多格式色值并列：每一种都能点击复制。
+             为什么只做「点整行复制」而不是每行一个小按钮：388px 面板里按钮会把
+             字符串挤到换行；整行可点 + 右侧复制图标，命中面积更大且不占宽。 -->
+        <div class="format-list" id="format-list" aria-label="色值格式（点击复制）"></div>
+
+        <div class="pick-head">
+          <span class="pick-title">取色</span>
+        </div>
+
+        <!--
+          新色轮：外环 = 色相（永远完整），内部 = 当前色相的 C × L 二维平面。
+          旧实现按极坐标逐像素画 OKLCH，超出 sRGB 的点直接透明 —— 默认 L 0.52 时
+          只有一小块扇形有颜色，屏幕上看起来像坏掉的控件。
+          现在外环只依赖色相，任何 L 下都满载；内部平面按像素判断是否在色域内，
+          超域区域降透明度并画一条色域边界线，诚实地表示「这块屏幕显示不出来」，
+          而不是留一大片空白。（结构同 Chrome DevTools 的取色器与 oklch.com：
+          色相与明度 / 彩度分开，色域边界可视化。）
+        -->
+        <div class="wheel-wrap" id="wheel-wrap">
+          <!-- role=group 而不是 application：application 会让屏幕阅读器交出
+               全部键盘事件，要求控件自己实现完整的键盘模型；这里只实现了
+               方向键 / Home / PageUp•PageDown，用 group + 明确的 aria-label
+               更诚实 —— 读屏用户仍能听到当前值与操作说明。 -->
+          <canvas id="accent-wheel" width="212" height="212" tabindex="0"
+                  role="group"
+                  aria-label="取色盘：外环调色相，内部平面调彩度与明度"
+                  aria-describedby="wheel-hint wheel-value"
+                  aria-valuenow="250" aria-valuetext="色相 250°"></canvas>
+          <span class="sr-only" id="wheel-value" aria-live="polite"></span>
+          <span class="wheel-marker" id="accent-wheel-marker" aria-hidden="true"></span>
+          <!-- 平面标记与回位标记是两件事：外环标记表示当前色相，平面标记表示当前 C / L。 -->
+          <span class="wheel-marker is-plane" id="accent-plane-marker" aria-hidden="true"></span>
+        </div>
+        <p class="wheel-hint" id="wheel-hint">
+          外环：色相 · 内部：横轴彩度 ↑ 向右增大，纵轴明度 ↑ 向上变亮。虚线内是这台显示器能显示的 sRGB 色域。
+        </p>
+        <div class="wheel-legend" aria-hidden="true">
+          <span class="legend-item"><i class="legend-dot in"></i>色域内</span>
+          <span class="legend-item"><i class="legend-dot out"></i>超出 sRGB（降饱和显示）</span>
+        </div>
+
+        <!-- 色相：滑块 + 数字框（保留原有两条输入路径） -->
+        <div class="slider">
           <span class="slider-label">主色色相</span>
-          <input type="range" id="accent-hue" min="0" max="360" step="1" value="250">
-          <output id="accent-hue-out">250°</output>
-        </label>
-        <label class="slider">
-          <span class="slider-label">饱和度</span>
-          <input type="range" id="accent-chroma" min="0" max="100" step="1" value="40">
-          <output id="accent-chroma-out">C 0.120</output>
-        </label>
-        <label class="slider">
-          <span class="slider-label">中性温度</span>
-          <input type="range" id="neutral-temp" min="0" max="100" step="1" value="0">
-          <output id="neutral-temp-out">H 250 · 冷</output>
-        </label>
+          <input type="range" id="accent-hue" min="0" max="360" step="1" value="250" aria-label="主色色相滑块">
+          <span class="slider-value">
+            <output id="accent-hue-out">250°</output>
+            <input type="number" id="accent-hue-num" min="0" max="360" step="1" value="250"
+                   aria-label="主色色相数值（0–360）">
+            <i class="slider-chip" id="accent-hue-chip" aria-hidden="true"></i>
+          </span>
+        </div>
+        <p class="slider-influence">影响：accent、accent-hover，以及由 accent 派生的 focus ring。</p>
 
-        <div class="swatches" id="swatches"></div>
+        <!-- 色值输入挪到滑块之后：顶部色卡已经显示当前色，这里只作为「精确输入」的入口 -->
+        <label class="field hex-field">
+          <span class="field-label">直接输入色值（#hex / rgb() / hsl() / oklch()）</span>
+          <input type="text" id="accent-hex" autocomplete="off" spellcheck="false"
+                 aria-label="主色色值，支持 #hex、rgb()、hsl()、oklch()" placeholder="#F2D045">
+        </label>
+        <p class="input-msg" id="accent-hex-msg" hidden role="alert"></p>
+        <p class="hex-echo" id="accent-hex-echo" aria-live="polite"></p>
+
+        <div class="slider">
+          <span class="slider-label">彩度</span>
+          <input type="range" id="accent-chroma" min="0" max="0.4" step="0.005" value="0.12" aria-label="主色彩度滑块">
+          <span class="slider-value">
+            <output id="accent-chroma-out">C 0.120</output>
+            <i class="slider-chip" id="accent-chroma-chip" aria-hidden="true"></i>
+          </span>
+        </div>
+        <p class="slider-influence">影响：accent 的 C（上限受转写表「彩度上限」约束）。</p>
+
+        <div class="slider">
+          <span class="slider-label">明度</span>
+          <input type="range" id="accent-light" min="0.2" max="0.95" step="0.005" value="0.52" aria-label="主色明度滑块">
+          <span class="slider-value">
+            <output id="accent-light-out">L 0.520</output>
+            <i class="slider-chip" id="accent-light-chip" aria-hidden="true"></i>
+          </span>
+        </div>
+        <div class="light-actions">
+          <button type="button" id="accent-light-follow" class="mini-btn" aria-pressed="true">跟随主题</button>
+          <span class="mini-note" id="accent-light-note">跟随项目 accent 的 L</span>
+        </div>
+        <p class="slider-influence">影响：accent 的 L；手动改过后不再跟随项目值，点「跟随主题」复位。</p>
+
+        <div class="slider">
+          <span class="slider-label">中性温度</span>
+          <input type="range" id="neutral-temp" min="0" max="100" step="1" value="0" aria-label="中性色温度滑块">
+          <span class="slider-value">
+            <output id="neutral-temp-out">H 250 · 冷</output>
+            <i class="slider-chip" id="neutral-temp-chip" aria-hidden="true"></i>
+          </span>
+        </div>
+        <p class="slider-influence">影响：bg / surface-1..3 / surface-sunken / fg / fg-muted / line-1..2 / line-inset 的色相。</p>
+      </section>
+
+      <!-- 七样本缩略条：收起状态下的唯一入口。
+           放在 token 列表上方，点任一项展开并滚到对应行。 -->
+      <section class="block block-strip" id="params-strip-block">
+        <div class="block-head">
+          <h2>设计参数</h2>
+          <span class="block-sub">点任意一项展开编辑</span>
+        </div>
+        <!-- 不用 role="list" + listitem：每个缩略图是按钮，listitem 会把按钮角色
+             覆盖掉，屏幕阅读器只读到「列表项」而不知道可以点。 -->
+        <div class="params-strip" id="params-strip" role="group" aria-label="七项设计参数缩略"></div>
+      </section>
+
+      <section class="block">
+        <div class="block-head"><h2>Token</h2><span class="block-sub" id="token-count"></span></div>
+        <div class="token-groups" id="swatches"></div>
       </section>
 
       <section class="block">
@@ -158,7 +314,9 @@
       </section>
 
       <section class="actions">
-        <button type="button" id="btn-commit" class="btn primary">写入 decisions</button>
+        <!-- 初始 disabled：脚本读到项目状态后才放开，避免首帧到 /api/state 返回之间
+             点下去用默认参数覆盖 decisions.json。 -->
+        <button type="button" id="btn-commit" class="btn primary" disabled>写入 decisions</button>
         <button type="button" id="btn-tokens" class="btn">生成 tokens</button>
         <button type="button" id="btn-inject" class="btn">注入 DESIGN.md</button>
         <p class="hint" id="artifact-hint">尚未读取项目状态。</p>
@@ -170,20 +328,51 @@
   <section id="mode-gallery" class="mode mode-gallery" hidden>
     <div class="notice">
       <strong>并排比较候选风格。</strong>
-      <p>每帧是同一套夹具内容在某个变体下的真实渲染（<code>assets/studio/styles/</code> 的 CSS）。
+      <p>每帧是同一套夹具内容在某个变体下的真实渲染（<code>assets/studio/styles/</code> 的 CSS），
+        整页等比缩放进卡片；想看细节点卡片上的「放大」。
         选中的变体会写进 <code>decisions.json</code> 的 <code>style</code> 段，调色与实验室都跟着它走。</p>
       <label class="inline-check">
         <input type="checkbox" id="gallery-load"> 加载全部候选（不勾选只看前 3 个，省渲染开销）
       </label>
     </div>
     <div class="gallery-grid" id="gallery-grid"></div>
+
+    <!-- 放大层：同一 URL 的 iframe，按视口等比缩放放下整页。 -->
+    <div class="zoom" id="zoom" hidden role="dialog" aria-modal="true" aria-labelledby="zoom-title">
+      <div class="zoom-backdrop"></div>
+      <div class="zoom-shell">
+        <!-- 焦点哨兵：Tab 越过放大层首/尾时由 JS 把焦点送回壳内。
+             不能用 display:none，那样元素不可聚焦，陷阱就失效了。 -->
+        <div class="zoom-sentinel" data-edge="start" tabindex="0"></div>
+        <header class="zoom-bar">
+          <span class="zoom-title" id="zoom-title">放大预览</span>
+          <span class="zoom-meta" id="zoom-meta"></span>
+          <button type="button" class="zoom-pick" id="zoom-pick">选用这个风格</button>
+          <button type="button" class="zoom-close" id="zoom-close" aria-label="关闭放大预览">×</button>
+        </header>
+        <div class="zoom-viewport" id="zoom-viewport">
+          <iframe id="zoom-frame" title="放大预览" src="about:blank"></iframe>
+        </div>
+        <div class="zoom-sentinel" data-edge="end" tabindex="0"></div>
+      </div>
+    </div>
   </section>
 
   <!-- ------------------------------------------------ 组件实验室 -->
   <section id="mode-lab" class="mode mode-lab" hidden>
+    <div class="lab-intro">
+      <strong>在真实 token 下看组件。</strong>
+      <p>这里渲染的是<b>当前项目的 token + 当前所选风格</b>，不是 Studio 自己的皮肤；
+        切换组件、变体、状态看差异，点「写入 recipe」把这一屏的计算样式固化成 CSS 片段写进项目。</p>
+    </div>
     <div class="lab-bar">
+      <span class="lab-style" id="lab-style" title="风格由 decisions.json 的 style 段决定，可在画廊里更换">
+        风格 <b id="lab-style-name">—</b><span id="lab-style-id"></span>
+      </span>
       <label class="ctl"><span>组件</span>
         <select id="lab-component">
+          <!-- 默认看总览：只渲染一个按钮时整屏是空的，看不出这套 token 的整体一致性。 -->
+          <option value="overview" selected>总览（全部组件）</option>
           <option value="button">按钮</option>
           <option value="input">输入框</option>
           <option value="switch">开关</option>
@@ -242,11 +431,13 @@
 
     <div class="lab-foot">
       <label class="ctl grow"><span>recipe 名</span>
-        <input type="text" id="recipe-name" value="button" autocomplete="off" spellcheck="false">
+        <input type="text" id="recipe-name" value="button" placeholder="先在上方选择组件" autocomplete="off" spellcheck="false">
       </label>
       <span class="lab-path" id="recipe-path">assets/recipes/button.css</span>
       <button type="button" id="btn-recipe" class="btn primary">写入 recipe</button>
-      <p class="hint" id="recipe-hint">片段写入目标项目的 assets/recipes/，不写 skill 目录。</p>
+      <p class="hint" id="recipe-hint">片段写入目标项目的 <code>assets/recipes/&lt;name&gt;.css</code>（不写 skill 目录），
+        内容是从预览里读到的计算样式；后续组件直接 <code>@import</code> 或复制这一段，就能在 token 之上叠出同一外观。
+        与变体 CSS 冲突时以变体为准。</p>
     </div>
   </section>
 </main>

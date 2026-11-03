@@ -8,7 +8,7 @@
 
 ## 四条硬约束
 
-1. **先问要不要起工作台，再问别的。** 不接受就走纯 CLI 形态（表格 + ASCII 线框），不得默认启动服务，也不得在用户拒绝后偷偷启动。
+1. **先问要不要起工作台；起了就给完整 URL 并等用户确认真的打开，再问别的。** 不接受或打不开就走纯 CLI 形态（表格 + ASCII 线框），不得默认启动服务，不得在用户拒绝后偷偷启动，也不得把 URL 只写进日志或文件。
 2. **合同未落成，不写第一行 UI 代码。**
 3. **对齐报告未通过，不宣布完成。** "有条件通过"不算通过。
 4. **真相不放在别人的文件里。** 唯一可编辑源是自己的 `decisions.json`；目标 `DESIGN.md` 只放幂等 marker 块。
@@ -59,7 +59,7 @@ flowchart LR
 
 | 闸门 | 通过标准 | 回退到 |
 |---|---|---|
-| **G0** | 用户确认产品 / 受众 / 主页面 / 品牌约束 | P0 |
+| **G0** | 用户确认业务对象 / 受众 / 品牌约束，以及 **agent 提案后用户拍板**的主页面 | P0 |
 | **G1** | 用户确认方向；导演层产物已读入 | P1 |
 | **G2** | 用户逐项确认七维转写表 | P2.1 |
 | **G3** | 自检全绿 + `check-consistency` 通过 | P4 |
@@ -83,7 +83,8 @@ node scripts/check-consistency.mjs --project /path/to/your-app
 node scripts/check-tokens.mjs --project /path/to/your-app
 
 # 5. 打开工作台（调色 + 转写表 + 组件实验室）
-node scripts/studio.mjs --project /path/to/your-app
+node scripts/studio.mjs --project /path/to/your-app --open
+# 脚本会打印带一次性 token 的 URL；把它贴到对话里，等用户确认打开再往下
 ```
 
 跑通见 `assets/examples/minimal-operate/`。
