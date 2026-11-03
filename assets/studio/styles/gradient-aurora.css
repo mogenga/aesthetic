@@ -1,9 +1,19 @@
 /* ==========================================================================
    gradient-aurora.css —— 渐变 / 弥散光 · 变体 09/12
    --------------------------------------------------------------------------
-   签名：大色斑做氛围底；表面半透；边缘靠内高光而非描边。
-   代价：背景抢戏、文字压不住——所以表面一律 ≥ 0.92 不透明，
+   签名：十三团失焦的冷色光散在四层雾里缓慢漂移；表面半透，
+         让光从卡片背后透上来；边界靠内高光而不是描边。
+   代价：背景抢戏、文字压不住——所以正文容器另给实底，
          色斑只允许在「页面底」与「首屏区块」两层出现。
+
+   光的分层（由深到浅、由散到聚）：
+     html::before  远雾   3 团，blur 150px，op 0.20 / 暗 0.42
+     body::before  中雾   5 团，blur  68px，op 0.40 / 暗 0.62
+     .app::before  光核   3 团，blur  44px，op 0.55 / 暗 0.78
+     body::after   提亮   2 团，blur 110px，op 0.60 / 暗 0.80
+   色相只走 205–330（青 → 蓝 → 靛 → 紫 → 淡紫），跨度 125°，
+   不出现黄 / 橙 / 红；暗色不是把浅色压暗，而是重新选的一组
+   「暗而饱和」的 L 0.48–0.60 / C 0.09–0.19，再用 screen 相加。
 
    加载方式：<html data-style="gradient-aurora">
    ========================================================================== */
@@ -56,16 +66,56 @@
   --fw-strong: 500;
   --fw-display: 600;
 
+  /* 字族：细衬线标题 + 人文无衬线正文。标题用 Georgia 的细衬线
+     把色斑衬得像印刷海报，正文保持无衬线以免长文失焦。 */
+  --font-sans: "Gill Sans MT", "Gill Sans", "Segoe UI", "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+  --font-display: "Palatino Linotype", "Palatino", "Iowan Old Style",
+    "Georgia", "Songti SC", serif;
+
+  /* 类型比例：宽——标题比正文大 4 档，行高放到 1.75，追求「海报上的段落」 */
+  --fs-xs: 12px;
+  --fs-sm: 14px;
+  --fs-md: 16px;
+  --fs-lg: 19px;
+  --fs-xl: 26px;
+  --fs-2xl: 38px;
+  --fs-3xl: 50px;
+  --lh-tight: 1.06;
+  --lh-snug: 1.38;
+  --lh-body: 1.75;
+
+  /* 布局：窄栏 + 居中窄幅内容，让色斑从两侧露出来 */
+  --rail-w: 208px;
+  --content-max: 1040px;
+  --s-6: 40px;
+  --s-7: 56px;
+
   --dur-base: 280ms;
   --dur-slow: 360ms;
   --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
 
-  /* 色斑的三色：局部变量，不进 token 表 */
-  --aurora-1: oklch(0.780 0.150 300);
-  --aurora-2: oklch(0.820 0.130 200);
-  --aurora-3: oklch(0.860 0.120 40);
-  --aurora-blur: 80px;
-  --aurora-opacity: 0.55;
+  /* 色斑的五色 + 一枚提亮核心：局部变量，不进 token 表。
+     浅色是「水彩晕开」：L 0.85–0.895、C 0.07–0.105，全部在 sRGB 内
+     （L 0.86 / H 268 的色域上限只有 C 0.068；写出超界值只会被截断，
+     色相会漂移，最后看起来是灰紫而不是靛蓝）。
+     色相 330 → 205，跨度 125°，全部落在冷区，不碰黄红。 */
+  --aurora-violet: oklch(0.850 0.086 300);   /* #D7C3FF  紫 */
+  --aurora-indigo: oklch(0.855 0.070 268);   /* #BDCFFE  靛 */
+  --aurora-blue: oklch(0.865 0.074 238);     /* #A5DAFE  蓝 */
+  --aurora-cyan: oklch(0.870 0.105 205);     /* #77E8F5  青 */
+  --aurora-lilac: oklch(0.895 0.078 322);    /* #F3CDFB  淡紫（不是粉） */
+  /* 提亮核心：不是色斑，是「雾里那点光」，所以 L 贴近纸白、C 压到 0.01 */
+  --aurora-glow: oklch(0.985 0.010 320);     /* #FDF9FF */
+
+  /* 四层雾各自的失焦半径：远雾最散、光核最聚 */
+  --aurora-blur-far: 150px;
+  --aurora-blur-mid: 68px;
+  --aurora-blur-near: 44px;
+  --aurora-blur-glow: 110px;
+
+  /* 首屏文字背后的「雾中空地」：浅色提亮、暗色压暗，两边都保对比度 */
+  --text-scrim: color-mix(in oklab, var(--surface-1) 72%, transparent);
 }
 
 :root[data-style="gradient-aurora"][data-theme="dark"] {
@@ -84,8 +134,8 @@
   --danger-hover: oklch(0.850 0.139 342);
   --danger-soft: color-mix(in oklab, var(--danger) 14%, transparent);
   --on-danger: oklch(0.160 0.030 285);
-  --success: oklch(0.800 0.137 195);         /* #00D8D9  11.0:1 vs bg */
-  --warning: oklch(0.800 0.100 265);         /* #9EBDFF  10.4:1 vs bg */
+  --success: oklch(0.800 0.137 195);         /* #00D8D9  11.0:1 */
+  --warning: oklch(0.800 0.100 265);         /* #9EBDFF  10.4:1 */
   --line-1: oklch(0.330 0.030 285);          /* #343344 */
   --line-inset: color-mix(in oklab, var(--fg) 6%, transparent);
 
@@ -99,47 +149,214 @@
   --fw-strong: 450;
   --fw-display: 550;
 
-  --aurora-1: oklch(0.620 0.170 310);
-  --aurora-2: oklch(0.580 0.150 195);
-  --aurora-3: oklch(0.640 0.140 55);
-  --aurora-opacity: 0.42;
+  /* 暗色色斑不是浅色压暗：L 重新落在 0.47–0.60、C 0.09–0.19，
+     像深夜里发光的雾；同一组色相保证两套主题是同一盏灯。
+     蓝 / 青在 sRGB 里的色域天花板远低于紫：L 0.48 / H 245 最多只能到
+     C 0.121，L 0.55 / H 210 最多 0.095——所以这两枚的 C 按天花板取值，
+     写 0.17 只会被浏览器映射回去，看起来更灰。 */
+  --aurora-violet: oklch(0.540 0.190 300);   /* #824ACA */
+  --aurora-indigo: oklch(0.500 0.180 265);   /* #2F58C8 */
+  --aurora-blue: oklch(0.480 0.118 245);     /* #07629B */
+  --aurora-cyan: oklch(0.550 0.092 210);     /* #10808F */
+  --aurora-lilac: oklch(0.580 0.170 330);    /* #AF4DA9 */
+  --aurora-glow: oklch(0.600 0.160 320);     /* #A95CBB */
+
+  --text-scrim: color-mix(in oklab, var(--bg) 82%, transparent);
 }
 
 /* --------------------------------------------------------------------------
-   2. SIGNATURE —— 色斑
+   2. SIGNATURE —— 四层色斑
    -------------------------------------------------------------------------- */
 
-/* 页面底：三团弥散光，固定在视口，不随滚动 */
+/* 2.0 页面底色必须画在 html 上，body 保持透明。
+   原因：四层色斑都是 z-index 为负的伪元素。body 若自带不透明背景，
+   它会在负 z 的伪元素之后绘制，把除 html::before 之外的整组光斑全盖掉——
+   只剩最远的一层能看见。底色上移到 html 后，画布先铺底，
+   四层负 z 的光斑依次叠在它上面。 */
+:root[data-style="gradient-aurora"] {
+  background: var(--bg);
+}
+:root[data-style="gradient-aurora"] body {
+  background: transparent;
+}
+
+/* 伪元素统一用 inset: 0（= 视口大小）而不是放大到 -16%。
+   放大后 radial-gradient 的百分比位移也跟着放大，色斑中心会被推出可视区，
+   最后只剩「四角偏暗」的暗角，看起来像脏而不是光。
+   blur 会把边缘糊到框外，不需要靠 inset 留余量。 */
+
+/* 2.1 远雾：三团最巨大的散光，150px 失焦、层不透明度 0.20。
+   它们只负责给整页一个偏冷的底色方向，不负责"形状"——
+   三团尺寸差得远（84 / 66 / 46vmax），长宽比也不同，不会读成圆。
+   深度靠「层透明度」而不是「局部色标 alpha」：同一层里所有色斑共享
+   一个 0.15–0.25 的区间，叠出来才是雾；如果每团各写 alpha，
+   最亮的一团会跳出雾层，读成一盏灯。 */
+:root[data-style="gradient-aurora"]::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -4;
+  pointer-events: none;
+  filter: blur(var(--aurora-blur-far));
+  opacity: 0.20;
+  transform: rotate(-6deg) scale(1.02);
+  will-change: transform;
+  background:
+    radial-gradient(84vmax 68vmax at 8% 4%,
+      var(--aurora-violet), transparent 70%),
+    radial-gradient(66vmax 58vmax at 98% 92%,
+      var(--aurora-indigo), transparent 72%),
+    radial-gradient(46vmax 34vmax at 52% 42%,
+      var(--aurora-blue), transparent 70%);
+  animation: aurora-far 61s linear infinite;
+}
+
+/* 2.2 中雾：五团不同大小的椭圆，68px 失焦。
+   刻意不把它们贴着视口四角摆：四角各一团会立刻读成"对称的框"。
+   这里有一团压在左上 15%/20%，一团压在中上偏右 64%/2%，
+   一团只露半截贴左缘 0%/52%、一团贴右下 88%/80%，
+   最后一团压底边偏左 26%/100%。
+   五团的长宽比是 1.29 / 1.33 / 0.58 / 1.35 / 1.90，没有一个是正圆；
+   尺寸也差 2 倍以上，叠起来是"散落的几池光"，不是一个圆。 */
 :root[data-style="gradient-aurora"] body::before {
   content: "";
   position: fixed;
-  inset: -20%;
+  inset: 0;
+  z-index: -3;
+  pointer-events: none;
+  filter: blur(var(--aurora-blur-mid));
+  opacity: 0.40;
+  transform: rotate(9deg) scale(1.04);
+  will-change: transform;
+  background:
+    radial-gradient(44vmax 34vmax at 15% 20%,
+      var(--aurora-violet) 0%, color-mix(in oklab, var(--aurora-violet) 50%, transparent) 36%, transparent 66%),
+    radial-gradient(32vmax 24vmax at 64% 2%,
+      var(--aurora-blue) 0%, color-mix(in oklab, var(--aurora-blue) 54%, transparent) 32%, transparent 64%),
+    radial-gradient(22vmax 38vmax at 0% 52%,
+      var(--aurora-indigo) 0%, color-mix(in oklab, var(--aurora-indigo) 52%, transparent) 32%, transparent 68%),
+    radial-gradient(42vmax 31vmax at 88% 80%,
+      var(--aurora-cyan) 0%, color-mix(in oklab, var(--aurora-cyan) 60%, transparent) 30%, transparent 66%),
+    radial-gradient(38vmax 20vmax at 26% 100%,
+      var(--aurora-lilac) 0%, color-mix(in oklab, var(--aurora-lilac) 44%, transparent) 34%, transparent 70%);
+  animation: aurora-mid 47s linear infinite;
+}
+
+/* 2.3 光核：三团小而亮的光，44px 失焦、层不透明度 0.55。
+   它们不铺色，只负责"这里有一个光源"，所以尺寸只有 10–16vmax。
+   位置为 76%/26%、8%/44%、34%/86%——三个高度都不同，不构成正三角。 */
+:root[data-style="gradient-aurora"] .app::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  filter: blur(var(--aurora-blur-near));
+  opacity: 0.55;
+  transform: rotate(-12deg);
+  will-change: transform;
+  background:
+    radial-gradient(15vmax 12vmax at 76% 26%,
+      var(--aurora-cyan), transparent 62%),
+    radial-gradient(12vmax 16vmax at 8% 44%,
+      var(--aurora-violet), transparent 64%),
+    radial-gradient(10vmax 8vmax at 34% 86%,
+      var(--aurora-lilac), transparent 62%);
+  animation: aurora-near 43s linear infinite;
+}
+
+/* 2.4 提亮：两束淡到几乎看不见的「天光」，110px 失焦、层不透明度 0.60。
+   让色斑像"雾里的光"而不是"雾里的颜色"。
+   浅色下是加白，暗色下是 screen——两边都提亮，不会发灰。 */
+:root[data-style="gradient-aurora"] body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
   z-index: -1;
   pointer-events: none;
-  opacity: var(--aurora-opacity);
-  filter: blur(var(--aurora-blur));
+  filter: blur(var(--aurora-blur-glow));
+  opacity: 0.60;
+  transform: rotate(5deg);
+  will-change: transform;
   background:
-    radial-gradient(38% 42% at 22% 18%, var(--aurora-1), transparent 62%),
-    radial-gradient(34% 38% at 78% 26%, var(--aurora-2), transparent 60%),
-    radial-gradient(46% 40% at 52% 88%, var(--aurora-3), transparent 64%);
-  background-color: var(--bg);
+    radial-gradient(30vmax 10vmax at 32% 4%,
+      var(--aurora-glow), transparent 72%),
+    radial-gradient(14vmax 8vmax at 92% 54%,
+      var(--aurora-blue), transparent 74%);
+  animation: aurora-glow 52s linear infinite;
 }
 
-/* 表面：≥92% 不透明，保证文字压得住 */
+/* 暗色：四层都用 screen 叠加，重叠处变成更亮的光而不是更脏的色；
+   浅色保持正常 alpha 叠加——在白底上 screen 会直接洗白。 */
+:root[data-style="gradient-aurora"][data-theme="dark"]::before,
+:root[data-style="gradient-aurora"][data-theme="dark"] body::before,
+:root[data-style="gradient-aurora"][data-theme="dark"] .app::before,
+:root[data-style="gradient-aurora"][data-theme="dark"] body::after {
+  mix-blend-mode: screen;
+}
+/* screen 是「加光」，同一半透明值在深色底上比浅色底暗得多；
+   所以暗色单独把四层的 opacity 提回来（远 0.42 / 中 0.62 / 核 0.78 / 提亮 0.80），
+   否则浅色里看得见的雾，在暗色里会塌回一条几乎纯色的底。 */
+:root[data-style="gradient-aurora"][data-theme="dark"]::before { opacity: 0.42; }
+:root[data-style="gradient-aurora"][data-theme="dark"] body::before { opacity: 0.62; }
+:root[data-style="gradient-aurora"][data-theme="dark"] .app::before { opacity: 0.78; }
+:root[data-style="gradient-aurora"][data-theme="dark"] body::after { opacity: 0.80; }
+
+/* 2.5 表面：半透，让光从卡片背后透上来 84%（卡片规范 78–88%）。
+   边界不靠描边，靠一圈极淡的彩色内高光 + 顶部 1px 白光。 */
 :root[data-style="gradient-aurora"] .card,
-:root[data-style="gradient-aurora"] .surface {
+:root[data-style="gradient-aurora"] .surface,
+:root[data-style="gradient-aurora"] .stat,
+:root[data-style="gradient-aurora"] .state-panel,
+:root[data-style="gradient-aurora"] .form-aside {
   border: none;
   border-radius: var(--r-lg);
-  background: color-mix(in oklab, var(--surface-1) 94%, transparent);
-  box-shadow: var(--shadow-2), inset 0 1px 0 rgb(255 255 255 / 0.55);
+  background: color-mix(in oklab, var(--surface-1) 84%, transparent);
+  box-shadow:
+    var(--shadow-2),
+    inset 0 1px 0 rgb(255 255 255 / 0.62),
+    inset 0 0 0 1px color-mix(in oklab, var(--accent) 10%, transparent);
 }
 :root[data-style="gradient-aurora"][data-theme="dark"] .card,
-:root[data-style="gradient-aurora"][data-theme="dark"] .surface {
-  background: color-mix(in oklab, var(--surface-1) 92%, transparent);
-  box-shadow: var(--shadow-2), inset 0 1px 0 rgb(255 255 255 / 0.07);
+:root[data-style="gradient-aurora"][data-theme="dark"] .surface,
+:root[data-style="gradient-aurora"][data-theme="dark"] .stat,
+:root[data-style="gradient-aurora"][data-theme="dark"] .state-panel,
+:root[data-style="gradient-aurora"][data-theme="dark"] .form-aside {
+  background: color-mix(in oklab, var(--surface-1) 84%, transparent);
+  box-shadow:
+    var(--shadow-2),
+    inset 0 1px 0 rgb(255 255 255 / 0.08),
+    inset 0 0 0 1px color-mix(in oklab, var(--accent) 16%, transparent);
 }
 
-/* 按钮：主按钮带一层柔光 */
+/* 嵌套的演示层也跟着半透，否则会在半透卡上挖出一块实色洞 */
+:root[data-style="gradient-aurora"] .surface-stack__page {
+  background: color-mix(in oklab, var(--bg) 72%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--fg) 7%, transparent);
+}
+:root[data-style="gradient-aurora"] .surface-layer[data-surface="1"] {
+  background: color-mix(in oklab, var(--surface-1) 82%, transparent);
+}
+:root[data-style="gradient-aurora"] .surface-layer[data-surface="2"] {
+  background: color-mix(in oklab, var(--surface-2) 82%, transparent);
+}
+:root[data-style="gradient-aurora"] .surface-layer[data-surface="3"] {
+  background: color-mix(in oklab, var(--surface-3) 82%, transparent);
+}
+
+/* 2.6 顶栏 / 侧栏：半透，让色斑从导航后面穿过去，而不是到边上就断。
+   顶栏内容会从下面滚过，所以只给 4px 模糊（卡片规定 ≤ 4px，不做毛玻璃）。 */
+:root[data-style="gradient-aurora"] .topbar {
+  background: color-mix(in oklab, var(--surface-1) 88%, transparent);
+  backdrop-filter: blur(4px) saturate(1.04);
+  -webkit-backdrop-filter: blur(4px) saturate(1.04);
+}
+:root[data-style="gradient-aurora"] .rail {
+  background: color-mix(in oklab, var(--surface-sunken) 84%, transparent);
+}
+
+/* 2.7 按钮：主按钮保留渐变语言，但把第二停靠点收在 accent 的邻近色，
+   不让白字掉到 4.5:1 以下；外发光借用色斑的青。 */
 :root[data-style="gradient-aurora"] .btn {
   border-radius: var(--r-full);
   border: none;
@@ -147,33 +364,83 @@
   color: var(--fg);
 }
 :root[data-style="gradient-aurora"] .btn[data-variant="primary"] {
-  background: linear-gradient(135deg, var(--accent), color-mix(in oklab, var(--accent) 70%, var(--aurora-2)));
+  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
   color: var(--on-accent);
-  box-shadow: 0 4px 16px -4px color-mix(in oklab, var(--accent) 45%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.22),
+    0 4px 16px -4px color-mix(in oklab, var(--accent) 45%, transparent),
+    0 10px 28px -12px color-mix(in oklab, var(--aurora-cyan) 34%, transparent);
 }
 :root[data-style="gradient-aurora"] .btn[data-variant="primary"]:hover {
-  box-shadow: 0 6px 22px -4px color-mix(in oklab, var(--accent) 55%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.28),
+    0 6px 22px -4px color-mix(in oklab, var(--accent) 55%, transparent),
+    0 14px 34px -12px color-mix(in oklab, var(--aurora-cyan) 42%, transparent);
 }
 /* 危险按钮：与主按钮同一套柔光语言，但改用冷调紫红——
    不用红色，卡片要求色相只走冷调、不跨过黄与红 */
 :root[data-style="gradient-aurora"] .btn[data-variant="danger"] {
   background: var(--danger);
   color: var(--on-danger);
-  box-shadow: 0 4px 16px -4px color-mix(in oklab, var(--danger) 45%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.22),
+    0 4px 16px -4px color-mix(in oklab, var(--danger) 45%, transparent);
 }
 :root[data-style="gradient-aurora"] .btn[data-variant="danger"]:hover {
-  box-shadow: 0 6px 22px -4px color-mix(in oklab, var(--danger) 55%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.28),
+    0 6px 22px -4px color-mix(in oklab, var(--danger) 55%, transparent);
 }
 
-/* 输入框：大圆角 + 内高光 */
+/* 输入框：大圆角 + 内高光；90% 让雾色透一点，但正文仍压得住 */
 :root[data-style="gradient-aurora"] .field-control {
   border: 1px solid color-mix(in oklab, var(--fg) 8%, transparent);
   border-radius: var(--r-md);
-  background: color-mix(in oklab, var(--surface-sunken) 96%, transparent);
-  box-shadow: var(--shadow-field-outer), inset 0 1px 0 rgb(255 255 255 / 0.5), inset 0 0 0 1px var(--line-inset);
+  background: color-mix(in oklab, var(--surface-sunken) 90%, transparent);
+  box-shadow:
+    var(--shadow-field-outer),
+    inset 0 1px 0 rgb(255 255 255 / 0.5),
+    inset 0 0 0 1px var(--line-inset);
 }
 
-/* 首屏区块可以叠自己的色斑 */
+/* 标题走衬线，字距几乎不动（衬线的连笔本身就有节奏） */
+:root[data-style="gradient-aurora"] .view-head h1,
+:root[data-style="gradient-aurora"] .section-head h2 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: var(--lh-tight);
+}
+:root[data-style="gradient-aurora"] .view-head h1 {
+  font-size: var(--fs-2xl);
+}
+:root[data-style="gradient-aurora"] .eyebrow,
+:root[data-style="gradient-aurora"] .stat__label {
+  letter-spacing: 0.14em;
+}
+
+/* 骨架：单列居中窄幅 + 两列统计卡。主分栏取消，
+   让色斑在首屏与列表之间各露一次，而不是被两栏切成四块。 */
+:root[data-style="gradient-aurora"] .main {
+  padding: var(--s-7) var(--s-7) var(--s-8);
+}
+:root[data-style="gradient-aurora"] .view {
+  gap: var(--s-7);
+}
+@media (min-width: 1181px) {
+  :root[data-style="gradient-aurora"] .stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--s-5);
+  }
+  :root[data-style="gradient-aurora"] .dash-split {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--s-5);
+  }
+}
+
+/* 首屏：文字底下铺一块「雾中空地」。
+   浅色用 surface-1 提亮、暗色用 bg 压暗，两套都保证 fg/fg-muted ≥ 4.5；
+   径向衰减 + 40px 模糊，不留矩形边。 */
 :root[data-style="gradient-aurora"] .view-head {
   position: relative;
   isolation: isolate;
@@ -181,23 +448,40 @@
 :root[data-style="gradient-aurora"] .view-head::before {
   content: "";
   position: absolute;
-  inset: calc(var(--s-6) * -1);
+  inset: calc(var(--s-6) * -1) calc(var(--s-7) * -0.5);
   z-index: -1;
   border-radius: var(--r-lg);
-  opacity: calc(var(--aurora-opacity) * 0.5);
-  filter: blur(48px);
-  background: radial-gradient(60% 100% at 30% 50%, var(--aurora-1), transparent 70%);
+  background: radial-gradient(72% 120% at 28% 50%,
+    var(--text-scrim), transparent 74%);
+  filter: blur(40px);
 }
 
-/* 慢速漂移：≥40s，reduced-motion 下静止 */
-@keyframes aurora-drift {
-  0%   { transform: translate3d(0, 0, 0) scale(1); }
-  33%  { transform: translate3d(2%, -1.5%, 0) scale(1.04); }
-  66%  { transform: translate3d(-1.5%, 2%, 0) scale(0.98); }
-  100% { transform: translate3d(0, 0, 0) scale(1); }
+/* 2.8 慢漂移：四层各自的周期与方向都不同（61 / 47 / 43 / 52s），
+   位移 ≤ 6%，肉眼读作"背景在呼吸"而不是"背景在动"。 */
+@keyframes aurora-far {
+  0%   { transform: rotate(-6deg) translate3d(0, 0, 0) scale(1.02); }
+  25%  { transform: rotate(-4.5deg) translate3d(2.2%, -1.6%, 0) scale(1.07); }
+  50%  { transform: rotate(-7deg) translate3d(-1.2%, 2.4%, 0) scale(1.00); }
+  75%  { transform: rotate(-5deg) translate3d(1.4%, 1.1%, 0) scale(1.05); }
+  100% { transform: rotate(-6deg) translate3d(0, 0, 0) scale(1.02); }
 }
-:root[data-style="gradient-aurora"] body::before {
-  animation: aurora-drift 44s linear infinite;
+@keyframes aurora-mid {
+  0%   { transform: rotate(9deg) translate3d(0, 0, 0) scale(1.04); }
+  33%  { transform: rotate(7deg) translate3d(-3.2%, 2.0%, 0) scale(0.99); }
+  66%  { transform: rotate(11deg) translate3d(2.6%, -2.8%, 0) scale(1.08); }
+  100% { transform: rotate(9deg) translate3d(0, 0, 0) scale(1.04); }
+}
+@keyframes aurora-near {
+  0%   { transform: rotate(-12deg) translate3d(0, 0, 0) scale(1); }
+  40%  { transform: rotate(-9deg) translate3d(2.4%, 3.4%, 0) scale(1.10); }
+  70%  { transform: rotate(-14deg) translate3d(-2.2%, -2%, 0) scale(0.96); }
+  100% { transform: rotate(-12deg) translate3d(0, 0, 0) scale(1); }
+}
+@keyframes aurora-glow {
+  0%   { transform: rotate(5deg) translate3d(0, 0, 0) scale(1); }
+  30%  { transform: rotate(3.5deg) translate3d(-2.8%, 2.2%, 0) scale(1.06); }
+  65%  { transform: rotate(6.5deg) translate3d(3.2%, -1.8%, 0) scale(0.98); }
+  100% { transform: rotate(5deg) translate3d(0, 0, 0) scale(1); }
 }
 
 /* --------------------------------------------------------------------------
@@ -206,15 +490,38 @@
 
 /* 正文绝不能直接压在色斑上——所有文字容器必须有实底 */
 :root[data-style="gradient-aurora"] .prose,
-:root[data-style="gradient-aurora"] .msg__bubble,
-:root[data-style="gradient-aurora"] .settings {
-  background: color-mix(in oklab, var(--surface-1) 96%, transparent);
+:root[data-style="gradient-aurora"] .msg__bubble {
+  background: color-mix(in oklab, var(--surface-1) 94%, transparent);
   border-radius: var(--r-md);
 }
+/* 设置页没有外层卡片，给整列一块半透板；留出内边距，
+   让文字不贴着色块边缘。 */
+:root[data-style="gradient-aurora"] .settings {
+  padding: var(--s-6);
+  border-radius: var(--r-lg);
+  background: color-mix(in oklab, var(--surface-1) 82%, transparent);
+  box-shadow:
+    var(--shadow-2),
+    inset 0 1px 0 rgb(255 255 255 / 0.55),
+    inset 0 0 0 1px color-mix(in oklab, var(--accent) 10%, transparent);
+}
+:root[data-style="gradient-aurora"][data-theme="dark"] .settings {
+  background: color-mix(in oklab, var(--surface-1) 82%, transparent);
+  box-shadow:
+    var(--shadow-2),
+    inset 0 1px 0 rgb(255 255 255 / 0.07),
+    inset 0 0 0 1px color-mix(in oklab, var(--accent) 16%, transparent);
+}
 
-/* 色斑在 reduced-motion 下完全静止 */
+/* 色斑在 reduced-motion 下完全静止，也不占着合成层 */
 @media (prefers-reduced-motion: reduce) {
-  :root[data-style="gradient-aurora"] body::before { animation: none; }
+  :root[data-style="gradient-aurora"]::before,
+  :root[data-style="gradient-aurora"] body::before,
+  :root[data-style="gradient-aurora"] .app::before,
+  :root[data-style="gradient-aurora"] body::after {
+    animation: none;
+    will-change: auto;
+  }
 }
 
 /* 不用玻璃（色斑已经承担了氛围） */
@@ -222,6 +529,9 @@
 
 /* 打印时去掉色斑 */
 @media print {
+  :root[data-style="gradient-aurora"]::before,
   :root[data-style="gradient-aurora"] body::before,
+  :root[data-style="gradient-aurora"] .app::before,
+  :root[data-style="gradient-aurora"] body::after,
   :root[data-style="gradient-aurora"] .view-head::before { display: none; }
 }
