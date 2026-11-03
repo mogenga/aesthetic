@@ -58,6 +58,7 @@
       "card": "dark-tech",
       "name": "黑色科技极简",
       "css": "dark-tech.css",
+      "theme": "dark-only",
       "oneLine": "近黑底、极细同宽线、单点高光。",
       "signature": ["所有线同宽 1px", "无装饰投影", "单点高光", "等宽数字"],
       "anti": ["装饰性阴影", "玻璃", "多色高光"]

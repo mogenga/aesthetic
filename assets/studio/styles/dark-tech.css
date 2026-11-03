@@ -2,6 +2,7 @@
    dark-tech.css —— 黑色科技极简 · 变体 06/12
    --------------------------------------------------------------------------
    签名：近黑底 + 极细同宽线 + 单点高光；仪器感。
+   主题：暗色专属（dark-only）——本变体没有浅色版本，选择它即锁定深色。
    代价：暗色下字重与光晕难控——所以起始字重比常规低半档，且暗色阶梯更大。
 
    加载方式：<html data-style="dark-tech">
@@ -11,52 +12,11 @@
    1. TOKEN OVERRIDE
    -------------------------------------------------------------------------- */
 
-/* 浅色是「实验室白」，暗色才是本变体的主场 */
+/* 唯一的一套 token：不跟 [data-theme] 切换。夹具的 :root 只提供缺省值，
+   这里是暗色常驻；color-scheme 同步锁定，滚动条与原生控件也走深色。 */
 :root[data-style="dark-tech"] {
-  --bg: oklch(0.970 0.002 260);              /* #F4F5F6 */
-  --surface-1: oklch(0.958 0.002 260);       /* #F0F1F2  ΔL 0.012 */
-  --surface-2: oklch(0.942 0.002 260);       /* #EBECED  ΔL 0.016 */
-  --surface-3: oklch(0.924 0.002 260);       /* #E5E6E7  ΔL 0.018 */
-  --surface-sunken: oklch(0.950 0.002 260);
-  --fg: oklch(0.190 0.008 260);              /* #121417  16.9:1 */
-  --fg-muted: oklch(0.445 0.008 260);        /* #515458  7.0:1 */
-  --accent: oklch(0.505 0.100 170);          /* #00775C  5.1:1 */
-  --accent-hover: oklch(0.460 0.105 170);
-  /* 状态色：「其余全部无彩」——状态色必须低彩度，只保留足以区分色相的
-     C 0.060（不到 accent 的 2/3）。颜色不是唯一通道：base.css 的
-     .dot/.tag/.badge 带 data-tone，形状与文案仍需承担大半语义。 */
-  --danger: oklch(0.504 0.060 27);           /* #835752  5.6:1 vs bg */
-  --danger-hover: oklch(0.462 0.064 27);
-  --danger-soft: color-mix(in oklab, var(--danger) 10%, transparent);
-  --on-danger: oklch(0.990 0 0);             /* #FCFCFC */
-  --success: oklch(0.492 0.060 165);         /* #3E6C58  5.5:1 vs bg */
-  --warning: oklch(0.500 0.060 75);          /* #775E3B  5.6:1 vs bg */
-  --line-1: oklch(0.880 0.004 260);          /* #D6D7DA */
-  --line-inset: color-mix(in oklab, var(--fg) 8%, transparent);
+  color-scheme: dark;
 
-  /* 克制但不为零——零圆角会读成终端而非仪器 */
-  --r-sm: 4px;
-  --r-md: 6px;
-  --r-lg: 10px;
-  --r-full: 999px;
-
-  --shadow-1: none;
-  --shadow-2: 0 1px 3px -1px rgb(0 0 0 / 0.05);
-  --shadow-3: 0 12px 40px -12px rgb(0 0 0 / 0.18);
-  --shadow-field-outer: 0 1px 2px -1px rgb(0 0 0 / 0.08);
-  --shadow-field-inner: inset 0 1px 2px rgb(0 0 0 / 0.05);
-
-  /* 起始值就比常规低半档 */
-  --fw-body: 450;
-  --fw-strong: 550;
-  --fw-display: 600;
-
-  --dur-fast: 120ms;
-  --dur-base: 160ms;
-  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
-}
-
-:root[data-style="dark-tech"][data-theme="dark"] {
   --bg: oklch(0.165 0.004 260);              /* #0D0E10 */
   --surface-1: oklch(0.188 0.004 260);       /* #121315  ΔL 0.023 */
   --surface-2: oklch(0.212 0.004 260);       /* #18191B  ΔL 0.024 */
@@ -66,7 +26,10 @@
   --fg-muted: oklch(0.700 0.008 260);        /* #9B9FA3  7.2:1 */
   --accent: oklch(0.815 0.125 170);          /* #60DDB6  11.4:1 */
   --accent-hover: oklch(0.860 0.115 170);
-  /* 暗色状态色：L 与 accent 同带（0.815），C 仍压在 0.060 以下；
+  --accent-soft: color-mix(in oklab, var(--accent) 14%, transparent);
+  /* 亮青绿底上的文字用深色——本变体不依赖夹具的 [data-theme="dark"] 提供它 */
+  --on-accent: oklch(0.165 0.008 170);
+  /* 状态色：L 与 accent 同带（0.815），C 仍压在 0.060 以下；
      状态点靠 base.css 的文案/形状区分，不靠彩度 */
   --danger: oklch(0.814 0.060 27);           /* #E7B4AD  10.6:1 vs bg */
   --danger-hover: oklch(0.860 0.054 27);
@@ -75,7 +38,15 @@
   --success: oklch(0.814 0.060 165);         /* #9ECFB9  11.1:1 vs bg */
   --warning: oklch(0.814 0.060 75);          /* #D9BD97  10.8:1 vs bg */
   --line-1: oklch(0.300 0.006 260);          /* #2C2E31 */
+  /* 交互描边只比发丝线亮一点：本变体所有线同宽，粗细不承担层级 */
+  --line-2: oklch(0.380 0.006 260);
   --line-inset: color-mix(in oklab, var(--fg) 6%, transparent);
+
+  /* 克制但不为零——零圆角会读成终端而非仪器 */
+  --r-sm: 4px;
+  --r-md: 6px;
+  --r-lg: 10px;
+  --r-full: 999px;
 
   --shadow-1: none;
   --shadow-2: 0 1px 3px -1px rgb(0 0 0 / 0.50);
@@ -83,9 +54,42 @@
   --shadow-field-outer: 0 2px 6px -2px rgb(0 0 0 / 0.45);
   --shadow-field-inner: inset 0 1px 2px rgb(0 0 0 / 0.30);
 
+  /* 起始值就比常规低半档 */
   --fw-body: 400;
   --fw-strong: 500;
   --fw-display: 550;
+
+  /* 字族：仪器面板。正文用 DIN 风的窄无衬线（DIN Next / Bahnschrift），
+     数字与时间戳走等宽。两块拼在一起就是示波器面板的语气。 */
+  --font-sans: "DIN Next LT Pro", "Bahnschrift", "Segoe UI Variable Text",
+    "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-display: var(--font-sans);
+  --font-mono: "Cascadia Mono", "SF Mono", "Consolas", "Roboto Mono", monospace;
+
+  /* 类型比例：仪器刻度——只比基线大半档，靠对齐与字距建立秩序 */
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-md: 14px;
+  --fs-lg: 16px;
+  --fs-xl: 20px;
+  --fs-2xl: 26px;
+  --fs-3xl: 34px;
+  --lh-tight: 1.1;
+  --lh-snug: 1.28;
+  --lh-body: 1.55;
+
+  /* 布局：紧凑型控制台。窄侧栏 + 更紧的主区 padding + 统计卡非等宽 */
+  --rail-w: 216px;
+  --topbar-h: 48px;
+  --content-max: 1160px;
+  --s-5: 20px;
+  --s-6: 28px;
+  --s-7: 40px;
+  --s-8: 56px;
+
+  --dur-fast: 120ms;
+  --dur-base: 160ms;
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 
 /* --------------------------------------------------------------------------
@@ -144,6 +148,36 @@
   font-size: var(--fs-xl);
   letter-spacing: -0.01em;
   font-weight: var(--fw-display);
+}
+/* 标签：仪器面板的字段名——大写 + 0.1em 字距，比正文小一档 */
+:root[data-style="dark-tech"] .eyebrow,
+:root[data-style="dark-tech"] .stat__label,
+:root[data-style="dark-tech"] .rail__label {
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+}
+
+/* 骨架：控制台不是四个等宽的仪表——第一张卡宽、后三张窄，
+   主分栏收成 2.2fr / 1fr，让数据区占主导。 */
+:root[data-style="dark-tech"] .main {
+  padding: var(--s-5) var(--s-6) var(--s-7);
+}
+:root[data-style="dark-tech"] .view {
+  gap: var(--s-5);
+}
+@media (min-width: 1181px) {
+  :root[data-style="dark-tech"] .stat-grid {
+    grid-template-columns: 1.6fr 1fr 1fr 1fr;
+    gap: var(--s-3);
+  }
+  :root[data-style="dark-tech"] .dash-split {
+    grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr);
+    gap: var(--s-4);
+  }
+  :root[data-style="dark-tech"] .stat {
+    padding: var(--s-4);
+  }
 }
 
 /* 数据数值用等宽 */

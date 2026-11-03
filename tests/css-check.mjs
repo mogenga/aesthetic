@@ -51,6 +51,21 @@ const SEMANTIC_TOKENS = new Set([
 
 const findings = [];
 
+/**
+ * 暗色专属变体（style-index 里 "theme": "dark-only"）。
+ *
+ * 这类变体只有一套 token，CSS 里不带 [data-theme="dark"] 限定，
+ * 所以「必须有 dark 块」对它们不成立。名单从索引读，不在检查逻辑里写死 id。
+ */
+const DARK_ONLY = (() => {
+  try {
+    const idx = JSON.parse(fs.readFileSync(STUDIO_INDEX, 'utf8'));
+    return new Set((idx.variants || [])
+      .filter((v) => v.theme === 'dark-only')
+      .map((v) => v.id));
+  } catch { return new Set(); }
+})();
+
 function add(level, file, line, msg) {
   findings.push({ level, file, line, msg });
 }
@@ -117,8 +132,9 @@ function checkFile(file) {
     add('error', name, 0, `没有 :root[data-style="${name}"] 作用域，会污染其它变体`);
   }
 
-  // must have a dark block
-  if (!/\[data-theme="dark"\]/.test(code)) {
+  // must have a dark block — except dark-only variants, whose single token set
+  // is the dark one (declared in style-index.json as "theme": "dark-only").
+  if (!/\[data-theme="dark"\]/.test(code) && !DARK_ONLY.has(name)) {
     add('error', name, 0, '缺少 [data-theme="dark"] 覆盖（R5 无法生效）');
   }
 
