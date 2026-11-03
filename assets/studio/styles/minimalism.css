@@ -53,6 +53,28 @@
   --fw-strong: 500;
   --fw-display: 600;
 
+  /* 字族：人文无衬线。Optima / Candara 的低对比笔画让留白显得"有呼吸"，
+     比 Inter 更像印刷品而不是后台模板。中文落到苹方 / 雅黑。 */
+  --font-sans: "Optima", "Candara", "Segoe UI",
+    "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-display: var(--font-sans);
+
+  /* 类型比例：整体收紧一档；标题与正文靠 8px 级差拉开，不靠粗细 */
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-md: 16px;
+  --fs-lg: 18px;
+  --fs-xl: 22px;
+  --fs-2xl: 28px;
+  --fs-3xl: 36px;
+  --lh-tight: 1.12;
+  --lh-snug: 1.4;
+  --lh-body: 1.7;
+
+  /* 布局：窄栏居中；侧栏收窄，把宽度让给阅读栏 */
+  --rail-w: 208px;
+  --content-max: 960px;
+
   /* 动效：只动颜色与透明度 */
   --dur-fast: 100ms;
   --dur-base: 160ms;
@@ -100,11 +122,49 @@
 /* 标题用字号与字距说话，两级之间差一倍以上 */
 :root[data-style="minimalism"] .view-head h1,
 :root[data-style="minimalism"] .card__title {
-  letter-spacing: -0.018em;
+  letter-spacing: -0.02em;
 }
 :root[data-style="minimalism"] .view-head h1 {
   font-size: var(--fs-2xl);
   line-height: var(--lh-tight);
+}
+/* 小标签统一宽字距：全部大写 + 0.12em，作为唯一的「排版装饰」 */
+:root[data-style="minimalism"] .eyebrow,
+:root[data-style="minimalism"] .stat__label,
+:root[data-style="minimalism"] .rail__label {
+  letter-spacing: 0.12em;
+}
+
+/* 骨架：它不是「四等分的仪表盘」，是「一篇文章 + 四个脚注」。
+   统计卡非等宽（第一张略宽），主区改成单列窄栏，阅读视线只有一条。 */
+:root[data-style="minimalism"] .main {
+  padding: var(--s-7) var(--s-8) var(--s-8);
+}
+:root[data-style="minimalism"] .view {
+  gap: var(--s-7);
+}
+@media (min-width: 1181px) {
+  :root[data-style="minimalism"] .stat-grid {
+    grid-template-columns: 1.3fr 1fr 1fr 1fr;
+    gap: var(--s-5) var(--s-6);
+  }
+  :root[data-style="minimalism"] .dash-split {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--s-6);
+  }
+  /* 单列后两个区块用留白分界，不加第二条线 */
+  :root[data-style="minimalism"] .dash-split > .card {
+    padding: var(--s-6) 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  :root[data-style="minimalism"] .dash-split > .card:first-child {
+    border-bottom: 1px solid var(--line-1);
+    padding-top: 0;
+  }
+  :root[data-style="minimalism"] .dash-split > .card:last-child {
+    padding-bottom: 0;
+  }
 }
 
 /* 卡片：只有一层发丝线，没有投影 */

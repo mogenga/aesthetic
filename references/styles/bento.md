@@ -31,6 +31,9 @@
 | 边框 | 1px · `--line-1`，浅到几乎只是"阴影的替代品"；输入框内环 `--line-inset`；hover 不改边框色，只提亮 `--surface-2` |
 | 阴影 | `--shadow-1` 0 1px 2px -1px / .05 · `--shadow-2` 0 2px 8px -2px / .06 · `--shadow-3` 浮层单独一档 |
 | 字重 | 浅色 400 / 550 / 700 · 暗色 350 / 500 / 650（Bento 的标题需要一点重量，否则格子里压不住） |
+| 字族 | `Century Gothic, "Avenir Next", "Segoe UI", "PingFang SC", sans-serif`（几何无衬线；Windows 落 Century Gothic，macOS 落 Avenir Next） |
+| 类型比例 | `12 / 13 / 16 / 20 / 26 / 36 / 52`；`--lh-tight` 1.04 · `--lh-snug` 1.3 · `--lh-body` **1.5**（格子里不养长文）；标题重、正文轻 |
+| 排版骨架 | 统计卡也进格：4 列拼图（hero 2×2 + 一张 1×1 + 一张 2×1）；主区 4 列，主格跨 2×2 |
 | 动效 | 160–220ms `ease-out`；只允许卡片背景与内部图形动，卡片本身不位移、不缩放 |
 
 ## 典型配色
@@ -198,6 +201,8 @@ Bento 的"彩色"通常来自格内插画或图表，而不是表面色。因此
 - [ ] 暗色下格内局部色的对比度仍 ≥ 3:1
 - [ ] 同一屏内使用格内局部色的卡片 ≤ 2 个
 - [ ] 用容器查询而非媒体查询控制格内字号
+- [ ] 正文 computed `font-family` 首项是几何无衬线（Century Gothic / Avenir Next），不是 Inter
+- [ ] `--lh-body` = 1.5，标题与正文的字重差 ≥ 250
 
 ## 反模式
 

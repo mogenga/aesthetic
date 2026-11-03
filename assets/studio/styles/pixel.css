@@ -56,25 +56,41 @@
   --fw-strong: 700;
   --fw-display: 700;
 
-  /* base.css 消费 --font-sans；像素风把正文也换成等宽，标题另用像素字 */
-  --font-sans: "Chivo Mono", "Cascadia Mono", "SF Mono", monospace;
+  /* base.css 消费 --font-sans；正文按卡 §3 回退到可读的**比例**字族。
+     Verdana 是 90 年代为低分辨率屏幕设计的宽体无衬线，方正的骨架与像素风同源，
+     又不至于像等宽字那样把长文读成代码。 */
+  --font-sans: "Verdana", "Tahoma", "Segoe UI", "PingFang SC",
+    "Microsoft YaHei", sans-serif;
   /* 像素字体只有单字重，R5 的降档在此不适用（见 models/style card）。
-     这个 token 让 audit.mjs 认出该例外，而不是靠猜。 */
+     这个 token 让 audit.mjs 认出该例外，而不是靠猜。
+     Windows 上本机确有像素字（Fusion Pixel 12px Prop zh-Hans），
+     优先它；没有则落到等宽，至少保持「单字重的方块字」这一层语义。 */
   --font-weights-declared: "700";
-  --font-display: "Press Start 2P", "Silkscreen", "Chivo Mono", monospace;
-  --font-mono: "Chivo Mono", "Cascadia Mono", monospace;
+  --font-display: "Press Start 2P", "Silkscreen", "Fusion Pixel 12px Prop zh-Hans",
+    "MS Gothic", "Cascadia Mono", monospace;
+  --font-mono: "Cascadia Mono", "Consolas", "Lucida Console", monospace;
 
-  --fs-xs: 11px;
-  --fs-sm: 12px;
-  --fs-md: 14px;
-  --fs-lg: 16px;
-  --fs-xl: 20px;
-  --fs-2xl: 28px;
-  --fs-3xl: 36px;
+  /* 固定类型阶梯：展示级一律 8 的倍数（像素字在非整数倍字号下会重采样）；
+     正文不缩到 15 以下——卡里的可读下限。 */
+  --fs-xs: 12px;
+  --fs-sm: 14px;
+  --fs-md: 16px;
+  --fs-lg: 18px;
+  --fs-xl: 24px;
+  --fs-2xl: 32px;
+  --fs-3xl: 40px;
 
   --lh-tight: 1.2;
-  --lh-snug: 1.45;
+  /* snug 压在 1.25：设置行是「名称 + 说明」两行堆叠，
+     像素风的正文 14px + 1.5 会把行高推到 63px，撞破 R8 的 48–60px 上限 */
+  --lh-snug: 1.25;
   --lh-body: 1.75;
+
+  /* 布局：窄栏 + 单列，8 的倍数。
+     200 是能放下「新建一条活动」+ 右侧提示的下限；176 会截断导航文案 */
+  --rail-w: 200px;
+  --topbar-h: 64px;
+  --content-max: 1152px;
 
   --dur-fast: 60ms;
   --dur-base: 90ms;
@@ -176,6 +192,37 @@
 }
 :root[data-style="pixel"] .view-head h1 {
   font-size: var(--fs-2xl);
+}
+/* 标签：像素风的小字不缩小，靠全大写与 8px 栅格对齐 */
+:root[data-style="pixel"] .eyebrow,
+:root[data-style="pixel"] .stat__label,
+:root[data-style="pixel"] .rail__label {
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* 骨架：窄栏 + 单列。统计卡 2×2 而不是 4 连排，
+   主分栏取消，所有区块按 8px 栅格竖向堆。 */
+:root[data-style="pixel"] .main {
+  padding: var(--s-6) var(--s-6) var(--s-8);
+}
+:root[data-style="pixel"] .view {
+  gap: var(--s-6);
+}
+@media (min-width: 1181px) {
+  :root[data-style="pixel"] .stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--s-4);
+  }
+  :root[data-style="pixel"] .dash-split {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--s-5);
+  }
+  :root[data-style="pixel"] .stat {
+    padding: var(--s-4);
+  }
 }
 
 /* 徽章做成像素块 */

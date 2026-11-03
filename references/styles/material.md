@@ -31,6 +31,9 @@
 | 边框 | 0（靠高度与表面色分层）；`outlined` 变体用 1px `--line-1`；fill 输入框内环 `--line-inset` |
 | 阴影 | 三档 elevation，**全部重新调过**，见下方 CSS；与 Material 默认的 `0 1px 3px rgba(0,0,0,.12), ...` 不同 |
 | 字重 | 浅色 400 / 500 / 600 · 暗色 350 / 450 / 550（Material 的默认类型系统依赖 500，暗色必须降） |
+| 字族 | 几何无衬线：`"Dubai", "Avenir Next", "Segoe UI Variable Display", "Segoe UI", "PingFang SC"`（不用 Roboto——那正是本卡要避免的"Google 示例站"信号） |
+| 类型比例 | Material 3 阶梯 `11 / 12 / 14 / 16 / 22 / 28 / 45`；`--lh-tight` 1.16 · `--lh-snug` 1.43 · `--lh-body` 1.68；标题轻、栏目标题重（display/headline 关系） |
+| 排版骨架 | 卷起式侧栏（`--rail-w` 264）+ 大留白（主区 padding 56/56/72）；统计卡 2×2（`--s-6` 内距）、主分栏 1fr / 1fr |
 | 动效 | 200–300ms `cubic-bezier(.2,0,0,1)`；状态层用 100ms；elevation 变化不能做动画（会导致连续重绘阴影） |
 
 ## 典型配色
@@ -222,6 +225,8 @@ Material 的 fill 输入框把"咬合"放在**底部指示线**上：上方是�
 - [ ] `transition-property` 里没有 `box-shadow`
 - [ ] 主按钮、选中指示器、焦点环之外，没有第四处使用 `--accent`
 - [ ] 类型阶梯是 400/500/600（浅），暗色 350/450/550，不存在 700 以上
+- [ ] 正文 computed `font-family` 首项是几何无衬线（Dubai / Avenir Next），不是 Roboto
+- [ ] 字号阶梯是 M3 的 `11/12/14/16/22/28/45`，`--lh-body` = 1.68
 
 ## 反模式
 

@@ -39,6 +39,9 @@
 | 边框 | 1px，`white 16–26%` 的亮边（不是 `--line-1`） |
 | 阴影 | `--shadow-1` 贴地 · `--shadow-2` 玻璃本体的抬升 · `--shadow-3` 只给浮在玻璃之上的弹层；三条 inset 边缘光另算，暗色整套重算 |
 | 字重 | 浅色 400 / 500 / 600 · 暗色 350 / 450 / 550 |
+| 字族 | `"Bahnschrift", "Segoe UI Variable Text", "Segoe UI", "PingFang SC", sans-serif`（三支**必须**相同；玻璃的差异只能来自光学处理） |
+| 类型比例 | `12 / 13 / 16 / 18 / 24 / 32 / 44`；`--lh-tight` 1.15 · `--lh-snug` 1.4 · `--lh-body` **1.62**（三支共用） |
+| 排版骨架 | 三支共用：`--rail-w` 240、主区 `64/56/64`；统计卡 `1.5fr 1fr 1fr`（首卡跨两行、其余各跨两列）；主分栏 1.15fr / 1fr |
 | 动效 | 120–200ms `ease-out`；动透明度与 8px 位移，**不对 `backdrop-filter` 做过渡** |
 
 ## 典型配色
@@ -214,6 +217,12 @@ Hyalite.watch({ force: isChromium === false });   // CSS.supports 在这里一�
 ## 标志性 CSS（三支共用）
 
 ```css
+/* 排版：三支共用同一套字族与字号阶梯——玻璃的差异只能来自光学处理，不能来自排版 */
+body { font-family: "Bahnschrift", "Segoe UI Variable Text", "Segoe UI", "PingFang SC", sans-serif;
+       font-size: var(--fs-md); line-height: var(--lh-body);      /* 1.62 */ }
+:where(h1, h2, .view-head h1) { letter-spacing: -0.02em; }
+:where(.eyebrow, .stat__label) { letter-spacing: 0.09em; }
+
 /* 厚度：两条 inset 伪造玻璃断面（单条 border 无法产生厚度感）；验收看两条 y 方向相反 */
 .glass { border: 1px solid var(--glass-edge); border-radius: var(--r-lg);
   box-shadow: inset 0 1px 0 var(--glass-edge),
@@ -258,6 +267,8 @@ Hyalite.watch({ force: isChromium === false });   // CSS.supports 在这里一�
 - [ ] 暗色玻璃不透明度、边缘光、外投影与浅色不同（42% / 16% / 24% 一组）
 - [ ] `transition-property` 不含 `backdrop-filter`；`prefers-reduced-transparency: reduce` 下有实色回退
 - [ ] `glass-transparent` 有登记在案的受控背景资产与压暗层；关掉所有玻璃后页面仍能读
+- [ ] 三支的 computed `font-family` / 字号阶梯 / `--rail-w` / 统计卡列宽逐项相同（布局不许分叉）
+- [ ] 标题字距 `-0.02em`，`--lh-body` = 1.62
 
 ## 反模式
 

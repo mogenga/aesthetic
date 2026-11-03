@@ -51,6 +51,30 @@
   --fw-strong: 500;
   --fw-display: 600;
 
+  /* 字族：三支共用（风格卡「Token 骨架（三支共用）」）。
+     中性人文无衬线；字号比例与布局也必须是同一套——
+     三支的差异只能在光学处理上，不能在排版上分叉。 */
+  --font-sans: "Bahnschrift", "Segoe UI Variable Text", "Segoe UI",
+    "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-display: var(--font-sans);
+
+  /* 类型比例：三支共用 12/13/16/18/24/32/44（与基座同阶梯，只调节奏） */
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-md: 16px;
+  --fs-lg: 18px;
+  --fs-xl: 24px;
+  --fs-2xl: 32px;
+  --fs-3xl: 44px;
+  --lh-tight: 1.15;
+  --lh-snug: 1.4;
+  --lh-body: 1.62;
+
+  /* 布局：三支共用。悬浮层要离边缘更远，所以侧栏略宽、主区更松 */
+  --rail-w: 240px;
+  --content-max: 1120px;
+  --s-7: 56px;
+
   --dur-fast: 120ms;
   --dur-base: 200ms;
 
@@ -107,6 +131,38 @@
 /* --------------------------------------------------------------------------
    2. SIGNATURE —— 毛玻璃本体
    -------------------------------------------------------------------------- */
+
+/* 排版（三支共用）：标题紧字距，小标签宽字距；不在这里分叉 */
+:root[data-style="glass-frosted"] .view-head h1 {
+  letter-spacing: -0.02em;
+}
+:root[data-style="glass-frosted"] .eyebrow,
+:root[data-style="glass-frosted"] .stat__label {
+  letter-spacing: 0.09em;
+}
+
+/* 骨架（三支共用）：玻璃要透出背景，所以内容整体抬高、统计卡改成
+   「一张主卡 + 三张从属」的错位排布；主分栏收成近似均分。
+   三支在布局上必须完全一致——这是风格卡的硬要求。 */
+:root[data-style="glass-frosted"] .main {
+  padding: var(--s-8) var(--s-7) var(--s-8);
+}
+@media (min-width: 1181px) {
+  :root[data-style="glass-frosted"] .stat-grid {
+    grid-template-columns: 1.5fr 1fr 1fr;
+    gap: var(--s-4);
+  }
+  :root[data-style="glass-frosted"] .stat-grid > .stat:nth-child(1) {
+    grid-row: span 2;
+  }
+  :root[data-style="glass-frosted"] .stat-grid > .stat:nth-child(n + 2) {
+    grid-column: span 2;
+  }
+  :root[data-style="glass-frosted"] .dash-split {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    gap: var(--s-5);
+  }
+}
 
 /* 页面底：一层柔和的彩色背景，否则玻璃无所依附 */
 :root[data-style="glass-frosted"] body {

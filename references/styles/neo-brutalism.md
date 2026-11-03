@@ -31,6 +31,9 @@
 | 边框 | 2px solid `--fg`；输入框不做 inset 内环（见 R4 等价方案），聚焦改 2px `--accent` + 偏移硬阴影 |
 | 阴影 | `--shadow-1` 4px 4px 0 · `--shadow-2` 6px 6px 0 · `--shadow-3` 浮层 8px 8px 0 |
 | 字重 | 浅色 400 / 700 / 800 · 暗色 350 / 650 / 750（粗野靠字号与描边，暗色仍需降档） |
+| 字族 | 标题 `"Arial Black", "Franklin Gothic Heavy", Arial`，正文 `Arial, "Helvetica Neue", "Segoe UI", "PingFang SC"`——全大写、紧字距（Windows 与 macOS 都自带 Arial Black，无需下载字体） |
+| 类型比例 | `12 / 14 / 16 / 20 / 28 / 40 / 56`；`--lh-tight` 0.98 · `--lh-snug` 1.22 · `--lh-body` **1.5**；标题字距 `-0.04em`，eyebrow `+0.18em` |
+| 排版骨架 | 侧栏搬到**右侧**成粗黑标尺；统计卡「左边一张大卡跨三行 + 右边三张窄卡」；主分栏 2fr / 1fr |
 | 动效 | 80–120ms，无缓动（`linear` 或 `steps`）；只做位移，不做淡入 |
 
 R3 例外：新粗野主义允许**不透明纯黑**用于 2px 描边。理由见下方声明；使用时必须登记 override。
@@ -149,9 +152,10 @@ approvedBy: user · verification: check-tokens --allow-black-border
 ```css
 .hero-title {
   font-size: clamp(2.5rem, 9vw, 6rem);
+  font-family: "Arial Black", "Franklin Gothic Heavy", Arial, sans-serif;
   font-weight: var(--fw-display);
-  letter-spacing: -0.03em;
-  line-height: 0.92;
+  letter-spacing: -0.04em;
+  line-height: 0.95;
   text-transform: uppercase;
   overflow: clip;                        /* 故意裁切，不是 bug */
 }
@@ -210,6 +214,8 @@ approvedBy: user · verification: check-tokens --allow-black-border
 - [ ] 焦点环为方角、≥ 3px、对比度 ≥ 3:1
 - [ ] 纯黑只出现在描边与硬阴影，正文仍是 `#1A1A19` 类深灰
 - [ ] 暗色下 `--line-1` 是反白，而不是降成灰色
+- [ ] 标题 computed `font-family` 首项是 Arial Black / Franklin Gothic Heavy，且 `text-transform: uppercase`
+- [ ] 标题字距 ≤ `-0.04em`，`--lh-body` = 1.5，`--fs-3xl` = 56
 
 ## 反模式
 

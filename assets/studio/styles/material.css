@@ -58,6 +58,34 @@
   --fw-strong: 500;
   --fw-display: 600;
 
+  /* 字族：几何无衬线。Windows 用 Dubai（字形开放、末梢收圆，与 M3 的
+     "大圆角 + 状态层"同一种语气），macOS 落到 Avenir Next。
+     不用 Roboto——那正是本卡要避免的「Google 示例站」信号。 */
+  --font-sans: "Dubai", "Avenir Next", "Segoe UI Variable Display", "Segoe UI",
+    "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-display: var(--font-sans);
+
+  /* 类型比例：Material 3 的 11/12/14/16/22/28/45（display/headline/title/body/label） */
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-md: 14px;
+  --fs-lg: 16px;
+  --fs-xl: 22px;
+  --fs-2xl: 28px;
+  --fs-3xl: 45px;
+  --lh-tight: 1.16;
+  --lh-snug: 1.43;
+  --lh-body: 1.68;
+
+  /* 布局：卷起式侧栏（比基线窄）+ 更松的主区 padding（M3 用大留白） */
+  --rail-w: 264px;
+  --topbar-h: 64px;
+  --content-max: 1200px;
+  --s-5: 24px;
+  --s-6: 40px;
+  --s-7: 56px;
+  --s-8: 72px;
+
   --dur-fast: 100ms;
   --dur-base: 250ms;
   --dur-slow: 300ms;
@@ -200,6 +228,44 @@
 :root[data-style="material"] .nav-link[aria-current="page"] {
   background: color-mix(in oklab, var(--accent) 14%, transparent);
   color: var(--accent);
+}
+
+/* 标题层级：M3 的 display/headline 关系——大标题轻、栏目标题重 */
+:root[data-style="material"] .view-head h1 {
+  letter-spacing: -0.015em;
+}
+:root[data-style="material"] .card__title {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-strong);
+  letter-spacing: 0.005em;
+}
+:root[data-style="material"] .eyebrow,
+:root[data-style="material"] .stat__label {
+  letter-spacing: 0.06em;
+  font-weight: var(--fw-strong);
+}
+
+/* 骨架：M3 的「卷起式导航」——侧栏更宽、留白更松；
+   统计卡缩成两列（可点目标更大），主分栏改成均分 1fr / 1fr。 */
+:root[data-style="material"] .main {
+  padding: var(--s-7) var(--s-7) var(--s-8);
+}
+:root[data-style="material"] .view {
+  gap: var(--s-6);
+}
+@media (min-width: 1181px) {
+  :root[data-style="material"] .stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--s-5);
+  }
+  :root[data-style="material"] .stat {
+    padding: var(--s-6);
+    border-radius: var(--r-lg);
+  }
+  :root[data-style="material"] .dash-split {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--s-5);
+  }
 }
 
 /* --------------------------------------------------------------------------

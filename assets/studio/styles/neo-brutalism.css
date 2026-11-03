@@ -60,6 +60,30 @@
   --fw-strong: 700;
   --fw-display: 800;
 
+  /* 字族：粗壮紧凑的 Grotesque 标题 + 中性无衬线正文。
+     标题走 Arial Black / Franklin Gothic Heavy（Windows 与 macOS 都有），
+     全大写 + 极紧字距；正文不跟着变粗，否则一屏全是大字报。 */
+  --font-sans: "Arial", "Helvetica Neue", "Segoe UI",
+    "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-display: "Arial Black", "Franklin Gothic Heavy", "Arial", sans-serif;
+
+  /* 类型比例：拉开。相邻两级至少 1.35 倍，标题与正文差 3 级 */
+  --fs-xs: 12px;
+  --fs-sm: 14px;
+  --fs-md: 16px;
+  --fs-lg: 20px;
+  --fs-xl: 28px;
+  --fs-2xl: 40px;
+  --fs-3xl: 56px;
+  --lh-tight: 0.98;
+  --lh-snug: 1.22;
+  --lh-body: 1.5;
+
+  /* 布局：粗边栏在「右」——导航变成一条压住内容的黑色标尺 */
+  --rail-w: 272px;
+  --topbar-h: 64px;
+  --content-max: 1240px;
+
   --dur-fast: 80ms;
   --dur-base: 100ms;
   --dur-slow: 120ms;
@@ -184,12 +208,64 @@
   box-shadow: 3px 3px 0 var(--fg), 0 0 0 2px var(--fg);
 }
 
-/* 超粗标题，允许溢出 */
+/* 超粗标题：全大写 + 紧字距；允许溢出容器并被裁切 */
 :root[data-style="neo-brutalism"] .view-head h1 {
-  font-size: clamp(var(--fs-2xl), 5vw, 56px);
+  font-family: var(--font-display);
+  font-size: clamp(var(--fs-xl), 5vw, var(--fs-3xl));
   font-weight: var(--fw-display);
-  letter-spacing: -0.03em;
+  letter-spacing: -0.04em;
   line-height: 0.95;
+  text-transform: uppercase;
+}
+:root[data-style="neo-brutalism"] .eyebrow {
+  letter-spacing: 0.18em;
+  font-weight: var(--fw-strong);
+}
+:root[data-style="neo-brutalism"] .card__title,
+:root[data-style="neo-brutalism"] .section-head h2 {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: -0.005em;
+}
+
+/* 骨架：侧栏搬到右侧，变成一条粗黑标尺（grid areas 重排，类名不动）。
+   只在桌面宽度重排——平板与手机的抽屉布局仍沿用 base.css 的左抽屉，
+   否则 900px 以下会凭空留出一条 272px 的空列。 */
+@media (min-width: 901px) {
+  :root[data-style="neo-brutalism"] .app {
+    grid-template-columns: minmax(0, 1fr) var(--rail-w);
+    grid-template-areas: "topbar topbar" "main rail";
+  }
+  :root[data-style="neo-brutalism"] .app[data-rail="collapsed"] {
+    grid-template-columns: minmax(0, 1fr) var(--rail-w-collapsed);
+  }
+  :root[data-style="neo-brutalism"] .rail {
+    border-right: 0;
+    border-left: var(--border-w-strong) solid var(--fg);
+  }
+}
+:root[data-style="neo-brutalism"] .main {
+  padding: var(--s-6) var(--s-6) var(--s-7);
+}
+:root[data-style="neo-brutalism"] .view {
+  gap: var(--s-5);
+}
+@media (min-width: 1181px) {
+  /* 海报式非对称：左边一张大卡（跨两行），右边三张叠成窄列 */
+  :root[data-style="neo-brutalism"] .stat-grid {
+    grid-template-columns: 1.6fr 1fr;
+    grid-auto-rows: minmax(0, auto);
+  }
+  :root[data-style="neo-brutalism"] .stat-grid > .stat:nth-child(1) {
+    grid-row: span 3;
+  }
+  :root[data-style="neo-brutalism"] .stat-grid > .stat:nth-child(n + 2) {
+    grid-column: 2;
+  }
+  :root[data-style="neo-brutalism"] .dash-split {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    gap: var(--s-4);
+  }
 }
 
 /* 分组标题做成贴纸块 */

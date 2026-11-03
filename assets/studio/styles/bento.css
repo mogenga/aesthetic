@@ -49,6 +49,31 @@
   --fw-strong: 550;
   --fw-display: 700;
 
+  /* 字族：几何无衬线（Futura 式的圆几何 + 中性正文）。
+     Bento 的"格"需要一个几何骨架，否则格子会读成普通卡片阵列。
+     Windows 落到 Century Gothic，macOS 落到 Avenir Next——两边都是几何。 */
+  --font-sans: "Century Gothic", "Avenir Next", "Segoe UI",
+    "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-display: var(--font-sans);
+
+  /* 类型比例：标题重、正文轻、行高收紧到 1.5——格子里不养长文 */
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-md: 16px;
+  --fs-lg: 20px;
+  --fs-xl: 26px;
+  --fs-2xl: 36px;
+  --fs-3xl: 52px;
+  --lh-tight: 1.04;
+  --lh-snug: 1.3;
+  --lh-body: 1.5;
+
+  /* 布局：侧栏稍宽（格子需要方形画布）；主区留白比基线小一档 */
+  --rail-w: 248px;
+  --content-max: 1200px;
+  --s-5: 20px;
+  --s-6: 32px;
+
   --dur-base: 200ms;
   --dur-slow: 220ms;
 
@@ -102,6 +127,33 @@
   box-shadow: var(--shadow-1);
   border: 1px solid var(--line-1);
   padding: var(--s-5);
+}
+
+/* 统计卡也进便当格：2×2，第一张横跨两列做 hero，后三张各占一格。
+   这是「格子比例 = 信息架构」的起点——统计信息本身也要有主次。 */
+@media (min-width: 1181px) {
+  :root[data-style="bento"] .stat-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--grid-gap);
+  }
+  /* 4 列 × 2 行的完整拼图：hero 2×2 在左，右侧一张 1×1 + 一张 2×1 */
+  :root[data-style="bento"] .stat-grid > .stat:nth-child(1) {
+    grid-column: span 2;
+    grid-row: span 2;
+  }
+  :root[data-style="bento"] .stat-grid > .stat:nth-child(2) {
+    grid-column: span 1;
+  }
+  :root[data-style="bento"] .stat-grid > .stat:nth-child(3) {
+    grid-column: span 1;
+  }
+  :root[data-style="bento"] .stat-grid > .stat:nth-child(4) {
+    grid-column: span 2;
+  }
+  :root[data-style="bento"] .stat {
+    padding: var(--s-6);
+    border-radius: var(--r-lg);
+  }
 }
 
 /* 数据卡片区改造成 4 列便当格 */

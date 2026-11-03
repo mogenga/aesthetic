@@ -52,6 +52,31 @@
   --fw-strong: 600;
   --fw-display: 700;
 
+  /* 字族：人文无衬线（Frutiger 血统）。软材料的控件需要圆润、开口大的字形；
+     首选 Corbel（x-height 大、笔画末端收圆），与极简主义的 Optima/Candara
+     在 Windows 上落到不同字体，避免两张卡撞字形。 */
+  --font-sans: "Corbel", "Candara", "Optima", "Segoe UI",
+    "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-display: var(--font-sans);
+
+  /* 类型比例：偏大偏松——软阴影需要更大的字号才不被吃掉，
+     所以 xs 抬到 13、正文行高给到 1.7。 */
+  --fs-xs: 13px;
+  --fs-sm: 14px;
+  --fs-md: 16px;
+  --fs-lg: 19px;
+  --fs-xl: 25px;
+  --fs-2xl: 34px;
+  --fs-3xl: 46px;
+  --lh-tight: 1.2;
+  --lh-snug: 1.45;
+  --lh-body: 1.72;
+
+  /* 布局：单一材质的「一整块」——侧栏更宽，主区分栏收成近似均分，
+     让两片凸起表面各自的阴影有地方铺开。 */
+  --rail-w: 256px;
+  --content-max: 1080px;
+
   --dur-fast: 140ms;
   --dur-base: 180ms;
 
@@ -154,6 +179,38 @@
 :root[data-style="neumorphism"] .nav-link[aria-current="page"] {
   box-shadow: var(--shadow-field-inner);
   background: var(--bg);
+}
+
+/* 标题：软材料上不用极紧字距——字形需要呼吸才不被阴影吃掉 */
+:root[data-style="neumorphism"] .view-head h1 {
+  letter-spacing: -0.005em;
+  line-height: var(--lh-tight);
+}
+:root[data-style="neumorphism"] .eyebrow,
+:root[data-style="neumorphism"] .stat__label {
+  letter-spacing: 0.06em;
+}
+
+/* 骨架：三块「凸起」而不是四块——统计卡是 2 列 2 行，
+   主分栏 1fr / 1fr 让左右两片材料等重（本卡所有控件都是等权重的）。 */
+:root[data-style="neumorphism"] .main {
+  padding: var(--s-6) var(--s-6) var(--s-8);
+}
+:root[data-style="neumorphism"] .view {
+  gap: var(--s-6);
+}
+@media (min-width: 1181px) {
+  :root[data-style="neumorphism"] .stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--s-5);
+  }
+  :root[data-style="neumorphism"] .dash-split {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--s-5);
+  }
+  :root[data-style="neumorphism"] .stat {
+    padding: var(--s-6);
+  }
 }
 
 /* --------------------------------------------------------------------------

@@ -31,6 +31,9 @@
 | 边框 | 1px · `--line-1`；只用于分隔线与输入框，不用于卡片 |
 | 阴影 | `--shadow-1` none · `--shadow-2` 0 1px 2px -1px / .06 · `--shadow-3` 仅浮层，见下 |
 | 字重 | 浅色 400 / 500 / 600 · 暗色 350 / 450 / 550（阶梯 300–700） |
+| 字族 | 正文与标题同一族：`Optima, Candara, "Segoe UI", "PingFang SC", sans-serif`（人文无衬线；留白靠字形的低对比度撑住，不用几何字。Windows 无 Optima 时落到 Candara，同为人文无衬线） |
+| 类型比例 | `12 / 13 / 16 / 18 / 22 / 28 / 36`；`--lh-tight` 1.12 · `--lh-snug` 1.4 · `--lh-body` 1.7；标题字距 `-0.02em`，小标签 `+0.12em` 大写 |
+| 排版骨架 | 窄栏居中（`--content-max` 960）；统计卡 `1.3fr 1fr 1fr 1fr`；主区单列，两个卡片上下叠 |
 | 动效 | 100–160ms `ease-out`，只动 `opacity` / `background-color` / `border-color` |
 
 `--shadow-3` 必须存在，即使前两档是 `none`：
@@ -211,6 +214,8 @@ a, .link { color: var(--accent); text-underline-offset: 0.18em; text-decoration-
 - [ ] 下拉 / 弹窗 / toast 有明显的 `--shadow-3`，而普通卡片没有阴影
 - [ ] `prefers-reduced-motion` 下所有过渡 ≤ 1ms，且没有布局跳动
 - [ ] 暗色下 `--fw-body` = 350，且正文对比度仍 ≥ 4.5:1
+- [ ] 正文 computed `font-family` 首项是 Optima/Candara 一类人文无衬线，不是 Inter/system-ui
+- [ ] `--lh-body` = 1.7（与基线的 1.65 不同），标题字距 `-0.02em`，小标签 `+0.12em`
 
 ## 反模式
 

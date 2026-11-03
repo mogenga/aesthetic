@@ -31,6 +31,9 @@
 | 边框 | 2px solid `--fg`（1x）或 4px（2x 缩放模式，由 `--px` 切换）；不用 1px |
 | 阴影 | `--shadow-1` 4px 4px 0 · `--shadow-2` 8px 8px 0 · `--shadow-3` 浮层用 0 8px 0 + 1px 描边 |
 | 字重 | 浅色 400 / 700 / 700 · 暗色 400 / 700 / 700（像素字体通常只有单字重，"降一档"落在同一个可用值上；按 R5 在 `tokens.json` 记 `actualWeight`，不得为凑降档而换字族） |
+| 字族 | 展示 `"Press Start 2P", Silkscreen, "Fusion Pixel 12px Prop zh-Hans", "MS Gothic"`；正文按卡 §3 回落**比例**字族 `"Verdana", Tahoma, "Segoe UI", "PingFang SC"`（不用等宽，否则长文读成代码） |
+| 类型比例 | 固定阶梯、不随视口缩放：`12 / 14 / 16 / 18 / 24 / 32 / 40`（展示级是 8 的倍数）；`--lh-tight` 1.2 · `--lh-snug` **1.25** · `--lh-body` 1.75 |
+| 排版骨架 | 窄栏 200（8 的倍数，也是不截断导航文案的下限）+ 顶栏 64；统计卡 2×2（`--s-4` 间距），主分栏取消、竖向堆叠；正文 ≥ 14px |
 | 动效 | 60–90ms `steps(1)`；只允许"帧切换"式变化，不做插值 |
 
 ## 典型配色
@@ -130,13 +133,14 @@
 
 ```css
 .display, h1, h2, h3, .btn, .label {
-  font-family: "Press Start 2P", "Zpix", ui-monospace, monospace;
+  font-family: "Press Start 2P", "Silkscreen", "Fusion Pixel 12px Prop zh-Hans",
+               "MS Gothic", monospace;
   letter-spacing: 0.02em;
   /* 像素字体在非整数倍字号下会重新采样，必须锁定到 8px 的倍数 */
   font-size: 16px; line-height: 24px;
 }
 .prose, .body, p, li, td {
-  font-family: system-ui, "Noto Sans SC", sans-serif;  /* 正文回退到比例字 */
+  font-family: "Verdana", Tahoma, "Segoe UI", "PingFang SC", sans-serif;  /* 正文回退到比例字 */
   font-size: var(--fs-md); line-height: var(--lh-body);
 }
 /* 验收：正文段落的 computed font-family 首项不是像素字体 */
@@ -210,6 +214,8 @@
 - [ ] 禁用态有斜纹或其它非颜色信号
 - [ ] 暗色模式换了色相家族（蓝紫底），不是把米底直接压暗
 - [ ] 动效用 `steps()` 而非插值缓动
+- [ ] 展示级字号全部是 8 的倍数；正文 computed `font-family` 是比例字族（Verdana），不是等宽或像素字
+- [ ] `--lh-snug` = 1.25（R8 设置行 48–60px 靠它守）
 
 ## 反模式
 
