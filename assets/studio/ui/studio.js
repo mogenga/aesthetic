@@ -259,7 +259,16 @@ const DEFAULT_DIRECTION = {
 };
 
 const state = {
-  mode: 'palette', view: 'desktop', theme: 'light', content: 'home',
+  mode: 'palette', view: 'desktop', content: 'home',
+  // 两个「主题」是两件事，不要合并：
+  //   themeMode —— 项目主题意图，决定哪几套颜色会被写进 decisions.json；
+  //   theme     —— 此刻预览的是哪一套颜色。
+  // themeMode 默认 'light'：一个还没有 decisions.json 的新项目，
+  // Studio 不替用户决定「要做暗色」；只有用户显式选「浅 + 深」才写 dark。
+  // 注意这里只支持 light / light-dark 两种可写模式：schema 的 color 段
+  // required: ["light"]，单主题深色写出来是非法 decisions（见 applyRemoteDecisions）。
+  themeMode: 'light',
+  theme: 'light',
   accentHue: 250, accentChroma: 0.12, neutral: 0,
   // 明度覆盖：null = 跟随项目 accent 的 L；数字 = 用户手动指定
   accentLight: null,
@@ -348,9 +357,15 @@ function accentLight(theme) {
  */
 function colorSet(theme) {
   // 项目没有这个主题就直接返回空集，不要走兜底公式假装它存在。
-  // 例外：刚在画廊换了变体时以变体 token 为基线，变体自带明暗两套。
+  // 例外：
+  //   · 刚在画廊换了变体时以变体 token 为基线，变体自带明暗两套；
+  //   · 用户已经把项目主题意图设成「浅 + 深」（themeMode），但 decisions 里
+  //     还没有 dark 段 —— 此时 dark 是「即将写入」的一套，必须能按兜底公式生成。
+  //     否则从单主题切到浅+深时 dark 是 {}，写出的 decisions 非法。
+  // light 永远可算：schema 要求 color.light 必填，面板的阶梯 / 校验也都以它为主。
+  const intended = theme === 'light' || (theme === 'dark' && state.themeMode === 'light-dark');
   const variantBase = state.variantPicked ? state.variantColor?.[theme] : null;
-  if (!variantBase && state.remoteColor && !state.remoteColor[theme]) return {};
+  if (!variantBase && state.remoteColor && !state.remoteColor[theme] && !intended) return {};
   const remote = state.remoteColor?.[theme];
   // 变体里有些 token 是 color-mix（如 line-inset），读不出 oklch 的项保留项目值。
   const base = variantBase ? { ...(remote || {}), ...variantBase } : remote;
@@ -515,16 +530,24 @@ function weightCss(theme = state.theme) {
 function colorCssVars(theme) {
   const c = colorSet(theme);
   const onAccent = theme === 'dark' ? '#0D1B26' : '#FFFFFF';
-  return {
-    '--bg': c.bg.oklch, '--surface-1': c['surface-1'].oklch, '--surface-2': c['surface-2'].oklch,
-    '--surface-3': c['surface-3'].oklch, '--surface-sunken': c['surface-sunken'].oklch,
-    '--fg': c.fg.oklch, '--fg-muted': c['fg-muted'].oklch,
-    '--accent': c.accent.oklch, '--accent-hover': (c['accent-hover'] || c.accent).oklch,
-    '--accent-soft': `color-mix(in oklab, ${c.accent.oklch} 12%, transparent)`,
-    '--on-accent': onAccent, '--accent-fg': onAccent,
-    '--line-1': c['line-1'].oklch, '--line-2': c['line-2'].oklch, '--line-inset': c['line-inset'].oklch,
-    '--line-hair': `1px solid ${c['line-1'].oklch}`,
-  };
+  const vars = {};
+  // 项目 / 变体可能只给了一部分 token：示例项目的 dark 段就没有 line-2 与
+  // surface-sunken。缺项不要硬读 .oklch —— 那会在切到暗色预览时抛
+  // TypeError，整个面板停在半渲染状态。缺的变量不写，让夹具 tokens.css
+  // 自己的定义（line-2 / line-inset 有 color-mix 兜底）生效。
+  const put = (key, entry) => { if (entry?.oklch) vars[key] = entry.oklch; };
+  put('--bg', c.bg);
+  put('--surface-1', c['surface-1']); put('--surface-2', c['surface-2']);
+  put('--surface-3', c['surface-3']); put('--surface-sunken', c['surface-sunken']);
+  put('--fg', c.fg); put('--fg-muted', c['fg-muted']);
+  put('--accent', c.accent);
+  put('--accent-hover', c['accent-hover'] || c.accent);
+  if (c.accent?.oklch) vars['--accent-soft'] = `color-mix(in oklab, ${c.accent.oklch} 12%, transparent)`;
+  vars['--on-accent'] = onAccent;
+  vars['--accent-fg'] = onAccent;
+  put('--line-1', c['line-1']); put('--line-2', c['line-2']); put('--line-inset', c['line-inset']);
+  if (c['line-1']?.oklch) vars['--line-hair'] = `1px solid ${c['line-1'].oklch}`;
+  return vars;
 }
 
 /**
@@ -782,16 +805,15 @@ function setTranslationValue(key, value) {
   if (key === 'weight' && Array.isArray(value)) {
     const [body, strong, display] = value;
     state.weights.light = { ...state.weights.light, body, strong, display };
-    // 暗色「降一档」必须在可用阶梯上找严格更低的一档（R5 + 静态字重校验）：
-    // 硬减 50 会造出 350 / 550 / 650 这类字体里不存在的值，
-    // check-tokens 会报「不在 weightLadder.available 里」。
-    const down = (v, fallback) => stepDown(v) ?? Math.min(Number(v), Math.max(300, fallback ?? 300));
-    state.weights.dark = {
-      ...state.weights.dark,
-      body: down(body, state.weights.dark?.body),
-      strong: down(strong, state.weights.dark?.strong),
-      display: down(display, state.weights.dark?.display),
-    };
+    // 暗色只在项目真的做暗色时才推导。单主题项目里推导出来的 weights.dark
+    // 不会被写入，但会随「切回浅 + 深」一起过期 —— 那时由 deriveDarkWeights()
+    // 从当前浅色重新降档，而不是沿用这段历史值。
+    if (hasDarkTheme()) {
+      // 暗色「降一档」必须在可用阶梯上找严格更低的一档（R5 + 静态字重校验）：
+      // 硬减 50 会造出 350 / 550 / 650 这类字体里不存在的值，
+      // check-tokens 会报「不在 weightLadder.available 里」。
+      state.weights.dark = deriveDarkWeights(state.weights.light);
+    }
   }
   if (key === 'neutralTemp') {
     // "H 250, C 0.002" → 钉住色相；用户显式写在参数表里，视为手动指定
@@ -855,12 +877,19 @@ function availableWeights() {
 }
 
 /**
- * 是否有暗色主题。R5 要求暗色字重严格低于浅色，而正文护栏是 300 ——
- * 浅色正文一旦取 300，暗色就没有「更低且合法」的值可写。
- * 所以有暗色时正文的下限抬到 400（references/translation.md 的同一句：
+ * 项目是否做暗色主题。
+ *
+ * 判据是用户的显式意图 state.themeMode，不是「remoteColor 里有没有 dark」——
+ * 旧 decisions.json 里躺着一整套 dark 不代表这一期还做暗色；用户把它改成
+ * 单主题后，remoteColor 在内存里仍带着旧 dark（还没重新载入），
+ * 读 remoteColor 会让字重下限、对比度行又按「有暗色」来算。
+ *
+ * 它同时决定字重下限：R5 要求暗色字重严格低于浅色，而正文护栏是 300 ——
+ * 浅色正文一旦取 300，暗色就没有「更低且合法」的值可写。所以有暗色时
+ * 正文的下限抬到 400（references/translation.md 的同一句：
  * 「浅色 body 最低取 400 才留得住降档空间」）。
  */
-const hasDarkTheme = () => !!state.remoteColor?.dark;
+const hasDarkTheme = () => state.themeMode === 'light-dark';
 
 /** 正文下拉的最小合法值：无暗色可到 300，有暗色必须留出降档空间。 */
 function weightFloorBody() {
@@ -878,6 +907,33 @@ function weightFloorBody() {
 function stepDown(v) {
   const below = availableWeights().filter((a) => a < Number(v));
   return below.length ? below[below.length - 1] : null;
+}
+
+/**
+ * 浅色三档 → 暗色三档（各降一档，R5）。
+ *
+ * 抽成函数是因为有两条触发路径：用户改字重、以及用户从「单主题」切到
+ * 「浅 + 深」。两条路径必须产出同一结果，否则会写出一份和浅色不匹配的
+ * dark（例如浅色是 300、暗色还是旧项目留下的 350 —— 不是「严格更低」就被
+ * check-tokens 判 R5 失败）。
+ */
+function deriveDarkWeights(light) {
+  const prev = state.weights.dark || {};
+  const down = (v, fallback) => stepDown(v) ?? Math.min(Number(v), Math.max(300, fallback ?? 300));
+  const out = {
+    ...prev,
+    body: down(light?.body, prev.body),
+    strong: down(light?.strong, prev.strong),
+    display: down(light?.display, prev.display),
+  };
+  // 小字两档不参与降档，必须与浅色同值。项目显式声明过就跟着浅色走，
+  // 没声明就不凭空写 —— 但若暗色那边历史上有，就保留（否则 check-tokens
+  // 会判 weights.dark.small 缺失，与切换前相比是一处退步）。
+  for (const key of ['small', 'small-strong']) {
+    const v = light?.[key] ?? prev[key];
+    if (typeof v === 'number') out[key] = v;
+  }
+  return out;
 }
 
 /** 链式约束：返回 [body, strong, display]，保证 body ≤ strong ≤ display 且都在可用阶梯上。 */
@@ -1414,9 +1470,10 @@ function renderPanels() {
       })));
   });
 
-  // 只检查「真的存在」的组合。单主题项目没有 dark，
-  // 硬读 dark.fg.hex 会得到 undefined → 对比度算出 NaN，面板显示一行红叉。
-  const hasDark = !!(dark && dark.fg && dark.bg);
+  // 「暗色正文」这一行只在项目真的做暗色时出现。判据是显式的 themeMode，
+  // 不是 dark 里有没有值：单主题项目即使 colorSet('dark') 还能算出兜底，
+  // 那套颜色也不会写进 decisions，列出来只会让人以为项目有暗色要验收。
+  const hasDark = hasDarkTheme() && !!(dark && dark.fg && dark.bg);
   const rows = [
     ['正文对比度', light?.fg, light?.bg, 4.5],
     ['次要对比度', light?.['fg-muted'], light?.bg, 4.5],
@@ -2200,20 +2257,41 @@ function ensureDirection() {
   };
 }
 
+/**
+ * decisions 的配色段与主题声明。
+ *
+ * meta.theme 与 color 里实际写了哪几套必须一致 —— 早先这里无条件写
+ * `theme: 'light-dark'` 和 `{ light, dark }`，于是用户在 Phase 0 说过
+ * 「本期不做暗色」也照样产出 11 个 dark token，build.mjs 的
+ * `if (d.color?.dark)` 合同段落因此永远出现。
+ *
+ * 现在只按显式意图主题写：
+ *   · 'light'      → meta.theme 'light'，color 只有 light（不写 dark 键本体）
+ *   · 'light-dark' → meta.theme 'light-dark'，color 两套齐全
+ * 只用 delete / 重新构造，不写 `dark: {}` —— schema 的 color 段
+ * additionalProperties 要求每个主题至少有 bg / fg，空对象直接 422。
+ *
+ * weights 同理：单主题项目不把 weights.dark 写出去（它只是 Studio 内部的推导值）。
+ */
 function buildDecisions() {
   const clean = (set) => Object.fromEntries(Object.entries(set)
     .map(([k, v]) => [k, { oklch: v.oklch, hex: v.hex, l: v.l }]));
+  const wantsDark = state.themeMode === 'light-dark';
+  const color = { light: clean(colorSet('light')) };
+  if (wantsDark) color.dark = clean(colorSet('dark'));
+  const weights = structuredClone(state.weights);
+  if (!wantsDark) delete weights.dark;
   return {
     meta: {
-      schemaVersion: 1, theme: 'light-dark',
+      schemaVersion: 1, theme: wantsDark ? 'light-dark' : 'light',
       generatedAt: new Date().toISOString(), generatorVersion: 'aesthetic-v2',
     },
     direction: ensureDirection(),
     translation: structuredClone(state.translation),
-    color: { light: clean(colorSet('light')), dark: clean(colorSet('dark')) },
+    color,
     surfaceLadder: { step: STEP },
     weightLadder: state.weightLadder,
-    weights: structuredClone(state.weights),
+    weights,
     overrides: Array.isArray(state.overrides) ? state.overrides : [],
   };
 }
@@ -2313,9 +2391,88 @@ function syncGalleryTheme() {
   for (const frame of $$('#gallery-grid iframe, #zoom-frame')) pushThemeToFrame(frame, state.theme);
 }
 
+/**
+ * 项目主题意图：'light'（单主题浅）或 'light-dark'（浅 + 深）。
+ *
+ * 它是**显式决定**，不是从配色数据反推的：旧 decisions 里有 dark 只说明
+ * 上一轮做过，不说明这一轮还做。所以单主题时把 dark 数据清掉（写盘时
+ * buildDecisions 也不会再写），切回浅+深时重新生成。
+ *
+ * 载入已有 decisions 时**不走这里**：applyRemoteDecisions 直接写 state.themeMode，
+ * 由 syncControls() 同步控件 —— 载入不该产生「已切换」的提示或改动数据。
+ */
+function setThemeMode(mode) {
+  const next = mode === 'light-dark' ? 'light-dark' : 'light';
+  const prev = state.themeMode;
+  state.themeMode = next;
+
+  // 预览锁：单主题项目没有另一套颜色可看。把预览从 dark 拉回 light，
+  // 否则画廊缩略图、实验室 iframe 还会渲染一套不会写入的暗色。
+  if (next === 'light' && state.theme === 'dark') setTheme('light');
+
+  // 单主题时丢掉内存里的暗色**配色**基线。留着它有两个坏处：
+  //   1. 再次切回「浅 + 深」时会沿用旧项目（可能已被删掉）的 dark，
+  //      而不是按当前浅色重新生成；
+  //   2. 面板里 colorSet('dark') 仍能算出一套「看着像有暗色」的颜色。
+  // 用户若反悔，切回「浅 + 深」会从变体暗色或兜底公式重建（见 colorSet）。
+  //
+  // weights.dark 不在这里删：它上面的 small / small-strong 是跨主题恒定的，
+  // 删了再推导会丢掉。写入时 buildDecisions 会整段不发（单主题不写 dark），
+  // 切回来时 deriveDarkWeights 会用浅色重算 body/strong/display。
+  if (next === 'light' && state.remoteColor?.dark) delete state.remoteColor.dark;
+
+  // 从单主题切到浅 + 深：dark 可能是 {} 或历史残留，按当前浅色基线重建。
+  // 配色走 colorSet('dark') 的兜底 / 项目基线（见 colorSet 的 intended 分支），
+  // 字重则从浅色重新降一档，保证 R5「严格更低」。
+  if (next === 'light-dark') {
+    // 单主题时正文可以取 300；切回「浅 + 深」后这个值没有更低的档位可降，
+    // 必须先把浅色字重链夹回合法区间（正文 ≥ 400），再推导暗色。
+    const cur = state.weights.light || {};
+    const [body, strong, display] = clampWeightChain(cur.body, cur.strong, cur.display);
+    state.weights.light = { ...cur, body, strong, display };
+    // 转写表是「设计意图」的显示值，必须和实际 token 一起更新，
+    // 否则参数表写着 300、导出的权重是 400。
+    state.translation.weight.value = [body, strong, display];
+    state.weights.dark = deriveDarkWeights(state.weights.light);
+  }
+
+  syncThemeModeControls();
+  // 切模式会改变「对比度检查 / 字重下限 / 参数表提示」—— 面板整体重画。
+  renderPanels();
+  renderTranslation();
+  if (prev !== next) markDirty();
+  if (prev !== next) {
+    setStatus('ok', next === 'light-dark'
+      ? '项目主题已设为「浅 + 深」：写入 decisions 时会同时产出两套颜色。'
+      : '项目主题已设为「单主题 · 浅」：写入 decisions 时只产出浅色，不再写暗色数据。');
+  }
+}
+
+/** 把 themeMode / theme 同步到顶栏两个下拉，并锁住单主题下不可用的选项。 */
+function syncThemeModeControls() {
+  const modeSel = $('#theme-mode-select');
+  if (modeSel && modeSel.value !== state.themeMode) modeSel.value = state.themeMode;
+  const themeSel = $('#theme-select');
+  if (!themeSel) return;
+  const darkOpt = Array.from(themeSel.options).find((o) => o.value === 'dark');
+  if (darkOpt) {
+    // 不用隐藏：选项消失会让下拉宽度跳变，也让人不知道「还有暗色这回事」。
+    // 文案点明原因，比一个禁用的「深」字更省一次猜测。
+    darkOpt.disabled = state.themeMode !== 'light-dark';
+    darkOpt.textContent = state.themeMode === 'light-dark' ? '深' : '深（未启用）';
+  }
+  if (themeSel.value !== state.theme) themeSel.value = state.theme;
+}
+
 function setTheme(theme) {
+  // 单主题项目没有暗色可预览：即便有人从 URL / 脚本里把值塞进来也拉回浅色。
+  if (theme === 'dark' && state.themeMode !== 'light-dark') theme = 'light';
   state.theme = theme;
   document.documentElement.dataset.theme = theme;
+  // 预览下拉可能被脚本写过一个不成立的值（单主题下写 dark）—— 以 state 为准回填，
+  // 否则下拉显示「深」而画面是浅色，两处矛盾。
+  const sel = $('#theme-select');
+  if (sel && sel.value !== theme) sel.value = theme;
   // 暗色下 accent 的项目 L 不同（跟随模式下 L 变了），色轮底图与明度值都要重算
   wheelDrawnFor = null;
   updatePaletteOutputs();
@@ -2998,9 +3155,12 @@ function updatePaletteOutputs() {
 
 function syncControls() {
   $('#view-select').value = state.view;
-  $('#theme-select').value = state.theme;
   $('#content-select').value = state.content;
   $('#neutral-temp').value = String(state.neutral);
+  // 载入 decisions 时 state.theme 可能被改成 dark（单主题深色文件），
+  // 但 <html data-theme> 还停在 HTML 里的初值 —— 两处必须一起刷新。
+  document.documentElement.dataset.theme = state.theme;
+  syncThemeModeControls();
   updatePaletteOutputs();
 }
 
@@ -3013,7 +3173,32 @@ function applyRemoteDecisions(d) {
   }
   // 保留项目真实的色值。colorSet() 只是「调色控件作用在什么基准上」，
   // 没有这份缓存它就会从硬编码的公式现场算一套，而不是读项目的 token。
-  if (d.color?.light) state.remoteColor = structuredClone(d.color);
+  // 只要有任一主题就缓存：只有 dark 的历史文件也要保留它的 dark，
+  // 不能因为缺 light 就把整份配色丢掉。
+  if (d.color && Object.keys(d.color).length) state.remoteColor = structuredClone(d.color);
+
+  // 项目主题意图从 meta.theme 反推（词表兼容）：
+  //   'light'      → 单主题浅
+  //   'light-dark' → 浅 + 深
+  //   缺失         → 'light-dark'（缺省按旧行为，已有项目不会被静默降级成单主题）
+  //   'dark'       → Studio 没有「单主题 · 深」这一档：schema 的 color 段
+  //                  required: ["light"]，dark-only 的 decisions 会被
+  //                  check-tokens 判 E002。按「浅 + 深」载入并明确提示，
+  //                  而不是假装能原样保存。
+  const storedTheme = d.meta?.theme;
+  if (storedTheme === 'dark') {
+    // 打开 Studio 直接进深色预览：文件声明的意图就是深色，先看到它本来的样子。
+    state.themeMode = 'light-dark';
+    state.theme = 'dark';
+    setStatus('warn', '这份 decisions.json 声明为单主题深色，但项目的 schema 要求 '
+      + 'color.light 必填——Studio 只能按「浅 + 深」载入；再次写入会补出浅色一套。', 0);
+  } else {
+    state.themeMode = storedTheme === 'light' ? 'light' : 'light-dark';
+    // 声明为单主题浅色、却残留了 dark 段：以 meta.theme 的显式意图为准，
+    // 丢掉残留的 dark 基线。否则用户切到「浅 + 深」时会原样捡回旧暗色，
+    // 而不是按当前浅色重新生成。
+    if (state.themeMode === 'light' && state.remoteColor?.dark) delete state.remoteColor.dark;
+  }
   if (d.style) { state.styleCard = d.style.card || state.styleCard; state.styleVariant = d.style.variant || state.styleVariant; }
   if (d.weights) state.weights = { ...state.weights, ...structuredClone(d.weights) };
   if (d.direction) {
@@ -3091,6 +3276,8 @@ function bindEvents() {
     state.previewUrl = e.target.value.trim();
     if (state.previewTarget === 'project') loadFrame();
   });
+  // 两个主题下拉：mode 决定写什么，theme 决定看什么。
+  on('#theme-mode-select', 'change', (e) => setThemeMode(e.target.value));
   on('#theme-select', 'change', (e) => setTheme(e.target.value));
   on('#content-select', 'change', (e) => setContent(e.target.value));
   on('#btn-commit', 'click', doCommit);

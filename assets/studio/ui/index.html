@@ -31,10 +31,22 @@
         <option value="mobile">手机 390</option>
       </select>
     </label>
+    <!-- 两个下拉是两个概念，不要合并：
+         「主题」= 项目主题意图（哪几套颜色会写进 decisions.json），
+         「配色」= 此刻预览的是哪一套颜色。单主题项目里「深」被禁用。
+         第二项不叫「预览」：画布工具条上已经有一个「预览」下拉（夹具 / 项目页面），
+         同名会让人以为它们是同一件事。 -->
     <label class="ctl"><span>主题</span>
-      <select id="theme-select">
+      <select id="theme-mode-select" aria-label="项目主题：决定写入 decisions 的配色套数">
+        <option value="light">单主题 · 浅</option>
+        <option value="light-dark">浅 + 深</option>
+      </select>
+    </label>
+    <label class="ctl"><span>配色</span>
+      <select id="theme-select" aria-label="预览配色：当前查看哪一套颜色">
         <option value="light">浅</option>
-        <option value="dark">深</option>
+        <!-- 初始禁用：没有 decisions 的新项目默认是单主题浅色，不替用户决定做暗色。 -->
+        <option value="dark" disabled>深（未启用）</option>
       </select>
     </label>
     <label class="ctl"><span>内容</span>
