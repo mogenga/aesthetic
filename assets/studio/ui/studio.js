@@ -228,8 +228,10 @@ const fmtRatio = (v) => `${v.toFixed(2)}:1`;
 // 后半句是必需的 —— 用户看不懂的往往不是维度本身，而是「我该拿哪句话来填依据」。
 const DIM_KEYS = [
   ['neutralTemp', '中性色温度', 'H 250, C 0.002', '像瑞士铁路时刻表',
-    '所有灰阶偏冷还是偏暖。写成「色相 + 彩度」，H 250 偏冷、H 85 偏暖；C 越接近 0 越中性。'
-    + '从什么话推导：说「冷」「像德国铁路」→ H 250；说「暖」「像纸张」→ H 85。'],
+    '所有灰阶偏冷还是偏暖、染得多浓。写成「色相 + 浓度」：H 250 偏冷、H 85 偏暖；'
+    + 'C 0.001 几乎无彩、0.030 明显染色。两半都会改变页面底色，不只是按钮。'
+    + '从什么话推导：说「冷」「像德国铁路」→ H 250；说「暖」「像纸张」→ H 85；'
+    + '说「不要灰」「带一点色」→ C 0.010 以上。'],
   ['chromaCap', '彩度上限', 0.12, '不要糖水感',
     '整套界面允许的最高饱和度（0–0.4）。主色与强调色都不会超过它；越大越鲜艳。'
     + '从什么话推导：说「不要糖水感」「克制」→ 0.12；说「鲜明」「有活力」→ 0.20 以上。'],
@@ -274,7 +276,17 @@ const state = {
   accentLight: null,
   // 画廊里选了风格后，配色基线换成该变体自己的 token（见 colorSet）
   variantPicked: false, variantColor: null, variantColorCache: null, loadedFrameVariant: null,
+  // 变体主题：style-index 里的 theme 字段（缺省 = 双主题，'dark-only' = 仅深色）。
+  // 这是与 themeMode 相互独立的一把锁：themeMode 决定「写几套颜色」，
+  // 这把锁决定「这个风格有没有第二套可看」。见 applyVariantThemeLock()。
+  variantThemes: {},
+  // 选入 dark-only 变体之前的预览主题；切走时还原。锁着期间不覆盖。
+  themeBeforeVariantLock: null,
+  // 中性色相：null = 由温度滑块 250→85 映射；数字 = 钉住方案 / 变体的原色相。
   neutralPinned: null,
+  // 中性色浓度：null = 跟随项目基线每个 token 自己的 C；数字 = 方案覆盖的 C。
+  // 只覆盖 C，不覆盖 L —— 表面阶梯的 ΔL 是 R2 资产，换方案不该破坏它。
+  neutralChroma: null,
   // 配色方案的关系状态：
   //   schemeEdited = 用户动过自由调色控件（色相 / 彩度 / 明度 / 中性温度 / 色值框）。
   //     一旦为真，方案卡全部取消高亮，直到重新点方案或换风格。
@@ -298,13 +310,13 @@ const neutralHue = () => ((250 + (85 - 250) * (state.neutral / 100)) + 360) % 36
  * 回到滑块自己的 0–100 映射，保证「拖了就有反馈」。
  */
 const effectiveNeutralHue = () => (state.neutralPinned ?? neutralHue());
-/** 标签按实际色相判断，而不是滑块位置：钉住变体色相时滑块位置已不代表温度。 */
-const neutralLabel = () => {
-  const h = effectiveNeutralHue();
-  if (Math.abs(h - 250) <= 20) return '冷';
-  if (Math.abs(h - 85) <= 25) return '暖';
-  return '近中性';
-};
+/**
+ * 中性色的统一读数：色相 + 浓度。
+ * 七项参数表、高级微调、缩略条共用同一句，避免三处各写一遍后慢慢分叉。
+ * 浓度是「实际生效值」：选过方案读方案值，否则读项目 bg 的 C。
+ */
+const neutralReadout = () =>
+  `H ${Math.round(effectiveNeutralHue())}, C ${effectiveNeutralChroma().toFixed(3)}`;
 
 /** 表面阶梯只动 L；色相与彩度锁死在基色上（R2）。暗色往更亮的方向走。 */
 const OKLCH_PARTS = /oklch\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)/;
@@ -322,6 +334,91 @@ const NEUTRAL_TOKENS = new Set([
   'bg', 'surface-1', 'surface-2', 'surface-3', 'surface-sunken',
   'fg', 'fg-muted', 'line-1', 'line-2', 'line-inset',
 ]);
+
+/**
+ * 变体在当前预览主题下的 token 集。
+ *
+ * dark-only 变体（dark-tech）只有一套 token，CSS 里不带 [data-theme] 限定，
+ * 解析时归到 light 段；两种预览主题都读同一套 —— 否则深色预览会落到
+ * 兜底公式，画出来的颜色与变体自己的 token 脱节。
+ */
+function variantTokenSet(theme) {
+  if (!state.variantPicked) return null;
+  if (isDarkOnly()) return state.variantColor?.light || null;
+  return state.variantColor?.[theme] || null;
+}
+
+/**
+ * 项目 decisions 里某主题的 token 集。
+ * dark-only 变体 + 单主题项目：项目把唯一一套（深色）token 写进了 color.light
+ * （schema 要求 light 必填），预览深色时读它，而不是跳到兜底公式。
+ */
+function remoteTokenSet(theme) {
+  return state.remoteColor?.[theme]
+    || (isDarkOnly() && theme === 'dark' ? state.remoteColor?.light : null)
+    || null;
+}
+
+/** 当前基线的某主题 token 集（变体优先，其次项目 decisions）。 */
+function baselineSet(theme) {
+  const remote = remoteTokenSet(theme);
+  const variant = variantTokenSet(theme);
+  // 与 colorSet 的合并顺序一致：变体缺项时回落到项目值。
+  return variant ? { ...(remote || {}), ...variant } : remote;
+}
+
+/**
+ * 项目基线里 bg 的中性色浓度。用来判断「方案有没有真的覆盖浓度」：
+ * state.neutralChroma 为 null 时，页面应该回到每个 token 自己的 C。
+ * 浅色优先 —— translation 是项目级参数，不分主题。
+ */
+function baselineNeutralChroma() {
+  const c = parseParts(baselineSet('light')?.bg)?.C;
+  return Number.isFinite(c) ? c : 0.002;
+}
+
+/**
+ * 方案设定浓度时，暗色下的浓度倍数。
+ *
+ * 依据是这张卡自己的「浅色 bg C → 暗色 bg C」关系：
+ *   玻璃 0.014→0.025（1.79×）、极光 0.012→0.030（2.5×）、新拟态 0.004→0.006；
+ *   像素 0.030→0.020（0.67×）、新粗野 0.020→0.015（0.75×）—— 这两张卡
+ *   暗色本来就收浓度，硬放大反而比变体基线更脏。
+ * 所以取同一个比值（夹在 0.5–2×），既保持「暗色需要更多染色才看得见」的
+ * 方向，又不让最浓的方案在暗底上过饱和。比 Math.max(schemeC, baselineC*0.8)
+ * 更保守：那个公式会把「无彩玻璃」抬到与冷紫同档，暗色下换方案又只剩 accent 在变。
+ */
+function baselineTintGain() {
+  const cL = parseParts(baselineSet('light')?.bg)?.C;
+  const cD = parseParts(baselineSet('dark')?.bg)?.C;
+  if (!Number.isFinite(cL) || !Number.isFinite(cD) || cL < 0.001) return 1;
+  const ratio = cD / cL;
+  return Math.min(2, Math.max(0.5, ratio));
+}
+
+/**
+ * 中性 token 实际使用的 C。
+ *
+ * null = 跟随项目基线：每个 token 保留自己的 C（玻璃的 fg 比 bg 更冷一点，
+ * 这是风格的一部分，不该被统一）。
+ * 数字 = 方案 / 滑块设定：全部中性 token 统一到它 —— 换方案改变的是整页基调，
+ * 而不只是按钮和链接。
+ *
+ * 暗色放大沿用这张风格卡自己的浅→暗浓度比，而不是固定倍数或
+ * Math.max(schemeC, baselineC * 0.8)：后者会把「无彩玻璃」(0.001) 抬到
+ * 与冷紫同一档，暗色下换方案又变成只换 accent —— 正是本次要修的问题。
+ * 保留相对次序 + 不超过卡本身的暗色染色强度，是「看得见」与「不发脏」的折中。
+ */
+function neutralCFor(baselineC, theme, schemeC = state.neutralChroma) {
+  if (schemeC === null || schemeC === undefined) return baselineC;
+  // 中性色不是强调色：再浓也不能盖过 accent 的彩度，否则页面会读成「两个主色」。
+  // 0.030 是配色方案的数据上沿，0.040 给滑块留一点余量但不至于失控。
+  const gain = theme === 'dark' ? baselineTintGain() : 1;
+  return Math.max(0, Math.min(0.04, schemeC * gain));
+}
+
+/** 项目级「有效浓度」：方案值优先，否则项目 bg 的 C。读数与序列化都用它。 */
+const effectiveNeutralChroma = () => (state.neutralChroma ?? baselineNeutralChroma());
 
 /**
  * token 列表的语义分组（渲染顺序即此顺序）。
@@ -347,7 +444,7 @@ const TOKEN_GROUPS = [
  */
 function accentLight(theme) {
   if (state.accentLight !== null) return state.accentLight;
-  const base = (state.variantPicked && state.variantColor?.[theme]) || state.remoteColor?.[theme];
+  const base = variantTokenSet(theme) || remoteTokenSet(theme);
   const L = parseParts(base?.accent)?.L;
   if (Number.isFinite(L)) return L;
   return theme === 'dark' ? 0.72 : 0.52;
@@ -368,10 +465,15 @@ function colorSet(theme) {
   //     还没有 dark 段 —— 此时 dark 是「即将写入」的一套，必须能按兜底公式生成。
   //     否则从单主题切到浅+深时 dark 是 {}，写出的 decisions 非法。
   // light 永远可算：schema 要求 color.light 必填，面板的阶梯 / 校验也都以它为主。
-  const intended = theme === 'light' || (theme === 'dark' && state.themeMode === 'light-dark');
-  const variantBase = state.variantPicked ? state.variantColor?.[theme] : null;
-  if (!variantBase && state.remoteColor && !state.remoteColor[theme] && !intended) return {};
-  const remote = state.remoteColor?.[theme];
+  // dark-only 变体（dark-tech）只有一套 token，却必须能按深色预览：
+  // 即使项目的 themeMode 是单主题浅色，dark 也不是「即将写入的第二套」，
+  // 而是这个变体唯一的样子 —— 所以 intended 对它放行。
+  const darkOnly = isDarkOnly();
+  const intended = theme === 'light'
+    || (theme === 'dark' && (state.themeMode === 'light-dark' || darkOnly));
+  const variantBase = variantTokenSet(theme);
+  const remote = remoteTokenSet(theme);
+  if (!variantBase && state.remoteColor && !remote && !intended) return {};
   // 变体里有些 token 是 color-mix（如 line-inset），读不出 oklch 的项保留项目值。
   const base = variantBase ? { ...(remote || {}), ...variantBase } : remote;
   if (base && Object.keys(base).length) {
@@ -386,9 +488,11 @@ function colorSet(theme) {
         // hover 与主色同色相，只压一点明度，保持「同一个色的深浅」关系
         out[name] = toColor(Math.max(0.05, accentLight(theme) - 0.045), effectiveChroma(), state.accentHue);
       } else if (NEUTRAL_TOKENS.has(name)) {
-        // 中性色系保留基线的 L 与 C（表面阶梯不能被滑块破坏），只换色相。
-        // 早先这里原样保留项目色相，导致中性温度滑块只在「没有项目数据」时才有效。
-        out[name] = toColor(p.L, p.C, effectiveNeutralHue());
+        // 中性色系保留基线的 L（表面阶梯不能被滑块破坏），换色相与浓度。
+        // 浓度：state.neutralChroma 为 null 时用基线自己的 C（项目没选方案时的
+        // 每个 token 的天然差异）；选过方案后整组统一到方案 C —— 否则换方案
+        // 只有色相微微一动，页面底色看起来没变。
+        out[name] = toColor(p.L, neutralCFor(p.C, theme), effectiveNeutralHue());
       } else {
         // 状态色与其余 token：基线原值。danger/success/warning 不该被中性温度影响。
         out[name] = toColor(p.L, p.C, p.H);
@@ -401,23 +505,26 @@ function colorSet(theme) {
     return out;
   }
 
-  // 没有项目数据时的兜底（首次使用、或 decisions.json 还没有 color 段）
+  // 没有项目数据时的兜底（首次使用、或 decisions.json 还没有 color 段）。
+  // 浓度同样走 neutralCFor：新项目首屏就会套 canonical 方案，
+  // 兜底公式若写死 0.002，「换方案 = 只换强调色」会在这里原样复现。
   const H = effectiveNeutralHue();
   const dark = theme === 'dark';
   const bgL = dark ? 0.180 : 0.985;
   const steps = dark ? [0.022, 0.046, 0.072] : [0.010, 0.025, 0.042];
-  const surf = (i) => toColor(bgL - steps[i], 0.002, H);
+  const C0 = 0.002;
+  const surf = (i) => toColor(bgL - steps[i], neutralCFor(C0, theme), H);
   return {
-    bg: toColor(bgL, 0.002, H),
+    bg: toColor(bgL, neutralCFor(C0, theme), H),
     'surface-1': surf(0), 'surface-2': surf(1), 'surface-3': surf(2),
-    'surface-sunken': toColor(bgL - steps[1], 0.003, H),
-    fg: toColor(dark ? 0.940 : 0.2174, dark ? 0.002 : 0.0019, dark ? H : 106.6),
-    'fg-muted': toColor(dark ? 0.720 : 0.520, 0.004, H),
+    'surface-sunken': toColor(bgL - steps[1], neutralCFor(0.003, theme), H),
+    fg: toColor(dark ? 0.940 : 0.2174, neutralCFor(dark ? 0.002 : 0.0019, theme), dark ? H : 106.6),
+    'fg-muted': toColor(dark ? 0.720 : 0.520, neutralCFor(0.004, theme), H),
     accent: toColor(accentLight(theme), effectiveChroma(), state.accentHue),
     'accent-hover': toColor(Math.max(0.05, accentLight(theme) - 0.045), effectiveChroma(), state.accentHue),
-    'line-1': toColor(dark ? 0.300 : 0.900, 0.002, H),
-    'line-2': toColor(dark ? 0.380 : 0.860, 0.002, H),
-    'line-inset': toColor(dark ? 0.268 : 0.918, 0.002, H),
+    'line-1': toColor(dark ? 0.300 : 0.900, neutralCFor(C0, theme), H),
+    'line-2': toColor(dark ? 0.380 : 0.860, neutralCFor(C0, theme), H),
+    'line-inset': toColor(dark ? 0.268 : 0.918, neutralCFor(C0, theme), H),
   };
 }
 
@@ -627,7 +734,7 @@ function renderDirection() {
  */
 const PARAM_META = {
   neutralTemp: {
-    influence: '影响 bg / surface-1..3 / fg / line-1..2 的色相',
+    influence: '影响 bg / surface-1..3 / fg / line-1..2 的色相与浓度（整页底色）',
     specimen: 'heat',
   },
   chromaCap: {
@@ -665,16 +772,18 @@ function specimenFor(key) {
   const kind = PARAM_META[key]?.specimen;
   switch (kind) {
     case 'heat': {
-      // 5 格灰阶：从页面底到正文色，套用当前中性色相
+      // 5 格灰阶：从页面底到正文色，套用当前中性色相与浓度。
+      // 早先 C 写死 0.02 只为了让色相方向可辨，代价是样本永远比页面更「有色」，
+      // 用户看不出方案之间浓度的差别。现在用实际生效的浓度，只在它极低时
+      // 抬到 0.006 保底（0.001 的灰阶在色相方向上也几乎不可读）。
       const set = colorSet(state.theme);
       const lo = set?.bg || toColor(0.97, 0.002, effectiveNeutralHue());
       const hi = set?.fg || toColor(0.22, 0.002, effectiveNeutralHue());
-      // 用真实的中性色 C，而不是写死 0.004：色相从 250 拖到 85 时，
-      // 低彩度灰阶在 5 个色块里几乎看不出差别，样本也就无法回答
-      // 「我现在选的是冷还是暖」。C 抬到 0.02 仍属灰，但方向一眼可辨。
+      // 浓度取「当前主题下实际渲染」的值（暗色会按卡的浅→暗比放大）。
+      const C = Math.max(0.006, neutralCFor(effectiveNeutralChroma(), state.theme));
       const stops = [0, 0.25, 0.5, 0.75, 1].map((t) => {
         const L = lo.l + (hi.l - lo.l) * t;
-        return toHex(fmtOklch({ L, C: 0.02, H: effectiveNeutralHue() }));
+        return toHex(fmtOklch({ L, C, H: effectiveNeutralHue() }));
       });
       return el('div', { class: 'spec-heat' }, ...stops.map((hex) => el('i', { style: { background: hex } })));
     }
@@ -782,7 +891,7 @@ function renderParamsSpecimens() {
 function paramShortValue(key) {
   const p = designParams();
   switch (key) {
-    case 'neutralTemp': return `H ${Math.round(effectiveNeutralHue())} · ${neutralLabel()}`;
+    case 'neutralTemp': return neutralReadout();
     case 'chromaCap': return `C ≤ ${Number(p.chromaCap).toFixed(2)}`;
     case 'radius': return `${p.r[0]} / ${p.r[1]} / ${p.r[2]}px`;
     case 'border': return `${p.borderW}px / ${p.borderAlpha}%`;
@@ -804,7 +913,7 @@ function paramShortValue(key) {
  * 中性温度与彩度上限本来就走 state.neutral / state.accentChroma，这里负责
  * 从文本值反推。
  */
-function setTranslationValue(key, value) {
+function setTranslationValue(key, value, opts = {}) {
   state.translation[key].value = value;
   const p = designParams();
   if (key === 'weight' && Array.isArray(value)) {
@@ -821,13 +930,20 @@ function setTranslationValue(key, value) {
     }
   }
   if (key === 'neutralTemp') {
-    // "H 250, C 0.002" → 钉住色相；用户显式写在参数表里，视为手动指定
-    const h = numbersOf(value)[0];
+    // "H 250, C 0.002" → 色相 + 浓度两半。用户显式写在参数表里，视为手动指定。
+    const nums = numbersOf(value);
+    const h = nums[0];
     if (Number.isFinite(h)) {
       state.neutralPinned = ((h % 360) + 360) % 360;
       state.neutral = Math.round(Math.min(100, Math.max(0, (250 - state.neutralPinned) / 165 * 100)));
       $('#neutral-temp').value = String(state.neutral);
     }
+    // 第二段是浓度。旧 decisions 里可能只有 "H 250"（没有 C）—— 那时保持
+    // neutralChroma = null，继续跟随项目基线，不把缺失当 0。
+    // 复位那条路径只清了 state，读数是算出来的（此时等于项目值），
+    // 不能把这个派生值再写回 state.neutralChroma，否则「跟随项目」立刻失效。
+    const c = nums[1];
+    if (Number.isFinite(c) && !opts.keepChroma) state.neutralChroma = Math.max(0, Math.min(0.04, c));
   }
   if (key === 'chromaCap') {
     // 上限压住当前主色：控件边界与主色都立刻收进来，避免「读数说 0.1、颜色还是 0.2」。
@@ -835,7 +951,9 @@ function setTranslationValue(key, value) {
     if (Number.isFinite(cap)) state.accentChroma = Math.min(state.accentChroma, Math.max(0, cap));
   }
   // 中性温度 / 彩度上限也是配色方案之外的「手动设定」：改完就不再是预设方案了。
-  if (key === 'neutralTemp' || key === 'chromaCap') markSchemeTuned();
+  // keepScheme：复位路径用 —— 它把值送回已知状态，该由 matchedScheme() 重新判断，
+  // 而不是无条件标成「已微调」让用户以为还偏离着。
+  if ((key === 'neutralTemp' || key === 'chromaCap') && !opts.keepScheme) markSchemeTuned();
   void p;
 }
 
@@ -869,12 +987,6 @@ const MOTION_PRESETS = [
 const MOTION_EASES = ['ease-out', 'ease-in-out', 'linear'];
 
 const sameNums = (a, b) => a.length === b.length && a.every((v, i) => Number(v) === Number(b[i]));
-
-/** 中性色温度序列化时保留原有的 C（用户看不到也不该改它）。 */
-function neutralC() {
-  const nums = numbersOf(state.translation.neutralTemp?.value);
-  return nums.length > 1 ? nums[1] : 0.002;
-}
 
 /** 可用字重（升序整数）。weightLadder 可能来自项目，缺省回落到默认阶梯。 */
 function availableWeights() {
@@ -1011,8 +1123,8 @@ function stepper({ label, value, min, max, onChange }) {
 }
 
 /** 每项改动后的统一链路：写 state → 失效确认 → 标脏 → 刷新预览与样本。 */
-function commitParam(key, value) {
-  setTranslationValue(key, value);
+function commitParam(key, value, opts) {
+  setTranslationValue(key, value, opts);
   // 任一项改动都让「确认」失效：确认的语义是「我逐项看过现在这组值」
   setParamsConfirmed(false);
   markDirty();
@@ -1024,7 +1136,14 @@ function commitParam(key, value) {
   syncParamControls();
 }
 
-/** 中性色温度：冷 ←→ 暖 双极滑块。 */
+/**
+ * 中性色温度：冷 ←→ 暖 双极滑块 + 一条浓度滑块。
+ *
+ * 两条滑块是同一个维度的两半：色相决定「偏冷还是偏暖」，浓度决定
+ * 「几乎是灰还是明显染色」。只给色相时，两个方案可以色相差 15°、
+ * 浓度却都锁在项目基线 —— 整页看起来就是没变。浓度这一半必须一起暴露，
+ * 否则用户在参数表里永远调不出配色方案之间的那种基调差异。
+ */
 function neutralControl() {
   const range = el('input', {
     type: 'range', class: 'param-range', min: '0', max: '100', step: '1',
@@ -1035,12 +1154,27 @@ function neutralControl() {
     const v = Number(range.value);
     state.neutral = v;
     state.neutralPinned = null;   // 拖了就有反馈：解除变体色相的钉住
-    commitParam('neutralTemp', `H ${Math.round(neutralHue())}, C ${neutralC()}`);
+    // keepChroma：读数 H 由滑块算出，C 只是「当前生效值」的展示，
+    // 不能让 setTranslationValue 把派生 C 写回 state.neutralChroma。
+    commitParam('neutralTemp', neutralReadout(), { keepChroma: true });
+  });
+  const cRange = el('input', {
+    type: 'range', class: 'param-range', min: '0.001', max: '0.030', step: '0.001',
+    value: String(Math.min(0.030, Math.max(0.001, effectiveNeutralChroma()))),
+    'aria-label': '中性色浓度：C 0.001–0.030',
+  });
+  const cOut = readout('', 'param-neutral-c-out');
+  cRange.addEventListener('input', () => {
+    state.neutralChroma = Math.round(Number(cRange.value) * 1000) / 1000;
+    commitParam('neutralTemp', neutralReadout());
   });
   return el('div', { class: 'param-control' },
     paramLine(range, out),
     el('div', { class: 'param-scale', 'aria-hidden': 'true' },
-      el('span', { text: '冷' }), el('span', { text: '中性' }), el('span', { text: '暖' })));
+      el('span', { text: '冷' }), el('span', { text: '中性' }), el('span', { text: '暖' })),
+    paramLine(cRange, cOut),
+    el('div', { class: 'param-scale', 'aria-hidden': 'true' },
+      el('span', { text: '近灰' }), el('span', { text: '有色' }), el('span', { text: '浓' })));
 }
 
 /** 彩度上限：0.04–0.40。 */
@@ -1263,10 +1397,18 @@ function syncParamControls() {
   };
 
   if (row('neutralTemp')) {
+    // 这一行有两条滑块（温度 / 浓度）。setRange 只认第一条，所以浓度要单独写。
     // 滑块位置来自 state.neutral，不读回序列化值：钉住变体色相时
     // 量程外的 H 没有对应的滑块位置，硬写回去会让滑块与读数打架。
-    setRange(row('neutralTemp'), state.neutral);
-    setText('#param-neutral-out', `H ${Math.round(effectiveNeutralHue())} · ${neutralLabel()}`);
+    const ranges = $$('.param-range', row('neutralTemp'));
+    if (ranges[0] && ranges[0].value !== String(state.neutral)) ranges[0].value = String(state.neutral);
+    const c = Number(effectiveNeutralChroma().toFixed(3));
+    // 滑块量程是 0.001–0.030，项目基线可能落在量程外（纯灰 0 / 0.0005）。
+    // 夹进量程再写，避免浏览器自己夹出一个和读数不一致的位置。
+    const sliderC = Math.min(0.030, Math.max(0.001, c));
+    if (ranges[1] && ranges[1].value !== String(sliderC)) ranges[1].value = String(sliderC);
+    setText('#param-neutral-out', neutralReadout());
+    setText('#param-neutral-c-out', `C ${c.toFixed(3)}`);
   }
   if (row('chromaCap')) {
     setRange(row('chromaCap'), p.chromaCap);
@@ -1335,6 +1477,31 @@ function syncParamControls() {
 const activeVariant = () => state.styleVariant || 'minimalism';
 const fixtureSrc = () => `/studio/proxy/${activeVariant()}/index.html#/${FIXTURE_ROUTE[state.content] || 'dashboard'}`;
 
+// === 变体主题锁 ===
+//
+// style-index.json 的 theme 字段声明「这个变体有没有第二套颜色」：
+//   省略          = 双主题（绝大多数变体）
+//   'dark-only'   = 只有深色（dark-tech：黑色科技极简没有浅色版本）
+//   'light-only'  = 只有浅色（保留，暂无变体使用）
+//
+// 它与 state.themeMode 是**两把独立的锁**，叠加规则见 setTheme()：
+//   · themeMode 管「项目要写几套颜色」（light / light-dark）；
+//   · 变体锁管「这个风格此刻有几种形态可看」。
+// 一个 light-dark 项目选了 dark-tech，仍然只能看深色；一个单主题项目选了
+// 普通变体，仍然只能看浅色。两把锁互不替代。
+
+/** 变体声明的主题（null = 双主题）。缺省看当前选中的变体。 */
+const variantThemeOf = (id = state.styleVariant || 'minimalism') => state.variantThemes?.[id] || null;
+const isDarkOnly = (id) => variantThemeOf(id) === 'dark-only';
+
+/** 某变体在给定预览主题下实际应渲染的主题（画廊缩略图、实验室、放大层共用）。 */
+function effectiveThemeFor(id, theme = state.theme) {
+  const declared = variantThemeOf(id);
+  if (declared === 'dark-only') return 'dark';
+  if (declared === 'light-only') return 'light';
+  return theme;
+}
+
 /**
  * 预览源。两种：
  *   fixture —— 技能自带的夹具，覆盖全部组件与规则，用于调 token
@@ -1345,6 +1512,9 @@ function previewSrc() {
   if (state.previewTarget === 'project' && state.previewUrl) return state.previewUrl;
   return fixtureSrc();
 }
+
+/** 每个 root 上一次内联过的变量名：换主题 / 换方案时要把消失的那些一并删掉。 */
+const inlinedVars = new WeakMap();
 
 /**
  * 写入 CSS 变量。
@@ -1362,7 +1532,15 @@ function applyVars(root, { structural = true } = {}) {
   const vars = structural
     ? cssVars(state.theme)
     : colorCssVars(state.theme);
+  // 增量写不够：暗色基线往往只给一部分 token（玻璃的 line-2 / line-inset 是
+  // color-mix，读不成 oklch；示例项目的 dark 段只有 4 项）。只写不删的话，
+  // 浅色那一次的内联值会一直压着暗色 CSS —— 切到深色后 line-2 还是浅色方案的值，
+  // 换方案时它就成了唯一不动的描边。这里把上次写过、这次没有的删掉，回落到
+  // 变体 / 夹具自己的定义。
+  const prev = inlinedVars.get(root) || new Set();
+  for (const k of prev) if (!(k in vars)) root.style.removeProperty(k);
   for (const [k, v] of Object.entries(vars)) root.style.setProperty(k, v);
+  inlinedVars.set(root, new Set(Object.keys(vars)));
   if (root.dataset) root.dataset.theme = state.theme;
   return vars;
 }
@@ -1408,8 +1586,9 @@ function loadFrame() {
   state.loadedFrameVariant = src.startsWith('/studio/proxy/') ? activeVariant() : null;
   frame.addEventListener('load', () => {
     // 夹具 app.js 的 boot() 会按 prefers-color-scheme 重写 data-theme，所以 load 后再推一次。
+    // 调色页预览总是载着当前变体 —— dark-only 变体在这里也必须渲染深色。
     applyPreview();
-    try { frame.contentDocument.documentElement.dataset.theme = state.theme; } catch { /* ignore */ }
+    pushThemeToFrame(frame, state.theme, state.styleVariant);
   }, { once: true });
   // 地址只显示路径，变体名已经在顶栏「风格」和画廊里表达过
   $('#frame-url').textContent = src.replace('/studio/fixture ', '');
@@ -1559,7 +1738,32 @@ function syncPaletteInputs() {
   $('#accent-hue-out').textContent = `${Math.round(state.accentHue)}°`;
   $('#accent-chroma-out').textContent = `C ${effectiveChroma().toFixed(3)}`;
   $('#accent-light-out').textContent = `L ${L.toFixed(3)}`;
-  $('#neutral-temp-out').textContent = `H ${Math.round(effectiveNeutralHue())} · ${neutralLabel()}`;
+  $('#neutral-temp-out').textContent = neutralReadout();
+  const neutralSlider = $('#neutral-temp');
+  if (neutralSlider && neutralSlider.value !== String(state.neutral)) {
+    neutralSlider.value = String(state.neutral);
+  }
+  const neutralCSlider = $('#neutral-chroma');
+  if (neutralCSlider) {
+    const c = Number(effectiveNeutralChroma().toFixed(3));
+    const sliderC = Math.min(0.030, Math.max(0.001, c));
+    if (neutralCSlider.value !== String(sliderC)) neutralCSlider.value = String(sliderC);
+    $('#neutral-chroma-out').textContent = `C ${c.toFixed(3)}`;
+    // 色块显示 bg 的实际颜色 —— 浓度读数只有和底色并排看才有意义。
+    $('#neutral-chroma-chip').style.background = colorSet(state.theme)?.bg?.hex || 'transparent';
+    // 「是否跟随项目」按值判断，而不是按 state 字段是否为 null：
+    // 复位后色相被钉在项目原值（可能超出滑块量程），那仍然是跟随项目。
+    const baseH = parseParts(baselineSet('light')?.bg)?.H;
+    const following = state.neutralChroma === null
+      && (!Number.isFinite(baseH) || hueDistance(baseH, effectiveNeutralHue()) <= 2);
+    const note = $('#neutral-chroma-note');
+    if (note) {
+      note.textContent = following
+        ? '跟随项目 baseline 的色相与浓度'
+        : '已由方案 / 滑块指定（点「重置为项目值」复位）';
+    }
+    $('#neutral-reset')?.toggleAttribute('data-active', !following);
+  }
   $('#accent-hue-chip').style.background = a.hex;
   $('#accent-chroma-chip').style.background = a.hex;
   $('#accent-light-chip').style.background = a.hex;
@@ -1611,6 +1815,11 @@ function syncPaletteInputs() {
 // 容差：比肉眼可分辨的差异略宽。用户把项目色微调过一点点仍算「还是这个方案」，
 // 改得多才落到「已微调」。
 const SCHEME_TOL = { H: 2, C: 0.005, L: 0.01 };
+// 中性浓度的容差单独一档：玻璃卡四个方案的中性 C 是 0.014 / 0.010 / 0.008 / 0.001，
+// 用 accent 的 0.005 会让相邻两档同时算「命中」，方案卡高亮就失去意义。
+// 取 0.0005：浓度滑块步进是 0.001，任何一次真实拖动都该算「已微调」；
+// 容差只吸收 3 位小数序列化的浮点噪声。
+const NEUTRAL_C_TOL = 0.0005;
 
 let palettes = null;
 let palettesPromise = null;
@@ -1658,7 +1867,11 @@ function schemeMatches(scheme) {
     && Math.abs(scheme.accent.C - state.accentChroma) <= SCHEME_TOL.C
     && (state.accentLight === null
       || Math.abs(scheme.accent.L - state.accentLight) <= SCHEME_TOL.L)
-    && hueDistance(scheme.neutral.H, effectiveNeutralHue()) <= SCHEME_TOL.H;
+    && hueDistance(scheme.neutral.H, effectiveNeutralHue()) <= SCHEME_TOL.H
+    // 浓度没设（null = 跟随项目基线）时不比较：项目自己的 C 本来就不是方案值，
+    // 那不该被读成「已微调」。
+    && (state.neutralChroma === null
+      || Math.abs(scheme.neutral.C - state.neutralChroma) <= NEUTRAL_C_TOL);
 }
 
 /** 命中的方案；用户刚动过自由调色控件时一律不命中（见 state.schemeEdited）。 */
@@ -1674,20 +1887,37 @@ function schemesTuned() {
 }
 
 /**
- * 方案卡的颜色点用「当前主题下实际生效的 bg / fg」，
- * 而不是方案里再存一份：用户看到的是这一整套搭配，不只是强调色。
- * bg / fg 随中性温度与主题变，所以方案区的渲染 key 里带上 theme。
+ * 方案卡上三颗色点：这一方案自己的页面底 / 强调 / 正文。
+ *
+ * 早先三张卡共用「当前生效的 bg / fg」，于是四个玻璃方案在卡片上看起来
+ * 只有强调色不同 —— 用户以为区别只在按钮，点进去也确实只换了按钮。
+ * 现在按该方案的 neutral H/C 用项目基线 bg 的 L 现算，卡片本身就是
+ * 「整页底色会变成什么样」的预览。
  */
-function schemeDotColors() {
-  const set = colorSet(state.theme) || {};
-  return { bg: set.bg?.oklch || 'transparent', fg: set.fg?.oklch || 'transparent' };
+function schemeDotColors(scheme) {
+  const baseBg = parseParts(baselineSet(state.theme)?.bg);
+  const baseFg = parseParts(baselineSet(state.theme)?.fg);
+  const dark = state.theme === 'dark';
+  const bgL = baseBg?.L ?? (dark ? 0.180 : 0.985);
+  const fgL = baseFg?.L ?? (dark ? 0.940 : 0.2174);
+  const n = scheme.neutral;
+  const c = neutralCFor(n.C, state.theme, n.C);
+  return {
+    bg: toColor(bgL, c, n.H).oklch,
+    fg: toColor(fgL, c, n.H).oklch,
+    // 中间那颗是方案 accent：暗色下沿用方案里的浅色 L 会偏暗，
+    // 但色点只是提示色相，不承担可读性，保持简单。
+    accent: toColor(scheme.accent.L, scheme.accent.C, scheme.accent.H).oklch,
+  };
 }
 
 function renderSchemes({ force = false } = {}) {
   const host = $('#scheme-list');
   if (!host) return;
   const list = schemesForCurrentCard();
-  const key = `${paletteCardId()}|${list.map((s) => s.id).join(',')}|${state.theme}`;
+  // 基线 L 也要进 key：玻璃三支同卡同方案，换变体时方案 id 不变但底色变了。
+  const baseL = parseParts(baselineSet(state.theme)?.bg)?.L ?? '';
+  const key = `${paletteCardId()}|${list.map((s) => s.id).join(',')}|${state.theme}|${baseL}`;
   if (!force && key === schemesKey) { syncSchemeSelection(); return; }
   schemesKey = key;
   host.textContent = '';
@@ -1702,8 +1932,8 @@ function renderSchemes({ force = false } = {}) {
     return;
   }
 
-  const dots = schemeDotColors();
   list.forEach((scheme) => {
+    const dots = schemeDotColors(scheme);
     const accent = toColor(scheme.accent.L, scheme.accent.C, scheme.accent.H);
     // 整卡是一个 button：点击区域覆盖色块 / 名字 / 说明 / 色点，
     // 不用逐块挂事件，键盘也能一步聚焦。
@@ -1718,7 +1948,8 @@ function renderSchemes({ force = false } = {}) {
       el('span', { class: 'scheme-check', 'aria-hidden': 'true', text: '✓' })),
       el('span', { class: 'scheme-name', text: scheme.name })),
     el('span', { class: 'scheme-note', text: scheme.note }),
-    el('span', { class: 'scheme-dots', 'aria-hidden': 'true', title: '页面底 / 强调 / 正文' },
+    el('span', { class: 'scheme-dots', 'aria-hidden': 'true',
+      title: `页面底 ${dots.bg} / 强调 ${accent.oklch} / 正文 ${dots.fg}` },
       el('i', { style: { background: dots.bg } }),
       el('i', { style: { background: accent.oklch } }),
       el('i', { style: { background: dots.fg } })));
@@ -1805,11 +2036,20 @@ function applyScheme(scheme, { followLight = false, silent = false } = {}) {
     state.translation.chromaCap.value = scheme.accent.C;
   }
   state.neutralPinned = ((scheme.neutral.H % 360) + 360) % 360;
+  // 中性浓度也必须换：只钉色相的话，同一张卡里两个方案的中性色几乎同色，
+  // 换方案看起来只换了按钮和链接（用户反馈的那条）。
+  state.neutralChroma = scheme.neutral.C;
   // 中性温度滑块只是「量程内最近点」；真实色相由 neutralPinned 决定，
   // 滑块位置与读数的关系见 effectiveNeutralHue()。
   state.neutral = Math.round(Math.min(100, Math.max(0, (250 - state.neutralPinned) / 165 * 100)));
   const neutralSlider = $('#neutral-temp');
   if (neutralSlider) neutralSlider.value = String(state.neutral);
+  // decisions 里的中性温度是「色相 + 浓度」，两半都要跟着方案走。
+  state.translation.neutralTemp.value =
+    `H ${Math.round(state.neutralPinned)}, C ${Number(scheme.neutral.C.toFixed(3))}`;
+  // 换方案会改七项里的中性温度（有时还有彩度上限），「已确认」随之失效 ——
+  // 确认的语义是「我逐项看过现在这组值」，值变了就不该还挂着。
+  setParamsConfirmed(false);
 
   state.schemeEdited = false;
   state.schemePick = scheme.id;
@@ -2662,21 +2902,41 @@ function setView(view) {
   requestAnimationFrame(() => { layoutGalleryShots(); layoutZoom(); });
 }
 
-/** 把 Studio 主题推给同源 iframe 的 <html>；跨源时静默跳过。 */
-function pushThemeToFrame(frame, theme) {
-  try { frame.contentDocument.documentElement.dataset.theme = theme; } catch { /* 跨源 / 未就绪 */ }
+/**
+ * 某个 iframe 当前承载的变体。画廊卡片在 dataset 上记着自己的变体；
+ * 放大层只知道 zoomVariant；实验室与调色页预览跟随 state.styleVariant
+ * （它们总是载着当前选中的变体）。取不到时返回 null（按 Studio 主题走）。
+ */
+function frameVariantOf(frame) {
+  if (frame?.id === 'zoom-frame') return zoomVariant?.id || null;
+  const card = frame?.closest?.('.gallery-card');
+  if (card) return card.dataset.variant || null;
+  return state.styleVariant || null;
 }
 
-/** 载入完成后补推当前主题。只挂一次：放大层会复用同一个 iframe 多次打开。 */
-function hookFrameTheme(frame) {
+/** 把 Studio 主题推给同源 iframe 的 <html>；跨源时静默跳过。 */
+function pushThemeToFrame(frame, theme, variant = null) {
+  const actual = variant ? effectiveThemeFor(variant, theme) : theme;
+  try { frame.contentDocument.documentElement.dataset.theme = actual; } catch { /* 跨源 / 未就绪 */ }
+}
+
+/**
+ * 载入完成后补推当前主题。只挂一次：放大层会复用同一个 iframe 多次打开。
+ * 画廊缩略图在创建时就知道自己的变体（卡片还没挂进 DOM，closest 解析不到），
+ * 所以显式传入；放大层不传，load 时按 zoomVariant 解析 —— 那个 iframe
+ * 跨多次打开复用，捕获第一次的变体会让之后打开的变体拿到旧值。
+ */
+function hookFrameTheme(frame, variant = null) {
   if (frame.dataset.themeHook) return;
   frame.dataset.themeHook = '1';
-  frame.addEventListener('load', () => pushThemeToFrame(frame, state.theme));
+  frame.addEventListener('load', () => pushThemeToFrame(frame, state.theme, variant || frameVariantOf(frame)));
 }
 
 /** 画廊缩略图与放大层：切主题时它们不会重新 load，必须主动推。 */
 function syncGalleryTheme() {
-  for (const frame of $$('#gallery-grid iframe, #zoom-frame')) pushThemeToFrame(frame, state.theme);
+  for (const frame of $$('#gallery-grid iframe, #zoom-frame')) {
+    pushThemeToFrame(frame, state.theme, frameVariantOf(frame));
+  }
 }
 
 /**
@@ -2730,31 +2990,113 @@ function setThemeMode(mode) {
   renderTranslation();
   if (prev !== next) markDirty();
   if (prev !== next) {
-    setStatus('ok', next === 'light-dark'
+    // dark-only 变体下「单主题 · 浅」不改变画面（变体锁仍钉着深色）：
+    // 写入的那一套「浅色」就是该变体的深色 token，schema 要求 color.light 必填。
+    // 不解释这一点，用户会以为切换没生效。
+    const darkOnlyNote = isDarkOnly()
+      ? ' 当前变体仅深色，预览保持深色；写入的 light 一套即该变体的深色 token。'
+      : '';
+    setStatus('ok', (next === 'light-dark'
       ? '项目主题已设为「浅 + 深」：写入 decisions 时会同时产出两套颜色。'
-      : '项目主题已设为「单主题 · 浅」：写入 decisions 时只产出浅色，不再写暗色数据。');
+      : '项目主题已设为「单主题 · 浅」：写入 decisions 时只产出浅色，不再写暗色数据。') + darkOnlyNote);
   }
 }
 
-/** 把 themeMode / theme 同步到顶栏两个下拉，并锁住单主题下不可用的选项。 */
+/**
+ * 把 themeMode / theme 同步到顶栏两个下拉，并锁住不可用的选项。
+ *
+ * 「配色」下拉有两层锁，叠加生效：
+ *   · 项目主题意图：单主题项目没有 dark 可预览 → 「深（未启用）」；
+ *   · 变体主题：dark-only 变体没有 light → 「浅（此风格仅深色）」，
+ *     且此刻预览恒为 dark（下拉显示深）。
+ * 若变体是 dark-only，即便项目是 light-dark，浅选项也必须禁用 —— 这就是
+ * 两把锁的叠加：任一层不允许，该选项就不可选。
+ */
 function syncThemeModeControls() {
   const modeSel = $('#theme-mode-select');
   if (modeSel && modeSel.value !== state.themeMode) modeSel.value = state.themeMode;
   const themeSel = $('#theme-select');
   if (!themeSel) return;
+
+  const darkOnly = isDarkOnly();
+  const lightOnly = variantThemeOf() === 'light-only';
+
+  const lightOpt = Array.from(themeSel.options).find((o) => o.value === 'light');
+  if (lightOpt) {
+    // 项目单主题深色（schema 目前不允许保存）不在可选范围内，只处理变体锁：
+    // 浅色不可用仅由 dark-only 触发。
+    lightOpt.disabled = darkOnly;
+    lightOpt.textContent = darkOnly ? '浅（此风格仅深色）' : '浅';
+  }
   const darkOpt = Array.from(themeSel.options).find((o) => o.value === 'dark');
   if (darkOpt) {
     // 不用隐藏：选项消失会让下拉宽度跳变，也让人不知道「还有暗色这回事」。
     // 文案点明原因，比一个禁用的「深」字更省一次猜测。
-    darkOpt.disabled = state.themeMode !== 'light-dark';
-    darkOpt.textContent = state.themeMode === 'light-dark' ? '深' : '深（未启用）';
+    //
+    // dark-only 变体下「深」必须可选：预览被变体锁钉在深色，若此时又按
+    // 单主题项目禁用「深」，下拉会显示一个禁用中的选中项，自相矛盾。
+    // 项目主题意图只决定「写不写 dark」，不决定这个变体看不看得到深色。
+    const lockedByMode = state.themeMode !== 'light-dark' && !darkOnly;
+    darkOpt.disabled = lockedByMode || lightOnly;
+    darkOpt.textContent = lockedByMode ? '深（未启用）' : (lightOnly ? '深（此风格仅浅色）' : '深');
   }
   if (themeSel.value !== state.theme) themeSel.value = state.theme;
 }
 
-function setTheme(theme) {
+/** 变体锁强制的那一个主题；null = 双主题变体，不锁。 */
+const lockedThemeOf = (id) => {
+  const declared = variantThemeOf(id);
+  return declared === 'dark-only' ? 'dark' : declared === 'light-only' ? 'light' : null;
+};
+
+/**
+ * 把变体主题锁应用到预览状态。
+ *
+ * 进入单主题变体：记住切换前的主题，强制到该变体的唯一形态。
+ * 离开单主题变体：把记住的主题还回去（仍受项目主题意图约束 ——
+ * 若期间项目被改成单主题，setTheme 会把它拉回浅色）。
+ * 全程可重入：重复调用同一变体不会覆盖 themeBeforeVariantLock。
+ *
+ * 与 setThemeMode 的关系：两把锁独立。themeMode 切「浅」时，若变体是
+ * dark-only，setTheme('light') 会被 setTheme 的变体锁拒掉 —— 项目主题
+ * 可以变成单主题浅色，但画面仍是深色（因为这套风格只有深色）。
+ */
+function applyVariantThemeLock() {
+  const forced = lockedThemeOf();
+  if (forced) {
+    if (state.themeBeforeVariantLock === null) state.themeBeforeVariantLock = state.theme;
+    if (state.theme !== forced) setTheme(forced);
+    else syncThemeModeControls();
+    return;
+  }
+  // 不再锁着：还原进入单主题变体前的主题。没有记忆时什么都不做。
+  if (state.themeBeforeVariantLock !== null) {
+    const prev = state.themeBeforeVariantLock;
+    state.themeBeforeVariantLock = null;
+    // 总是走一遍 setTheme，而不是「值没变就跳过」：锁着期间项目主题可能被
+    // 改成了单主题（setThemeMode 里的 setTheme('light') 被变体锁拒掉）。
+    // 解锁后必须让项目主题锁重新裁决，否则会留在项目已不允许的深色上。
+    setTheme(prev);
+  }
+  syncThemeModeControls();
+}
+
+function setTheme(theme, opts = {}) {
+  // 变体锁：单主题变体只有一种形态，无论从下拉、脚本还是还原路径进来，
+  // 都只能停在那一个主题上。它先于项目主题锁判断 —— 后者只决定
+  // 「能不能看深色/浅色」。
+  const forced = lockedThemeOf();
+  if (forced) {
+    // 锁着期间用户仍可能在下拉里主动选中该变体的唯一选项（另一个已禁用）。
+    // 那是一次显式意图：记下来，切到别的变体解锁后仍然停在那里，
+    // 而不是被还原成进入单主题变体之前的那一个主题。
+    // 只有用户操作会写这份记忆（opts.user）；锁内部与还原路径不写。
+    if (opts.user && theme === forced) state.themeBeforeVariantLock = forced;
+    theme = forced;
+  }
   // 单主题项目没有暗色可预览：即便有人从 URL / 脚本里把值塞进来也拉回浅色。
-  if (theme === 'dark' && state.themeMode !== 'light-dark') theme = 'light';
+  // dark-only 变体例外：它的唯一形态就是深色，不依赖项目写不写 dark。
+  if (theme === 'dark' && state.themeMode !== 'light-dark' && !isDarkOnly()) theme = 'light';
   // 方案钉住的 accent L 是浅色档的值（见 applyScheme）；切到深色还沿用，
   // 深灰在近黑底上只剩 3:1 左右。切主题时放回「跟随变体」，
   // 让变体 CSS 的暗色 accent L 生效。用户手动调过的明度不在此列。
@@ -2771,8 +3113,12 @@ function setTheme(theme) {
   wheelDrawnFor = null;
   updatePaletteOutputs();
   applyPreview();
-  try { $('#lab-frame').contentDocument.documentElement.dataset.theme = theme; } catch { /* ignore */ }
+  // 实验室 iframe 载着当前变体：dark-only 变体即便 Studio 是浅色也要推深色。
+  pushThemeToFrame($('#lab-frame'), theme, state.styleVariant);
   syncGalleryTheme();
+  // 变体锁会把主题改成 dark（或还原成 light），「配色」下拉的禁用状态
+  // 与文案必须同步 —— 否则下拉仍显示「浅」可选，画面却是黑的。
+  syncThemeModeControls();
 }
 
 function setContent(content) {
@@ -2890,6 +3236,11 @@ async function loadStyleIndex() {
     const res = await fetch('/studio/styles/style-index.json', { credentials: 'same-origin' });
     const idx = await res.json();
     galleryIndex = { variants: idx.variants || [] };
+    // theme 字段决定变体主题锁（见 applyVariantThemeLock）；顺手建一张
+    // id → theme 的表，避免每次判断都遍历 variants。
+    state.variantThemes = Object.fromEntries(galleryIndex.variants
+      .filter((v) => typeof v.theme === 'string' && v.theme)
+      .map((v) => [v.id, v.theme]));
   } catch {
     galleryIndex = { variants: [] };
   }
@@ -2948,11 +3299,20 @@ function pickVariant(v) {
   // 调色页预览的 URL 里带着变体：不重载的话，回来的画面还是旧风格。
   // 面板的色板也要换基线（变体自己的 token），否则显示的还是旧项目的蓝灰。
   state.variantPicked = true;
+  // 换变体先换基线，再施加主题锁：dark-only 变体（dark-tech）会立刻把
+  // 预览压到深色，并记下切换前的主题，切走时还原。清空上一张卡的 token，
+  // 避免锁生效到新颜色读回来之间，画面短暂沿用旧变体的暗色。
+  state.variantColor = state.variantColorCache?.get(v.id) || null;
+  applyVariantThemeLock();
   const applyVariantColor = async () => {
     state.variantColor = state.variantColorCache?.get(v.id) || null;
     // 滑块与色板一起换成新变体的基线：选风格就是换了一整套配色，
     // 只换画面不换控件会让「拖了会变什么」的参照物仍是旧项目。
     const a = parseParts(state.variantColor?.light?.accent);
+    // 浓度先清空：换风格就是换基线，上一张卡方案里的 C 不该带过来。
+    // 下面 applyScheme(canonical) 会写入本卡的值；没有 canonical 时
+    // 回到「跟随变体基线」才是对的。
+    state.neutralChroma = null;
     if (a) {
       state.accentHue = Math.round(a.H * 10) / 10;
       state.accentChroma = Math.round(a.C * 1000) / 1000;
@@ -3195,7 +3555,8 @@ async function renderGallery() {
     hideFrameScrollbars(frame);
     // 画廊缩略图跟随 Studio 主题：只改 iframe 内容的 data-theme，
     // .gallery-shot 的 #fff 白纸底不动（那是缩略图的画布，不是页面主题）。
-    hookFrameTheme(frame);
+    // dark-only 变体（dark-tech）在浅色 Studio 里同样渲染深色。
+    hookFrameTheme(frame, variant.id);
     const shot = el('div', { class: 'gallery-shot' }, frame);
     const head = el('header', {},
       el('span', { class: 'g-num', text: String(i + 1).padStart(2, '0') }),
@@ -3356,7 +3717,9 @@ function bindLabHint() {
     } catch { /* 跨域时保留 state 值 */ }
     // 实验室的 iframe 同样要跟顶栏主题走：夹具 app.js 只按 prefers-color-scheme 初始化，
     // 用户把 Studio 切到深色后，画布还亮着会让「当前 token」的观感失真。
-    try { frame.contentDocument.documentElement.dataset.theme = state.theme; } catch { /* ignore */ }
+    // 变体是 dark-only 时用 iframe 里真实载着的 data-style 推主题 —— 实验室
+    // 可能还载着上一个变体（见上面 served 的取值原因）。
+    pushThemeToFrame(frame, state.theme, served);
     updateLabStyle(served);
     const comp = $('#lab-component').value;
     if (comp === LAB_OVERVIEW) {
@@ -3539,6 +3902,19 @@ function applyRemoteDecisions(d) {
     state.neutralPinned = bgH;
     state.neutral = Math.round(Math.min(100, Math.max(0, (250 - bgH) / 165 * 100)));
   }
+  // 中性浓度：decisions 的 neutralTemp 是 "H 250, C 0.003"。解析得到就作为
+  // 项目此刻的设定恢复；只有色相、没有 C 的旧文件保持 null（跟随 baseline）。
+  //
+  // 与 baseline bg 的 C 一致时仍回到 null：那说明这份 decisions 里的「一个 C」
+  // 就是项目自己的中性基色，而项目 token 是逐项写的（玻璃 fg 比 bg 更冷、
+  // 极简 line-1 比 bg 略浓）。统一成一个数会把载入后的画面改掉一点，
+  // 违背「面板显示的就是项目真实 token」。只有项目显式写了不同的 C 才覆盖。
+  const neutralNums = numbersOf(state.translation.neutralTemp?.value);
+  const declaredC = neutralNums.length > 1 && Number.isFinite(neutralNums[1]) ? neutralNums[1] : null;
+  const baseC = pick(d.color?.light?.bg?.oklch, 2);
+  state.neutralChroma = declaredC !== null && !(Number.isFinite(baseC) && Math.abs(declaredC - baseC) <= 0.0005)
+    ? Math.max(0, Math.min(0.04, declaredC))
+    : null;
 }
 
 async function loadState() {
@@ -3584,7 +3960,7 @@ function bindEvents() {
   });
   // 两个主题下拉：mode 决定写什么，theme 决定看什么。
   on('#theme-mode-select', 'change', (e) => setThemeMode(e.target.value));
-  on('#theme-select', 'change', (e) => setTheme(e.target.value));
+  on('#theme-select', 'change', (e) => setTheme(e.target.value, { user: true }));
   on('#content-select', 'change', (e) => setContent(e.target.value));
   on('#btn-commit', 'click', doCommit);
   on('#btn-tokens', 'click', () => doTokens(false));
@@ -3631,9 +4007,41 @@ function bindEvents() {
     markSchemeTuned();
     state.neutral = v;
     state.neutralPinned = null;   // 用户一动滑块就解除变体色相的钉住
-    state.translation.neutralTemp.value = `H ${Math.round(neutralHue())}, C ${neutralC()}`;
+    state.translation.neutralTemp.value = neutralReadout();
     setParamsConfirmed(false);
     syncParamControls();
+  });
+  // 浓度与温度同属一项：拖浓度也写回 translation 的同一段，方案卡随即标「已微调」。
+  // 不解除 neutralPinned —— 浓度不决定色相，用户想保住方案的色相温度。
+  slider('#neutral-chroma', (v) => {
+    markSchemeTuned();
+    state.neutralChroma = Math.round(v * 1000) / 1000;
+    state.translation.neutralTemp.value = neutralReadout();
+    setParamsConfirmed(false);
+    syncParamControls();
+  });
+  // 复位：色相与浓度一起回到项目基线。两条都清空后，colorSet 会回到
+  // 「每个中性 token 用自己的基线 C + 项目 bg 的色相」，与载入时一致。
+  // 与「跟随主题」（只清 accentLight）是同一种复位语义，只是管的是中性色。
+  on('#neutral-reset', 'click', () => {
+    state.neutralPinned = null;
+    state.neutralChroma = null;
+    const bgH = parseParts(baselineSet('light')?.bg)?.H;
+    if (Number.isFinite(bgH)) {
+      state.neutral = Math.round(Math.min(100, Math.max(0, (250 - bgH) / 165 * 100)));
+      // 项目色相可能落在 250→85 量程外（玻璃 265、材料 45、像素 95）。
+      // 只用滑块映射会把 265 悄悄挪到 250 —— 复位反而不回项目值，所以钉原值。
+      if (bgH > 250 || bgH < 85) state.neutralPinned = bgH;
+    }
+    // keepScheme：复位是「回到某个已知值」，该由匹配逻辑重新判定，
+    // 而不是无条件标成「已微调」—— 否则复位完永远显示「已微调 · 点任一方案可恢复」。
+    commitParam('neutralTemp', neutralReadout(), { keepChroma: true, keepScheme: true });
+    // matchedScheme() 在 schemeEdited 为真时直接返回 null，所以这里必须先
+    // 用 schemeMatches 求值再决定是否放开高亮。多数情况仍不命中：
+    // accent 还停在上一个方案的值，只有中性色回到了项目值。
+    state.schemeEdited = !schemesForCurrentCard().some(schemeMatches);
+    syncSchemeSelection();
+    wheelDrawnFor = null;
   });
   // 明度滑块 = 手动覆盖。拖一格就退出「跟随主题」，语义由按钮 aria-pressed 表达。
   on('#accent-light', 'input', (e) => {
@@ -3669,6 +4077,13 @@ async function init() {
   if (params.all) $('#gallery-load').checked = true;
   zoomTarget = params.zoom;
   await loadState();
+  // style-index 里有每个变体的 theme 字段（dark-only / 双主题）。
+  // 必须先于 syncControls：项目里存着 dark-tech 时，打开 Studio 的第一帧
+  // 就该是深色，而不是先闪一下浅色再被锁压下去。
+  await loadStyleIndex();
+
+  // 变体主题锁：项目选的是 dark-only 变体时，这里强制深色并记下原主题。
+  applyVariantThemeLock();
 
   // 必须放在 loadState() 之后：applyRemoteDecisions() 只是把远程值写进 state，
   // 面板要重画才看得见。先画后载会让面板一直显示硬编码的默认值
