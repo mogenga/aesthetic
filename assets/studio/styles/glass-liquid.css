@@ -27,22 +27,31 @@
    -------------------------------------------------------------------------- */
 
 :root[data-style="glass-liquid"] {
-  /* 与 frosted 同族，但更冷更沉——折射需要更深的底才看得出来 */
-  --bg: oklch(0.958 0.016 268);              /* #ECF2FD */
-  --surface-1: oklch(0.938 0.016 268);       /* #E4EBF8  ΔL 0.020 */
-  --surface-2: oklch(0.914 0.016 268);       /* #DBE3F3  ΔL 0.024 */
-  --surface-3: oklch(0.888 0.016 268);       /* #D2DBEE  ΔL 0.026 */
-  --surface-sunken: oklch(0.930 0.016 268);
-  --fg: oklch(0.225 0.022 268);              /* #161B28  16.0:1 */
-  --fg-muted: oklch(0.450 0.022 268);        /* #4C5266  7.0:1 */
-  --accent: oklch(0.530 0.150 280);          /* #5A5FC4  4.9:1 */
-  --accent-hover: oklch(0.485 0.155 280);
-  --line-1: oklch(0.895 0.022 268);          /* #D4DCEE */
-  --line-inset: color-mix(in oklab, var(--fg) 10%, transparent);
+  /* 基座：与 frosted / transparent 完全一致（见 references/styles/glassmorphism.md
+     「三支共用基座」）。差异只允许出现在 --glass-* / --shadow-* 与签名段。 */
+  --bg: oklch(0.965 0.014 265);              /* #EFF4FD */
+  --surface-1: oklch(0.948 0.014 265);       /* #E9EEF8  ΔL 0.017 */
+  --surface-2: oklch(0.928 0.014 265);       /* #E3E7F1  ΔL 0.020 */
+  --surface-3: oklch(0.905 0.014 265);       /* #DBE0E9  ΔL 0.023 */
+  --surface-sunken: oklch(0.940 0.014 265);
+  --fg: oklch(0.230 0.020 265);              /* #181D27  15.3:1 */
+  --fg-muted: oklch(0.455 0.020 265);        /* #515762  6.6:1 */
+  --accent: oklch(0.535 0.145 275);          /* #5762C0  4.8:1 */
+  --accent-hover: oklch(0.490 0.150 275);
+  /* 状态色：三支共用一套，明度取与基座 accent 同一带（L≈0.51），
+     C 也压在基座允许的冷调彩度内，避免玻璃的中性面被状态色带偏 */
+  --danger: oklch(0.516 0.145 20);           /* #AB3C44  5.5:1 vs bg */
+  --danger-hover: oklch(0.474 0.150 20);
+  --danger-soft: color-mix(in oklab, var(--danger) 10%, transparent);
+  --on-danger: oklch(0.990 0 0);             /* #FCFCFC */
+  --success: oklch(0.478 0.118 155);         /* #00703E  5.6:1 vs bg */
+  --warning: oklch(0.498 0.108 70);          /* #895600  5.6:1 vs bg */
+  --line-1: oklch(0.900 0.020 265);          /* #D7DEEC */
+  --line-inset: color-mix(in oklab, var(--fg) 8%, transparent);
 
-  --r-sm: 12px;
-  --r-md: 18px;
-  --r-lg: 28px;
+  --r-sm: 10px;
+  --r-md: 16px;
+  --r-lg: 26px;
   --r-full: 999px;
 
   --shadow-1: 0 2px 8px -2px rgb(20 30 70 / 0.12);
@@ -70,16 +79,23 @@
 }
 
 :root[data-style="glass-liquid"][data-theme="dark"] {
-  --bg: oklch(0.172 0.026 272);              /* #0C1120 */
-  --surface-1: oklch(0.198 0.026 272);       /* #111727  ΔL 0.026 */
-  --surface-2: oklch(0.223 0.026 272);       /* #171D2F  ΔL 0.025 */
-  --surface-3: oklch(0.248 0.026 272);       /* #1D2336  ΔL 0.025 */
-  --surface-sunken: oklch(0.158 0.026 272);
-  --fg: oklch(0.938 0.012 272);              /* #E7EBF4  16.1:1 */
-  --fg-muted: oklch(0.735 0.018 272);        /* #A6ABB9  7.9:1 */
-  --accent: oklch(0.805 0.110 285);          /* #BABEFF  10.1:1 */
-  --accent-hover: oklch(0.855 0.100 285);
-  --line-1: oklch(0.338 0.026 272);          /* #313852 */
+  --bg: oklch(0.170 0.025 270);              /* #0B0F1A */
+  --surface-1: oklch(0.195 0.025 270);       /* #101420  ΔL 0.025 */
+  --surface-2: oklch(0.220 0.025 270);       /* #161A26  ΔL 0.025 */
+  --surface-3: oklch(0.246 0.025 270);       /* #1C202D  ΔL 0.026 */
+  --surface-sunken: oklch(0.155 0.025 270);
+  --fg: oklch(0.940 0.010 270);              /* #E8EBF2  16.1:1 */
+  --fg-muted: oklch(0.740 0.015 270);        /* #A7ABB5  8.3:1 */
+  --accent: oklch(0.790 0.105 280);          /* #ADB3FD  10.0:1 */
+  --accent-hover: oklch(0.840 0.095 280);
+  /* 暗色不是把浅色压暗：L 提到与 accent 同一带（0.79），H/C 略降以贴合深底 */
+  --danger: oklch(0.790 0.122 20);           /* #FF9A9A  9.4:1 vs bg */
+  --danger-hover: oklch(0.840 0.112 20);
+  --danger-soft: color-mix(in oklab, var(--danger) 14%, transparent);
+  --on-danger: oklch(0.170 0.020 20);        /* 深底上反白 */
+  --success: oklch(0.790 0.145 155);         /* #62D691  10.5:1 vs bg */
+  --warning: oklch(0.790 0.145 70);          /* #F5A843  9.7:1 vs bg */
+  --line-1: oklch(0.340 0.025 270);          /* #333845 */
   --line-inset: color-mix(in oklab, var(--fg) 8%, transparent);
 
   --shadow-1: 0 2px 10px -2px rgb(0 0 0 / 0.45);
@@ -173,6 +189,13 @@
 :root[data-style="glass-liquid"] .btn[data-variant="primary"] {
   background: color-mix(in oklab, var(--accent) 76%, transparent);
   color: var(--on-accent);
+  border-color: color-mix(in oklab, white 30%, transparent);
+}
+/* 危险按钮：玻璃胶囊里灌 status 色。透明度 88% 是下限——
+   再低 --on-danger 对实际渲染像素就跌破 4.5:1（实测 85% 时 4.36） */
+:root[data-style="glass-liquid"] .btn[data-variant="danger"] {
+  background: color-mix(in oklab, var(--danger) 88%, transparent);
+  color: var(--on-danger);
   border-color: color-mix(in oklab, white 30%, transparent);
 }
 

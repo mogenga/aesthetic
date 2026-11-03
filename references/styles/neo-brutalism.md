@@ -58,8 +58,22 @@ R3 例外：新粗野主义允许**不透明纯黑**用于 2px 描边。理由�
 
 ```
 rule: R3 · scope: neo-brutalism.border · requestedValue: #000 · effectiveValue: #000
-reason: 硬边阴影的 AA 缝 · approvedBy: user · verification: check-tokens --allow-black-border
+reason: 硬边阴影需要与浅色米底形成无过渡边缘，任何灰度的阴影在 1x 屏上都会因次像素抗锯齿露出浅灰缝
+guard: token: fg; contrast: fg/bg >= 4.5
+approvedBy: user · verification: check-tokens --allow-black-border
 ```
+
+### 状态色
+
+| 角色 | 浅色 | 暗色 | 说明 |
+|---|---|---|---|
+| danger | `#15140F` · `oklch(0.190 0.010 90)` | `#F0EEE7` · `oklch(0.950 0.010 95)` | **墨色底**，不是红 |
+| danger-hover | `oklch(0.260 0.010 90)` | `oklch(0.880 0.010 95)` | 墨族内提亮/压暗 |
+| on-danger | `#F2D045` · `oklch(0.862 0.155 95)` | `oklch(0.190 0.015 90)` | 亮黄字 + 亮黄描边 |
+| success | `#366C00` · `oklch(0.474 0.140 135)` | `#A5EB7C` · `oklch(0.870 0.160 135)` | |
+| warning | `#825601` · `oklch(0.490 0.103 75)` | `#FFCA7F` · `oklch(0.870 0.111 75)` | |
+
+**danger 不用红**：撞色只有两种（米/墨家族 + 一个亮黄），红色会是第三种高饱和色，直接破坏「撞色只有两种」这条签名。这里改用**墨色盖章 + 亮黄描边**：危险按钮是墨底黄字，描边从 `--fg` 反转为 `--on-danger`，靠"描边色反转"而不是新色相把危险从主按钮里分出来。success/warning 使用卡片允许的第二种撞色槽（绿 / 琥珀），只做底、不做正文色。
 
 ## 标志性 CSS
 

@@ -25,6 +25,15 @@
   /* 强调色：青绿，不是 Material 默认紫蓝 */
   --accent: oklch(0.455 0.085 175);          /* #036654  6.5:1 */
   --accent-hover: oklch(0.415 0.090 175);
+  /* 状态色：卡写「状态色用低彩度变体」→ 从 accent 的青绿 (H 175) 推：
+     danger 低彩红、success 低彩绿、warning 低彩琥珀，C 不超过 0.110，
+     L 与 accent 同带（0.455） */
+  --danger: oklch(0.454 0.110 27);           /* #893A33  7.2:1 vs bg */
+  --danger-hover: oklch(0.414 0.115 27);
+  --danger-soft: color-mix(in oklab, var(--danger) 10%, transparent);
+  --on-danger: oklch(0.990 0 0);             /* #FCFCFC */
+  --success: oklch(0.454 0.110 150);         /* #1A6733  6.5:1 vs bg */
+  --warning: oklch(0.454 0.098 70);          /* #784B01  6.9:1 vs bg */
   --line-1: oklch(0.880 0.008 45);           /* #DCD6D3 */
   --line-inset: color-mix(in oklab, var(--fg) 10%, transparent);
 
@@ -69,6 +78,13 @@
   --fg-muted: oklch(0.720 0.010 45);         /* #AAA39F  7.6:1 */
   --accent: oklch(0.790 0.105 175);          /* #68D1B7  10.3:1 */
   --accent-hover: oklch(0.840 0.095 175);
+  /* 暗色状态色：L 与 accent 同带（0.79），不是浅色压暗 */
+  --danger: oklch(0.790 0.110 27);           /* #F99F94  9.4:1 vs bg */
+  --danger-hover: oklch(0.840 0.100 27);
+  --danger-soft: color-mix(in oklab, var(--danger) 14%, transparent);
+  --on-danger: oklch(0.175 0.010 27);
+  --success: oklch(0.790 0.110 150);         /* #85CF95  10.3:1 vs bg */
+  --warning: oklch(0.790 0.110 70);          /* #E8AE69  9.7:1 vs bg */
   --line-1: oklch(0.320 0.010 45);           /* #37312F */
   --line-inset: color-mix(in oklab, var(--fg) 8%, transparent);
 
@@ -142,6 +158,13 @@
   border: 1px solid var(--line-1);
   color: var(--fg);
 }
+/* 危险按钮：Material 的 filled tonal 语义——状态层用 danger 色，
+   文字与图标用 on-danger，不用 accent */
+:root[data-style="material"] .btn[data-variant="danger"] {
+  background: var(--danger);
+  color: var(--on-danger);
+}
+:root[data-style="material"] .btn[data-variant="danger"]::before { background: white; }
 
 /* 输入框：filled 变体——2px 底部指示线，顶部圆角 */
 :root[data-style="material"] .field-control {

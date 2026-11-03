@@ -227,6 +227,11 @@ node scripts/check-consistency.mjs --project <dir>   # G3 门禁
 
 若 `impeccable` 可用，并行跑它的 `audit`/`critique`：按规则 id 去重，**它的 P0 一律升级为"不通过"**，`critique` 打分不进结论。
 
+出报告前还有两步：
+
+1. **先做六轴自评**（Philosophy / Hierarchy / Execution / Specificity / Restraint / Variety，各 1–5 分，依据见模板）。**任一项 < 3 回到 P5 修，不写进报告**——不能记成待办。全给 5 分要说明砍了什么，`weakest` 必须等于最低分轴。
+2. **若 Phase 0 记录过基线**，跑 `node scripts/baseline.mjs --project <dir> --check`；**hard 项缺失 = 不通过**，不得用"和上一版差不多"替代。
+
 报告顶部写机读块：
 
 ```
@@ -236,6 +241,7 @@ gate: G4
 checkedAt: …
 toolVersions: { … }
 unresolvedCount: 0
+selfReview: { philosophy: N, …, weakest: "<最低分轴>", note: "<≥20 字>" }
 -->
 ```
 
@@ -245,7 +251,9 @@ unresolvedCount: 0
 
 ## 4. 非协商项（压缩版）
 
-完整规格见 `references/rules/00-non-negotiable.md`。分级：**MUST** / **SHOULD** / **ADVISORY**。
+完整规格见 `references/rules/00-non-negotiable.md`。分级：**MUST** / **SHOULD** / **ADVISORY** / **REFLEX**。
+
+**REFLEX 不是错，是模型的默认手**——看起来合理，但通常没经过判断。不做要给理由，并在 `alignment-report.md` 的 Reflex 区登记，不走 overrides 九字段。
 
 用户可覆盖任何一条，但覆盖必须登记 `decisions.json.overrides`（九字段缺一不可），且不能直接产生最终"通过"。
 
@@ -261,35 +269,12 @@ unresolvedCount: 0
 | R8 | 设置页 | MUST | 名称左、控件右，一行一项；**去掉最外层框**；组间 44–48px、组内 0、细线；删除独立成组 |
 | R9 | 表单页 | MUST | 名称在上、输入在下、**输入区全宽**；字段间距 24px |
 
-**R4 参数**
+**REFLEX · 模型的默认手**（替用户决定 / 把发出当收到 / 不知道就编 / 专家控件前置 / 静默失败 / 只改一半链路 / 模板冒充设计 / 清单当结果 / 一次给太多）全文与留痕方式见 `references/reflex.md`。
+命中时先分清这是判断还是惯性；决定不做，给理由并登记 `alignment-report.md` 的 Reflex 区。
 
-```css
-.field {
-  background: var(--surface-sunken);
-  border: 1px solid transparent;
-  box-shadow:
-    0 1px 2px -1px rgb(0 0 0 / .18),      /* 外投影：嵌入页面 */
-    inset 0 1px 2px rgb(0 0 0 / .10),     /* 内投影：上沿吃光 */
-    inset 0 0 0 1px var(--line-inset);    /* 内环：咬合线 */
-}
-/* 暗色：外投影 0 2px 6px -2px / .45；内环改 white 6% */
-```
+**R4 参数**：三件套代码见 `references/rules/00-non-negotiable.md` §3.4（浅色外投影 .18 / 内投影 .10 / 内环 fg 8%；暗色外投影 .45、内环 white 6%）。
 
-**R6.1 参数**
-
-```css
-@keyframes glyph-focus {
-  from { filter: blur(6px); opacity: .35; transform: translateY(2px); }
-  to   { filter: blur(0);   opacity: 1;   transform: translateY(0); }
-}
-.glyph {
-  display: inline-block;
-  animation: glyph-focus 200ms cubic-bezier(.2,.7,.2,1) both;
-  animation-delay: calc(var(--i) * 30ms);
-}
-```
-
-约束：只 append 新 span，已完成的合并成纯文本；只给最新 30 字挂动画；每秒 >40 字时 2–3 字一组入场；动画层 `aria-hidden`，另起隐藏节点 `aria-live="polite"` 每 200–300ms 更新；`prefers-reduced-motion` 下只留透明度。
+**R6.1 参数**：`glyph-focus` 关键帧与 `.glyph` 规则见 `references/rules/00-non-negotiable.md` §3.6。约束：只 append 新 span，已完成的合并成纯文本；只给最新 30 字挂动画；每秒 >40 字时 2–3 字一组入场；动画层 `aria-hidden`，另起隐藏节点 `aria-live="polite"` 每 200–300ms 更新；`prefers-reduced-motion` 下只留透明度。
 
 **R6.3 参数**：思考框 `grid-template-rows: 0fr → 1fr` 撑开，不用 `height` 动画；完整代码与降级链见 `references/rules/04-ai-ui.md` §3。
 
@@ -413,5 +398,6 @@ decisions.json → tokens.json / tokens.css → contract.md → 注入块
 | `references/styles/*.md` | **仅自导模式**，选中某张卡之后 |
 | `references/layout-patterns.md` | Phase 3 找线框 |
 | `references/motion.md` | Phase 4 定动效 |
+| `references/reflex.md` | 每次准备"先这样做"之前；X1–X9 的判定与留痕方式 |
 
-设计依据（本 skill 为什么长这样）见 `SKILL-DESIGN.md`，那是给维护者的，不是执行手册。
+设计依据（本 skill 为什么长这样）在维护者本地，不随仓库分发。

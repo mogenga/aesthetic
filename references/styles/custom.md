@@ -63,7 +63,7 @@
 
 ## 三、回显与确认
 
-抽完七维后**立刻渲染一版**再回显（SKILL-DESIGN §11.1 B：自定义风格仍然生成页面）。顺序不能反：先看再改，比先改再看有效率得多。
+抽完七维后**立刻渲染一版**再回显（自定义风格仍然生成页面）。顺序不能反：先看再改，比先改再看有效率得多。
 
 回显表格式与 Phase 2 一致：
 
@@ -95,14 +95,13 @@
 
 ### 新建卡的完整代价
 
-新增一张卡会打破"10 卡 / 12 变体"的口径，而这句话写在 `SKILL.md` §2、`SKILL-DESIGN.md` §1.2 与 §5.2、以及 Studio 的计数里。所以必须一次做完：
+新增一张卡会打破"10 卡 / 12 变体"的口径，而这句话写在 `SKILL.md` §2 与 Studio 的计数里。所以必须一次做完：
 
 ```
 1. references/styles/<id>.md          ← 按 _schema.md 八段写
 2. references/styles/style-index.json ← cards +1，variants +1
 3. assets/studio/styles/<id>.css      ← 变体 CSS（另一批产物）
 4. SKILL.md §3 Phase 1 候选判据        ← 补一行"什么场景推荐它"
-5. SKILL-DESIGN.md §1.2 / §5.2         ← 口径与表格同步
 ```
 
 缺任何一步，`style-index.json` 与磁盘不一致，批次 6 的验收项（"条目数与 `*.css` 文件数一致"）直接失败。

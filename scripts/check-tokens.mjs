@@ -13,7 +13,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import {
-  parseOklch, oklchToHex, contrastHex,
+  parseOklch, oklchToHex, hexToRgb, contrastHex, contrastRatio,
 } from './lib/oklch.mjs';
 import { validate } from './lib/schema.mjs';
 
@@ -139,17 +139,290 @@ function validateSchema(data, file, report) {
     }
   }
   if (Array.isArray(data.overrides)) {
-    const REQUIRED = ['rule', 'scope', 'requestedValue', 'effectiveValue',
-      'reason', 'approvedBy', 'createdAt', 'expiresAt', 'verification'];
-    data.overrides.forEach((o, i) => {
-      const miss = REQUIRED.filter((k) => !(k in o));
-      if (miss.length) {
-        report.error('O1', file, 0,
-          `overrides[${i}] 缺字段：${miss.join(', ')}`,
-          '缺任一项即视为未登记覆盖，G4 不通过。');
+    checkOverrides(data, file, report);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// overrides: 豁免必须能被机器复算
+// ---------------------------------------------------------------------------
+//
+// 为什么要有 guard：`reason` 是自然语言，写「无」也能通过旧 schema。豁免如果
+// 不能落成一条脚本能重算的断言，它就只是给偷懒盖了个章。guard 把「凭什么」
+// 拆成 key: value 断言，由本文件重新推导——写得出 guard 的覆盖通常经得起看，
+// 写不出的往往说明 guard 本身不成立。
+
+const OVERRIDE_FIELDS = ['rule', 'scope', 'requestedValue', 'effectiveValue',
+  'reason', 'guard', 'approvedBy', 'createdAt', 'expiresAt', 'verification'];
+
+// 黑名单按「整条 / 整句」匹配，不做子串匹配：中文里「无」出现在
+// 「无过渡边缘」这种正常理由里，子串会把好理由误杀。
+// 后两项按规格只在「单独成句」时才算套话——「用户要求把描边加深」是有效
+// 信息，不能因为出现了这个词就判死。
+const REASON_BLACKLIST = ['无', '按需', '暂时', '以后再说', 'TODO',
+  '设计需要', '品牌需要', '用户要求', '保持一致性'];
+const STANDALONE_ONLY = new Set(['用户要求', '保持一致性']);
+
+const GUARD_KEYS = new Set(['token', 'contrast', 'deltaL', 'surface']);
+const SURFACE_NAME = /^(bg|surface-[123]|surface-sunken)$/;
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+function checkOverrides(data, file, report) {
+  const tokenSet = collectTokenNames(data, file);
+  const seenRuleScope = new Map();
+  const seenReason = new Map();
+
+  data.overrides.forEach((o, i) => {
+    const at = `overrides[${i}]`;
+    if (!o || typeof o !== 'object' || Array.isArray(o)) {
+      report.error('OV1', file, 0,
+        `${at} 不是对象，无法登记豁免。`,
+        'overrides[] 的每一项必须是含十字段的对象。');
+      return;
+    }
+
+    // OV1 — 十字段缺一即未登记。
+    const miss = OVERRIDE_FIELDS.filter((k) => !(k in o));
+    if (miss.length) {
+      report.error('OV1', file, 0,
+        `${at} 缺字段：${miss.join(', ')}`,
+        '缺任一项即视为未登记覆盖，G4 不通过。');
+    }
+
+    checkReason(o, i, at, file, report, seenReason);
+    checkGuardField(o, at, data, tokenSet, file, report);
+
+    // OV3 — agent 不能给自己批豁免。
+    if (typeof o.approvedBy === 'string' &&
+      /^(agent|claude|assistant|ai|模型)$/i.test(o.approvedBy.trim())) {
+      report.error('OV3', file, 0,
+        `${at}.approvedBy = "${o.approvedBy}"：豁免必须由用户批准。`,
+        '只能写 user 或具体人名；agent 自批等于没批。');
+    }
+
+    // OV4 — 同规则同 scope 只能登记一次。同一规则不同 scope 是合法的：
+    // R3 对不同 token 各登记一条，正是 scope 存在的意义。
+    if (typeof o.rule === 'string' && typeof o.scope === 'string') {
+      const key = `${o.rule}\u0000${o.scope}`;
+      if (seenRuleScope.has(key)) {
+        report.error('OV4', file, 0,
+          `${at} 与 overrides[${seenRuleScope.get(key)}] 重复：rule ${o.rule} + scope "${o.scope}"。`,
+          '同一豁免只能登记一次；不同 scope 请分成不同条目。');
+      } else {
+        seenRuleScope.set(key, i);
+      }
+    }
+  });
+}
+
+function checkReason(o, i, at, file, report, seenReason) {
+  if (typeof o.reason !== 'string') return; // 类型错误由 schema 报
+
+  // 按 Unicode 码点计数：CJK 算 1，不要用 UTF-16 code unit 数。
+  const reason = o.reason.trim();
+  const len = [...reason].length;
+  if (len < 24) {
+    report.error('OV1', file, 0,
+      `${at}.reason 只有 ${len} 个字符，少于 24。`,
+      '写清为什么必须覆盖、覆盖的代价是什么；「无」「按需」这类登记不算留痕。');
+  }
+
+  // 整条或整句恰好是套话才算命中。TODO 例外：它出现在哪都说明没写完。
+  const norm = (s) => s.trim().replace(/[。．.!！?？;；,，、\s]+$/u, '');
+  const sentences = reason.split(/[。．.!！?？;；\n]+/u).map(norm).filter(Boolean);
+  const whole = norm(reason);
+  const hit = REASON_BLACKLIST.find((entry) => {
+    const e = norm(entry).toLowerCase();
+    // TODO 出现在哪都说明没写完，不需要单独成句。
+    if (e === 'todo' && /\btodo\b/i.test(reason)) return true;
+    if (whole.toLowerCase() === e) return true;
+    if (sentences.some((s) => s.toLowerCase() === e)) return true;
+    if (STANDALONE_ONLY.has(entry)) return false;
+    // 非「单独成句」项：以套话开头再接逗号/顿号（如「设计需要，别问」）同样是
+    // 空话，但后面必须紧跟标点，避免把「无可奉告的具体理由……」误伤。
+    return new RegExp(`^${escapeRe(entry)}\\s*[，,、:：]`).test(reason);
+  });
+  if (hit) {
+    report.error('OV1', file, 0,
+      `${at}.reason 命中套话黑名单："${hit}"。`,
+      '套话无法说明决策，三个月后没人能判断这是决策还是偷懒。');
+  }
+
+  // 两条 override 逐字相同 = 复制粘贴，不是两个独立决策。
+  // 用原文比较（不 trim），「逐字」就该按原文算。
+  const key = o.reason;
+  if (key.trim() && seenReason.has(key)) {
+    report.error('OV1', file, 0,
+      `${at}.reason 与 overrides[${seenReason.get(key)}] 完全相同。`,
+      '每条覆盖的代价不同，理由不应该复制粘贴。');
+  } else if (key.trim()) {
+    seenReason.set(key, i);
+  }
+}
+
+/** token 名集合：decisions.color 的任一主题 + 已生成的 tokens.json。 */
+function collectTokenNames(data, decisionsFile) {
+  const names = new Set();
+  const add = (color) => {
+    for (const theme of Object.keys(color || {})) {
+      for (const name of Object.keys(color[theme] || {})) names.add(name);
+    }
+  };
+  add(data.color);
+  // tokens.json 是派生物，可能还没生成；缺失时 decisions.color 已经够用。
+  if (decisionsFile) {
+    try {
+      const tokens = JSON.parse(
+        fs.readFileSync(path.join(path.dirname(decisionsFile), 'tokens.json'), 'utf8'),
+      );
+      add(tokens.color);
+    } catch { /* 没有派生物不阻断 */ }
+  }
+  return names;
+}
+
+function checkGuardField(o, at, data, tokenSet, file, report) {
+  if (typeof o.guard !== 'string') return; // 缺失/类型错误由 OV1 + schema 报
+  checkGuardSegments(o.guard, data, tokenSet, at, file, report);
+}
+
+/**
+ * 逐段复算 guard。测试走 CLI（临时项目），不从这里 import——本文件底部会
+ * 直接执行 main()，import 会带着进程退出。
+ * 至少一条可识别断言通过才算数；一条都过不了就别登记了。
+ */
+function checkGuardSegments(guard, data, tokenSet, at, file, report) {
+  // 中文输入法下分号常被打成全角「；」，语义相同，一并接受，避免一条
+  // 格式正确的 guard 因为标点被判成「无法复算」。
+  const segments = String(guard).split(/[;；]/).map((s) => s.trim()).filter(Boolean);
+  let passed = 0;
+
+  for (const seg of segments) {
+    const m = seg.match(/^([A-Za-z][A-Za-z0-9_-]*)\s*:\s*(.+)$/);
+    if (!m) {
+      report.warn('ADVISORY', file, 0,
+        `${at}.guard 段无法复算："${seg}"`,
+        '每段应为 `key: value`；无法识别的段不阻断，但也不构成证据。');
+      continue;
+    }
+    const key = m[1];
+    const raw = m[2].trim();
+    if (!GUARD_KEYS.has(key)) {
+      report.warn('ADVISORY', file, 0,
+        `${at}.guard 无法复算的 guard 段："${seg}"`,
+        `只识别 ${[...GUARD_KEYS].join(' / ')} 四种 key。`);
+      continue;
+    }
+    if (runGuardAssertion(key, raw, data, tokenSet, at, file, report)) passed++;
+  }
+
+  // 硬规则：至少一条可识别断言必须通过。不通过的断言已经各自报过 OV2，
+  // 这里再补一条总判，保证「全部不成立」时也有一条一眼能看到的结论。
+  if (passed === 0) {
+    report.error('OV2', file, 0,
+      `OV2: guard 无法复算 — ${at}.guard 没有任何一条可识别断言通过。`,
+      'guard 必须是脚本能重算的断言，如 `token: bg; contrast: fg/bg >= 4.5`。');
+  }
+  return passed;
+}
+
+/** 复算一条断言，返回是否成立；不成立时在这里单独报 OV2。 */
+function runGuardAssertion(key, raw, data, tokenSet, at, file, report) {
+  const pass = () => true;
+  const fail = () => false;
+
+  if (key === 'token') {
+    const name = raw.replace(/^--/, '');
+    if (!tokenSet.has(name)) {
+      report.error('OV2', file, 0,
+        `${at}.guard：token "${name}" 不在 color 任一分主题或 tokens.json 的 token 列表里。`,
+        '引用不存在的 token 不构成豁免依据。');
+      return fail();
+    }
+    return pass();
+  }
+
+  if (key === 'contrast') {
+    const m = raw.match(/^(\S+)\s*\/\s*(\S+)\s*(>=|≥)\s*([0-9]*\.?[0-9]+)$/);
+    if (!m) {
+      report.error('OV2', file, 0,
+        `${at}.guard：contrast 断言格式应为 \`fg/bg >= 4.5\`（或 ≥），实际 "${raw}"。`);
+      return fail();
+    }
+    const [, a, b, , minRaw] = m;
+    const pair = resolveColorPair(data, a, b);
+    if (!pair) {
+      report.error('OV2', file, 0,
+        `${at}.guard：contrast 引用的 ${a}/${b} 不是同一主题下的 color token。`,
+        '两个名字都必须出现在 decisions.color 的同一主题里。');
+      return fail();
+    }
+    const hexA = toHex(pair.a);
+    const hexB = toHex(pair.b);
+    if (!hexA || !hexB) {
+      report.error('OV2', file, 0,
+        `${at}.guard：${a}/${b} 无法转成 sRGB，对比度不能复算。`);
+      return fail();
+    }
+    const min = Number(minRaw);
+    const ratio = contrastRatio(hexToRgb(hexA), hexToRgb(hexB));
+    if (ratio < min - 1e-9) {
+      report.error('OV2', file, 0,
+        `${at}.guard：${a}/${b} 实测 ${ratio.toFixed(2)}:1 < ${min}:1（${pair.theme}）。`,
+        'guard 断言的对比度必须真的达标。');
+      return fail();
+    }
+    return pass();
+  }
+
+  if (key === 'deltaL') {
+    const m = raw.match(/^([0-9]*\.?[0-9]+)\s*-\s*([0-9]*\.?[0-9]+)$/);
+    if (!m) {
+      report.error('OV2', file, 0,
+        `${at}.guard：deltaL 断言格式应为 \`0.010-0.030\`，实际 "${raw}"。`);
+      return fail();
+    }
+    const lo = Number(m[1]);
+    const hi = Number(m[2]);
+    const steps = data.surfaceLadder?.step;
+    if (!Array.isArray(steps) || !steps.length) {
+      report.error('OV2', file, 0,
+        `${at}.guard：deltaL 断言无法复算——surfaceLadder.step 缺失。`);
+      return fail();
+    }
+    let ok = true;
+    steps.forEach((s, j) => {
+      if (typeof s !== 'number' || s < lo - 1e-9 || s > hi + 1e-9) {
+        ok = false;
+        report.error('OV2', file, 0,
+          `${at}.guard：surfaceLadder.step[${j}] = ${s}，不在断言区间 [${lo}, ${hi}] 内。`);
       }
     });
+    return ok ? pass() : fail();
   }
+
+  if (key === 'surface') {
+    // 只校验名字形态。surface-sunken 在部分项目里是可选 token，要求它必须
+    // 存在会把合法的 R4 豁免挡掉；名字写错（surface-4、surface 之类）才是
+    // 这里要抓的。
+    if (!SURFACE_NAME.test(raw)) {
+      report.error('OV2', file, 0,
+        `${at}.guard：surface "${raw}" 不是合法表面名（bg / surface-1/2/3 / surface-sunken）。`);
+      return fail();
+    }
+    return pass();
+  }
+
+  return fail();
+}
+
+/** 优先浅色；同一主题下两个 token 都存在才算一对。 */
+function resolveColorPair(data, a, b) {
+  for (const theme of ['light', 'dark']) {
+    const c = data.color?.[theme];
+    if (c && c[a] && c[b]) return { theme, a: c[a], b: c[b] };
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------

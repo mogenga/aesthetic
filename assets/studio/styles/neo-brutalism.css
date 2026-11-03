@@ -27,6 +27,19 @@
   --accent: oklch(0.862 0.155 95);           /* #F2D045  亮黄，12.2:1 vs fg */
   --accent-hover: oklch(0.900 0.150 95);
   --on-accent: oklch(0.190 0.010 90);        /* 黄底配黑字 */
+
+  /* 状态色：风格卡把撞色限制在「底色家族 + 一个高饱和撞色」，
+     所以 danger 不用红——红色会成为第三个高饱和色，破坏调色板。
+     方案：danger 底色直接用 --fg 墨色（与描边同色，读起来像"盖章"），
+     描边与文字用 accent 亮黄；--on-danger 因此是亮黄而不是白。
+     success / warning 走另一侧：墨色文字 + 高饱和绿/琥珀底，
+     两者都落在卡片允许的第二种撞色槽位里（面积 < 10%）。 */
+  --danger: oklch(0.190 0.010 90);           /* #15140F  墨色底  16.2:1 vs bg */
+  --danger-hover: oklch(0.260 0.010 90);     /* 悬停略提亮，仍是墨族 */
+  --danger-soft: color-mix(in oklab, var(--danger) 10%, transparent);
+  --on-danger: oklch(0.862 0.155 95);        /* #F2D045  黄字/黄描边  12.2:1 */
+  --success: oklch(0.474 0.140 135);         /* #366C00  5.6:1 vs bg */
+  --warning: oklch(0.490 0.103 75);          /* #825601  5.6:1 vs bg */
   --line-1: oklch(0.190 0.010 90);           /* 描边用 fg 本身，不是浅灰 */
   --line-2: oklch(0.190 0.010 90);
   --line-inset: oklch(0.190 0.010 90);
@@ -68,6 +81,14 @@
   --accent: oklch(0.870 0.150 95);           /* #F3D350 */
   --accent-hover: oklch(0.910 0.145 95);
   --on-accent: oklch(0.190 0.015 90);
+  /* 暗色状态色：墨/黄互换（暗底的"墨色"变成近白 --fg），
+     success / warning 提亮到浅底同族但 L 抬到 0.87，保持"盖章"的高对比 */
+  --danger: oklch(0.950 0.010 95);           /* #F0EEE7  反白墨底  16.0:1 vs bg */
+  --danger-hover: oklch(0.880 0.010 95);
+  --danger-soft: color-mix(in oklab, var(--danger) 14%, transparent);
+  --on-danger: oklch(0.190 0.015 90);        /* #16140C  墨字 */
+  --success: oklch(0.870 0.160 135);         /* #A5EB7C  13.0:1 vs bg */
+  --warning: oklch(0.870 0.111 75);          /* #FFCA7F  12.3:1 vs bg */
   --line-1: oklch(0.950 0.010 95);
   --line-2: oklch(0.950 0.010 95);
   --line-inset: oklch(0.950 0.010 95);
@@ -115,6 +136,32 @@
 :root[data-style="neo-brutalism"] .btn[data-variant="primary"] {
   background: var(--accent);
   color: var(--on-accent);
+}
+/* 危险按钮 = 墨色盖章 + 撞色描边（浅色黄 / 暗色墨）：
+   不加第三种高饱和色，靠"描边色反转"把危险从主按钮里分出来 */
+:root[data-style="neo-brutalism"] .btn[data-variant="danger"] {
+  background: var(--danger);
+  color: var(--on-danger);
+  border-color: var(--on-danger);
+}
+:root[data-style="neo-brutalism"] .btn[data-variant="danger"]:hover {
+  background: var(--danger-hover);
+}
+/* base.css 的 ok 徽章复用了 --on-accent（本变体是墨色），
+   但绿底上要的是米色字，这里改回 --bg；danger 徽章维持黄字 */
+:root[data-style="neo-brutalism"] .badge[data-tone="ok"] {
+  color: var(--bg);
+}
+/* danger 标签 = 墨色底 + 亮黄字（与徽章同语言），
+   不引入第三种高饱和色；描边仍是 --fg */
+:root[data-style="neo-brutalism"] .tag[data-tone="danger"] {
+  background: var(--danger);
+  color: var(--on-danger);
+  box-shadow: inset 0 0 0 2px var(--on-danger);
+}
+:root[data-style="neo-brutalism"] .tag[data-tone="ok"] {
+  background: var(--success);
+  color: var(--bg);
 }
 
 /* 卡片：厚描边 + 硬阴影 */

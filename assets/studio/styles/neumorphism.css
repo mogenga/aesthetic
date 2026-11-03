@@ -23,6 +23,14 @@
   --fg-muted: oklch(0.435 0.008 250);        /* #4E5255  6.7:1 */
   --accent: oklch(0.492 0.075 200);          /* #1C6E72  5.0:1 */
   --accent-hover: oklch(0.450 0.080 200);
+  /* 状态色：本卡「彩色只用于状态，不做装饰」——这是全页唯一有彩的东西，
+     所以给到彩度上限 0.095，明度与 accent 同带（0.49） */
+  --danger: oklch(0.492 0.095 27);           /* #8F4A43  5.5:1 vs bg */
+  --danger-hover: oklch(0.450 0.100 27);
+  --danger-soft: color-mix(in oklab, var(--danger) 10%, transparent);
+  --on-danger: oklch(0.990 0 0);             /* #FCFCFC */
+  --success: oklch(0.468 0.095 150);         /* #2D693D  5.5:1 vs bg */
+  --warning: oklch(0.484 0.095 70);          /* #805415  5.5:1 vs bg */
   --line-1: oklch(0.878 0.004 250);          /* #D5D7D9 */
   --line-inset: color-mix(in oklab, var(--fg) 10%, transparent);
 
@@ -62,6 +70,13 @@
   --fg-muted: oklch(0.760 0.006 250);        /* #AEB1B5  6.8:1 */
   --accent: oklch(0.780 0.095 200);          /* #64CACF  7.6:1 */
   --accent-hover: oklch(0.830 0.085 200);
+  /* 暗色状态色：L 与 accent 同带（0.78），H/C 同浅色一套 */
+  --danger: oklch(0.780 0.095 27);           /* #EEA097  7.0:1 vs bg */
+  --danger-hover: oklch(0.830 0.085 27);
+  --danger-soft: color-mix(in oklab, var(--danger) 14%, transparent);
+  --on-danger: oklch(0.280 0.010 27);
+  --success: oklch(0.780 0.095 150);         /* #8BC997  7.6:1 vs bg */
+  --warning: oklch(0.780 0.095 70);          /* #DFAD73  7.2:1 vs bg */
   --line-1: oklch(0.345 0.006 250);          /* #37393C */
   --line-inset: color-mix(in oklab, var(--fg) 8%, transparent);
 
@@ -110,6 +125,14 @@
   color: var(--accent);
   font-weight: var(--fw-display);
 }
+/* 危险按钮沿用同一语言：材料色底 + 状态色文字，不加实心填充 */
+:root[data-style="neumorphism"] .btn[data-variant="danger"] {
+  background: var(--bg);
+  color: var(--danger);
+  font-weight: var(--fw-display);
+  box-shadow: var(--shadow-1);
+}
+:root[data-style="neumorphism"] .btn[data-variant="danger"]:hover { box-shadow: var(--shadow-2); }
 
 /* 输入框：下沉 */
 :root[data-style="neumorphism"] .field-control {

@@ -24,6 +24,18 @@
   --fg-muted: oklch(0.405 0.030 280);        /* #464759  7.4:1 */
   --accent: oklch(0.515 0.175 27);           /* #B72D29  红，5.0:1 */
   --accent-hover: oklch(0.470 0.180 27);
+  /* 状态色：不引入新色相家族。danger 就是已有的主红（H 27，与 accent 同族），
+     success 落在米黄侧的绿（H 140，仍在「主 + 辅 + 状态」三色配额里），
+     warning 用琥珀（H 85，与 accent 的暖侧同族）。
+     三者都是纯色块，不做渐变/透明——像素风的状态是"色块"不是"滤镜"。 */
+  /* 比 accent 的主红再深一档（L 0.50 → 0.45）：同色相下靠明度区分危险与主要，
+     否则两个按钮在像素风里是同一块红 */
+  --danger: oklch(0.450 0.180 27);           /* #A20711  6.7:1 vs bg */
+  --danger-hover: oklch(0.415 0.184 27);
+  --danger-soft: color-mix(in oklab, var(--danger) 14%, transparent);
+  --on-danger: oklch(0.930 0.030 95);        /* 米色字，不是纯白 */
+  --success: oklch(0.454 0.146 140);         /* #1C6800  5.6:1 vs bg */
+  --warning: oklch(0.468 0.096 85);          /* #735500  5.7:1 vs bg */
   --line-1: oklch(0.200 0.020 280);          /* 描边用墨色 */
   --line-inset: oklch(0.200 0.020 280);
 
@@ -85,6 +97,14 @@
   --fg-muted: oklch(0.700 0.020 90);         /* #A39E91  7.2:1 */
   --accent: oklch(0.830 0.140 90);           /* #EBC34D  黄，11.3:1 */
   --accent-hover: oklch(0.880 0.130 90);
+  /* 暗色是"夜间掌机"（蓝紫底）：状态色沿用同一组色相，
+     L 提到与暗色 accent 同带（0.83），H 不变——两套显示模式色相一致 */
+  --danger: oklch(0.830 0.094 27);           /* #FFB0A6  11.0:1 vs bg */
+  --danger-hover: oklch(0.880 0.086 27);
+  --danger-soft: color-mix(in oklab, var(--danger) 16%, transparent);
+  --on-danger: oklch(0.170 0.020 280);       /* 夜间底上的深字 */
+  --success: oklch(0.830 0.180 140);         /* #83E36D  12.0:1 vs bg */
+  --warning: oklch(0.830 0.170 85);          /* #F9BD01  11.2:1 vs bg */
   --line-1: oklch(0.940 0.020 90);
   --line-inset: oklch(0.940 0.020 90);
 
@@ -126,6 +146,12 @@
   background: var(--accent);
   color: var(--bg);
 }
+/* 危险按钮：红块 + 米色字，与主按钮同为"实心色块"，
+   靠色相与位置（最后一档）区分，而不是靠透明度 */
+:root[data-style="pixel"] .btn[data-variant="danger"] {
+  background: var(--danger);
+  color: var(--on-danger);
+}
 
 /* 输入框：厚边 + 硬阴影 */
 :root[data-style="pixel"] .field-control {
@@ -163,6 +189,30 @@
   font-size: var(--fs-xs);
   line-height: 1;
   padding: 2px var(--px);
+}
+/* 状态徽章恢复色块：像素风把状态当"第三个彩色块"，
+   不用半透明软底（上一条的 surface-1 会把它盖掉） */
+:root[data-style="pixel"] .badge[data-tone="danger"] {
+  background: var(--danger);
+  color: var(--on-danger);
+  border-color: var(--fg);
+}
+:root[data-style="pixel"] .badge[data-tone="ok"] {
+  background: var(--success);
+  color: var(--bg);
+  border-color: var(--fg);
+}
+:root[data-style="pixel"] .badge[data-tone="accent"] {
+  background: var(--accent);
+  color: var(--bg);
+}
+:root[data-style="pixel"] .tag[data-tone="danger"] {
+  background: var(--danger);
+  color: var(--on-danger);
+}
+:root[data-style="pixel"] .tag[data-tone="ok"] {
+  background: var(--success);
+  color: var(--bg);
 }
 
 /* 状态点改成方块 */

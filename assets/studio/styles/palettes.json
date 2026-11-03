@@ -1,0 +1,246 @@
+{
+  "schemaVersion": 1,
+  "note": "每个逻辑风格卡的预设配色。按 card 分组，玻璃三支共用同一组。值只描述 accent 与中性的 OKLCH 参数，其余 token 由变体 CSS 决定。",
+  "palettes": {
+    "minimalism": [
+      {
+        "id": "slate",
+        "name": "石板蓝",
+        "note": "冷蓝灰只在链接与焦点出现，其余交给留白",
+        "canonical": true,
+        "accent": { "L": 0.505, "C": 0.09, "H": 252 },
+        "neutral": { "H": 85, "C": 0.002 }
+      },
+      {
+        "id": "moss",
+        "name": "墨绿",
+        "note": "像档案室的绿台灯，安静但不发灰",
+        "accent": { "L": 0.5, "C": 0.075, "H": 165 },
+        "neutral": { "H": 85, "C": 0.002 }
+      },
+      {
+        "id": "graphite",
+        "name": "石墨",
+        "note": "几乎无彩的深灰，接近排版本身",
+        "accent": { "L": 0.5, "C": 0.025, "H": 250 },
+        "neutral": { "H": 85, "C": 0.002 }
+      }
+    ],
+    "bento": [
+      {
+        "id": "brick",
+        "name": "砖橙",
+        "note": "像旧仓库的外墙，格子之间更有分量",
+        "canonical": true,
+        "accent": { "L": 0.52, "C": 0.14, "H": 40 },
+        "neutral": { "H": 80, "C": 0.006 }
+      },
+      {
+        "id": "indigo",
+        "name": "靛蓝",
+        "note": "压住整屏，主格留一个暖点",
+        "accent": { "L": 0.48, "C": 0.125, "H": 265 },
+        "neutral": { "H": 80, "C": 0.006 }
+      },
+      {
+        "id": "olive",
+        "name": "橄榄",
+        "note": "不抢戏，配暖纸底的格子刚好",
+        "accent": { "L": 0.5, "C": 0.11, "H": 120 },
+        "neutral": { "H": 80, "C": 0.006 }
+      }
+    ],
+    "neumorphism": [
+      {
+        "id": "teal",
+        "name": "青绿",
+        "note": "像硅胶按键上的指示灯，软而不亮",
+        "canonical": true,
+        "accent": { "L": 0.492, "C": 0.075, "H": 200 },
+        "neutral": { "H": 250, "C": 0.004 }
+      },
+      {
+        "id": "blue-gray",
+        "name": "蓝灰",
+        "note": "最像实体面板上那道凹槽阴影",
+        "accent": { "L": 0.5, "C": 0.085, "H": 235 },
+        "neutral": { "H": 250, "C": 0.004 }
+      },
+      {
+        "id": "mauve",
+        "name": "灰紫",
+        "note": "偏软，适合铺一整片柔和的高光",
+        "accent": { "L": 0.52, "C": 0.08, "H": 300 },
+        "neutral": { "H": 250, "C": 0.004 }
+      }
+    ],
+    "neo-brutalism": [
+      {
+        "id": "yellow",
+        "name": "亮黄",
+        "note": "海报上最扎眼的一支，配黑字正好",
+        "canonical": true,
+        "accent": { "L": 0.862, "C": 0.155, "H": 95 },
+        "neutral": { "H": 90, "C": 0.02 }
+      },
+      {
+        "id": "lime",
+        "name": "柠绿",
+        "note": "荧光柠檬贴纸，比黄更清亮一点",
+        "accent": { "L": 0.5, "C": 0.125, "H": 125 },
+        "neutral": { "H": 90, "C": 0.02 }
+      },
+      {
+        "id": "magenta",
+        "name": "品红",
+        "note": "够吵的洋红，只让一个按钮出声",
+        "accent": { "L": 0.52, "C": 0.155, "H": 0 },
+        "neutral": { "H": 90, "C": 0.02 }
+      }
+    ],
+    "cyberpunk": [
+      {
+        "id": "magenta",
+        "name": "品红",
+        "note": "浅色模式的紫红，像打印出来的终端",
+        "canonical": true,
+        "accent": { "L": 0.52, "C": 0.19, "H": 330 },
+        "neutral": { "H": 200, "C": 0.01 }
+      },
+      {
+        "id": "cyan",
+        "name": "青荧光",
+        "note": "暗底上最像显像管，绿里带一点冷",
+        "accent": { "L": 0.5, "C": 0.085, "H": 190 },
+        "neutral": { "H": 200, "C": 0.01 }
+      },
+      {
+        "id": "magenta-deep",
+        "name": "深品红",
+        "note": "同一支颜色压暗一档，适合大面积描边",
+        "accent": { "L": 0.44, "C": 0.155, "H": 330 },
+        "neutral": { "H": 200, "C": 0.01 }
+      }
+    ],
+    "dark-tech": [
+      {
+        "id": "teal",
+        "name": "青绿",
+        "note": "仪器绿灯的那一支，只点亮实时数据",
+        "canonical": true,
+        "accent": { "L": 0.505, "C": 0.1, "H": 170 },
+        "neutral": { "H": 260, "C": 0.002 }
+      },
+      {
+        "id": "blue",
+        "name": "冷蓝",
+        "note": "更像夜里的控制室，冷得刚好",
+        "accent": { "L": 0.5, "C": 0.105, "H": 250 },
+        "neutral": { "H": 260, "C": 0.002 }
+      },
+      {
+        "id": "graphite",
+        "name": "近无彩",
+        "note": "几乎不上色，只留一点石墨蓝",
+        "accent": { "L": 0.42, "C": 0.018, "H": 260 },
+        "neutral": { "H": 260, "C": 0.002 }
+      }
+    ],
+    "pixel": [
+      {
+        "id": "red",
+        "name": "像素红",
+        "note": "掌机的标题和血条都靠它撑住",
+        "canonical": true,
+        "accent": { "L": 0.515, "C": 0.175, "H": 27 },
+        "neutral": { "H": 95, "C": 0.03 }
+      },
+      {
+        "id": "mustard",
+        "name": "芥黄",
+        "note": "旧屏幕的芥末黄，亮但不刺眼",
+        "accent": { "L": 0.5, "C": 0.1, "H": 90 },
+        "neutral": { "H": 95, "C": 0.03 }
+      },
+      {
+        "id": "blue",
+        "name": "深蓝",
+        "note": "游戏菜单那一支，和米色底最搭",
+        "accent": { "L": 0.48, "C": 0.16, "H": 260 },
+        "neutral": { "H": 95, "C": 0.03 }
+      }
+    ],
+    "material": [
+      {
+        "id": "teal",
+        "name": "青绿",
+        "note": "按钮和选中态同色，最像系统默认",
+        "canonical": true,
+        "accent": { "L": 0.455, "C": 0.085, "H": 175 },
+        "neutral": { "H": 45, "C": 0.008 }
+      },
+      {
+        "id": "orange",
+        "name": "暖橙",
+        "note": "像纸下透出的灯光，亲和一点",
+        "accent": { "L": 0.52, "C": 0.105, "H": 55 },
+        "neutral": { "H": 45, "C": 0.008 }
+      },
+      {
+        "id": "blue",
+        "name": "深蓝",
+        "note": "更稳，适合信息密度高的页面",
+        "accent": { "L": 0.45, "C": 0.1, "H": 250 },
+        "neutral": { "H": 45, "C": 0.008 }
+      }
+    ],
+    "gradient-aurora": [
+      {
+        "id": "violet",
+        "name": "冷紫",
+        "note": "紫到靛之间最稳的一档，光斑不刺眼",
+        "canonical": true,
+        "accent": { "L": 0.545, "C": 0.165, "H": 300 },
+        "neutral": { "H": 300, "C": 0.012 }
+      },
+      {
+        "id": "indigo",
+        "name": "靛蓝",
+        "note": "偏蓝的那一层光，比紫安静些",
+        "accent": { "L": 0.5, "C": 0.16, "H": 265 },
+        "neutral": { "H": 300, "C": 0.012 }
+      },
+      {
+        "id": "cyan",
+        "name": "冷青",
+        "note": "收尾用，和图表放在一起很安静",
+        "accent": { "L": 0.52, "C": 0.08, "H": 210 },
+        "neutral": { "H": 300, "C": 0.012 }
+      }
+    ],
+    "glassmorphism": [
+      {
+        "id": "violet",
+        "name": "冷紫",
+        "note": "压在雾面上，边缘会透出光",
+        "canonical": true,
+        "accent": { "L": 0.535, "C": 0.145, "H": 275 },
+        "neutral": { "H": 265, "C": 0.014 }
+      },
+      {
+        "id": "ice-blue",
+        "name": "冰蓝",
+        "note": "像玻璃后面的天空，清透一点",
+        "accent": { "L": 0.5, "C": 0.098, "H": 230 },
+        "neutral": { "H": 265, "C": 0.014 }
+      },
+      {
+        "id": "cyan-gray",
+        "name": "青灰",
+        "note": "最收敛的一支，适合大面积磨砂",
+        "accent": { "L": 0.5, "C": 0.085, "H": 200 },
+        "neutral": { "H": 265, "C": 0.014 }
+      }
+    ]
+  }
+}

@@ -24,6 +24,15 @@
   --accent: oklch(0.520 0.190 330);          /* #A1319B  品红，5.5:1 */
   --accent-hover: oklch(0.470 0.195 330);
   --accent-2: oklch(0.700 0.080 200);        /* 青色辅助 */
+  /* 状态色：只用卡片声明的两个荧光色相（青 185–195 / 品红 320–335）+
+     一个荧光黄做警告。danger 用品红（浅色下即 accent 色相，暗色下同色相提亮），
+     success 用主青，warning 用 H 80 的荧光黄；暗色下的辉光由签名段统一加。 */
+  --danger: oklch(0.520 0.190 330);          /* #A1319B  5.5:1 vs bg */
+  --danger-hover: oklch(0.475 0.195 330);
+  --danger-soft: color-mix(in oklab, var(--danger) 14%, transparent);
+  --on-danger: oklch(0.990 0 0);             /* #FCFCFC  5.9:1 vs danger */
+  --success: oklch(0.480 0.083 190);         /* #006C68  5.6:1 vs bg */
+  --warning: oklch(0.494 0.102 80);          /* #805A01  5.6:1 vs bg */
   --line-1: oklch(0.700 0.080 200);          /* #5CAEB2 */
   --line-inset: color-mix(in oklab, var(--accent) 45%, transparent);
 
@@ -67,6 +76,14 @@
   --accent: oklch(0.855 0.135 190);          /* #40EBE3  青，13.4:1 */
   --accent-hover: oklch(0.900 0.125 190);
   --accent-2: oklch(0.720 0.180 330);        /* 品红辅助 */
+  /* 暗色状态色：danger 换成品红荧光（浅色是青主/品红次，暗色是青主/品红次，
+     但危险语义必须落在品红上）；三者 L 都在 0.85，带荧光感 */
+  --danger: oklch(0.854 0.129 330);          /* #FFB0F7  12.1:1 vs bg */
+  --danger-hover: oklch(0.900 0.119 330);
+  --danger-soft: color-mix(in oklab, var(--danger) 16%, transparent);
+  --on-danger: oklch(0.145 0.020 280);       /* 深底反字 */
+  --success: oklch(0.854 0.147 190);         /* #06EDE4  13.4:1 vs bg */
+  --warning: oklch(0.854 0.141 80);          /* #FFC458  12.5:1 vs bg */
   --line-1: oklch(0.430 0.100 300);          /* #59417E */
   --line-inset: color-mix(in oklab, var(--accent) 55%, transparent);
 
@@ -172,6 +189,43 @@
 :root[data-style="cyberpunk"] .dot[data-tone="success"],
 :root[data-style="cyberpunk"] .dot[data-tone="danger"] {
   animation: cyber-pulse 1.2s steps(2, end) infinite;
+}
+
+/* 状态色的辉光是文字色/边框色的彩色扩散（本卡签名），
+   不是渐变：每个元素最多两层，与 accent 同一套辉光语言 */
+:root[data-style="cyberpunk"] .dot[data-tone="danger"] {
+  box-shadow: 0 0 6px color-mix(in oklab, var(--danger) 55%, transparent);
+}
+:root[data-style="cyberpunk"] .dot[data-tone="success"] {
+  box-shadow: 0 0 6px color-mix(in oklab, var(--success) 55%, transparent);
+}
+:root[data-style="cyberpunk"] .dot[data-tone="warn"] {
+  box-shadow: 0 0 6px color-mix(in oklab, var(--warning) 55%, transparent);
+}
+:root[data-style="cyberpunk"] .btn[data-variant="danger"] {
+  background: transparent;
+  border-color: var(--danger);
+  color: var(--danger);
+  box-shadow: 0 0 12px color-mix(in oklab, var(--danger) 40%, transparent);
+}
+:root[data-style="cyberpunk"] .btn[data-variant="danger"]:hover {
+  color: var(--danger-hover);
+  border-color: var(--danger-hover);
+  box-shadow: 0 0 18px color-mix(in oklab, var(--danger) 55%, transparent);
+}
+:root[data-style="cyberpunk"] .tag[data-tone="danger"],
+:root[data-style="cyberpunk"] .tag[data-tone="ok"] {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px currentColor,
+              0 0 8px color-mix(in oklab, currentColor 30%, transparent);
+}
+:root[data-style="cyberpunk"] .badge[data-tone="danger"],
+:root[data-style="cyberpunk"] .badge[data-tone="ok"] {
+  color: var(--on-danger);
+  box-shadow: 0 0 10px color-mix(in oklab, var(--danger) 40%, transparent);
+}
+:root[data-style="cyberpunk"] .badge[data-tone="ok"] {
+  box-shadow: 0 0 10px color-mix(in oklab, var(--success) 40%, transparent);
 }
 
 /* --------------------------------------------------------------------------

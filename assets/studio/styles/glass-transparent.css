@@ -15,18 +15,26 @@
    -------------------------------------------------------------------------- */
 
 :root[data-style="glass-transparent"] {
-  /* 与 frosted 同一色相家族，但整体更暗一档——透明玻璃需要更深的底才立得住 */
-  --bg: oklch(0.950 0.016 265);              /* #E7EDF9 */
-  --surface-1: oklch(0.930 0.016 265);       /* #DFE6F4  ΔL 0.020 */
-  --surface-2: oklch(0.906 0.016 265);       /* #D7DFEF  ΔL 0.024 */
-  --surface-3: oklch(0.880 0.016 265);       /* #CED7E9  ΔL 0.026 */
-  --surface-sunken: oklch(0.920 0.016 265);
-  --fg: oklch(0.220 0.022 265);              /* #141926  16.0:1 */
-  --fg-muted: oklch(0.445 0.022 265);        /* #4B5163  7.1:1 */
-  --accent: oklch(0.520 0.150 275);          /* #4F5BBC  4.9:1 */
-  --accent-hover: oklch(0.475 0.155 275);
-  --line-1: oklch(0.870 0.022 265);          /* #CBD3E4 */
-  --line-inset: color-mix(in oklab, var(--fg) 12%, transparent);
+  /* 基座：与 liquid / frosted 完全一致（三支共用；透明玻璃的差异只在 --tint-* /
+     --edge-* / --text-scrim 与签名段，不另立一套中性色） */
+  --bg: oklch(0.965 0.014 265);              /* #EFF4FD */
+  --surface-1: oklch(0.948 0.014 265);       /* #E9EEF8  ΔL 0.017 */
+  --surface-2: oklch(0.928 0.014 265);       /* #E3E7F1  ΔL 0.020 */
+  --surface-3: oklch(0.905 0.014 265);       /* #DBE0E9  ΔL 0.023 */
+  --surface-sunken: oklch(0.940 0.014 265);
+  --fg: oklch(0.230 0.020 265);              /* #181D27  15.3:1 */
+  --fg-muted: oklch(0.455 0.020 265);        /* #515762  6.6:1 */
+  --accent: oklch(0.535 0.145 275);          /* #5762C0  4.8:1 */
+  --accent-hover: oklch(0.490 0.150 275);
+  /* 状态色：与 liquid / frosted 同一套（三支共用） */
+  --danger: oklch(0.516 0.145 20);           /* #AB3C44  5.5:1 vs bg */
+  --danger-hover: oklch(0.474 0.150 20);
+  --danger-soft: color-mix(in oklab, var(--danger) 10%, transparent);
+  --on-danger: oklch(0.990 0 0);             /* #FCFCFC */
+  --success: oklch(0.478 0.118 155);         /* #00703E  5.6:1 vs bg */
+  --warning: oklch(0.498 0.108 70);          /* #895600  5.6:1 vs bg */
+  --line-1: oklch(0.900 0.020 265);          /* #D7DEEC */
+  --line-inset: color-mix(in oklab, var(--fg) 8%, transparent);
 
   --r-sm: 10px;
   --r-md: 16px;
@@ -57,17 +65,24 @@
 }
 
 :root[data-style="glass-transparent"][data-theme="dark"] {
-  --bg: oklch(0.180 0.028 270);              /* #0D1220 */
-  --surface-1: oklch(0.205 0.028 270);       /* #121828  ΔL 0.025 */
-  --surface-2: oklch(0.230 0.028 270);       /* #181E2F  ΔL 0.025 */
-  --surface-3: oklch(0.255 0.028 270);       /* #1E2436  ΔL 0.025 */
-  --surface-sunken: oklch(0.165 0.028 270);
-  --fg: oklch(0.935 0.012 270);              /* #E6EAF3  15.7:1 */
-  --fg-muted: oklch(0.735 0.018 270);        /* #A5AAB8  8.0:1 */
-  --accent: oklch(0.800 0.110 280);          /* #B6BCFF  10.2:1 */
-  --accent-hover: oklch(0.850 0.100 280);
-  --line-1: oklch(0.335 0.028 270);          /* #31384B */
-  --line-inset: color-mix(in oklab, var(--fg) 9%, transparent);
+  --bg: oklch(0.170 0.025 270);              /* #0B0F1A */
+  --surface-1: oklch(0.195 0.025 270);       /* #101420  ΔL 0.025 */
+  --surface-2: oklch(0.220 0.025 270);       /* #161A26  ΔL 0.025 */
+  --surface-3: oklch(0.246 0.025 270);       /* #1C202D  ΔL 0.026 */
+  --surface-sunken: oklch(0.155 0.025 270);
+  --fg: oklch(0.940 0.010 270);              /* #E8EBF2  16.1:1 */
+  --fg-muted: oklch(0.740 0.015 270);        /* #A7ABB5  8.3:1 */
+  --accent: oklch(0.790 0.105 280);          /* #ADB3FD  10.0:1 */
+  --accent-hover: oklch(0.840 0.095 280);
+  /* 状态色暗色套：与 liquid / frosted 同一套 */
+  --danger: oklch(0.790 0.122 20);           /* #FF9A9A  9.4:1 vs bg */
+  --danger-hover: oklch(0.840 0.112 20);
+  --danger-soft: color-mix(in oklab, var(--danger) 14%, transparent);
+  --on-danger: oklch(0.170 0.020 20);
+  --success: oklch(0.790 0.145 155);         /* #62D691  10.5:1 vs bg */
+  --warning: oklch(0.790 0.145 70);          /* #F5A843  9.7:1 vs bg */
+  --line-1: oklch(0.340 0.025 270);          /* #333845 */
+  --line-inset: color-mix(in oklab, var(--fg) 8%, transparent);
 
   --shadow-1: 0 2px 10px -2px rgb(0 0 0 / 0.45);
   --shadow-2: 0 12px 40px -12px rgb(0 0 0 / 0.60);
@@ -171,6 +186,13 @@
 :root[data-style="glass-transparent"] .btn[data-variant="primary"] {
   background: color-mix(in oklab, var(--accent) 72%, transparent);
   color: var(--on-accent);
+  border-color: var(--edge-top);
+}
+/* 危险按钮：透明度下限 88%（85% 时 on-danger 只有 4.36:1）；
+   透明玻璃的按钮本来就比另两支更不透明，这里只是沿用同一档 */
+:root[data-style="glass-transparent"] .btn[data-variant="danger"] {
+  background: color-mix(in oklab, var(--danger) 88%, transparent);
+  color: var(--on-danger);
   border-color: var(--edge-top);
 }
 

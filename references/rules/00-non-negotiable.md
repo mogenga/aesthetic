@@ -2,7 +2,7 @@
 
 > 什么时候读这份：`check-tokens.mjs` / `audit.mjs` 报错要查原文；写 `contract.md` 第 8 段；用户要求覆盖某条规则、需要知道要登记什么；注入块里的一行字被质疑"凭什么"。
 
-本文是规则的**唯一全文**。`SKILL.md` §4 是压缩版，`contract.md` 第 8 段是"本项目取值"，两者都以本文为准；本文的数值以 `SKILL-DESIGN.md` §6 为准。
+本文是规则的**唯一全文**。`SKILL.md` §4 是压缩版，`contract.md` 第 8 段是"本项目取值"，两者都以本文为准。
 
 规则不是教条。它们是可以被推翻的默认值——但推翻必须留痕，见文末「override」。
 
@@ -12,9 +12,12 @@
 
 | 级别 | 含义 | 用户能否覆盖 | 覆盖要做什么 | 参与闸门 |
 |---|---|---|---|---|
-| **MUST** | 默认必须满足，违反即 `status: fail` | 能 | 在 `decisions.json.overrides[]` 登记九字段，且该 override 的 `verification` 必须在 G4 被满足 | 是 |
+| **MUST** | 默认必须满足，违反即 `status: fail` | 能 | 在 `decisions.json.overrides[]` 登记十字段（含可复算的 `guard`），且该 override 的 `verification` 必须在 G4 被满足 | 是 |
 | **SHOULD** | 推荐满足，偏离要说明 | 能 | 在 `alignment-report.md` 记录原因，不必进 `overrides` | 偏离需在报告登记 |
 | **ADVISORY** | 提示性建议 | 能 | 什么都不用做 | 否 |
+| **REFLEX** | **模型的默认手**，不是违规；看起来合理，但通常没经过判断 | 能 | **不走 overrides 十字段**，在 `alignment-report.md` 的 Reflex 登记区写理由 | 否 |
+
+**REFLEX 是另一条轴。** 前三档按**强度**分（这样做对不对），REFLEX 按**来源**分（这是不是模型想都没想就会做的默认手）。因此 R1–R9 仍然只在 MUST / SHOULD / ADVISORY 里分级，本文仍是它们的唯一全文；REFLEX 的 X1–X9 清单与逐条留痕在 [`../reflex.md`](../reflex.md)。**决定不做某条 REFLEX，本身不需要 override**，但要登记「为什么这次判断优先于惯性」。
 
 三条口径：
 
@@ -25,7 +28,7 @@
 **优先级链**（冲突时从上往下）：
 
 ```
-用户显式要求 > MUST 规则 > 导演层方向 > SHOULD 规则 > 检测器默认规则 > 模型默认
+用户显式要求 > MUST 规则 > 导演层方向 > SHOULD 规则 > 检测器默认规则 > 模型默认（= REFLEX）
 ```
 
 ---
@@ -218,7 +221,7 @@
 
 **override = 对某条规则的显式豁免，登记才成立。**
 
-### 4.1 九字段
+### 4.1 十字段
 
 | 字段 | 类型 | 约束 | 写什么 |
 |---|---|---|---|
@@ -226,24 +229,53 @@
 | `scope` | string | 非空 | **必须包含被豁免的 token 名**，如 `neo-brutalism.border` 不会豁免 `--bg` |
 | `requestedValue` | 任意 | — | 用户要的值，原样记录 |
 | `effectiveValue` | 任意 | — | 最终写进 token 的值（通常与 `requestedValue` 相同） |
-| `reason` | string | 非空 | 为什么覆盖。写"用户坚持"可以，写"设计需要"不行 |
-| `approvedBy` | string | 非空 | `user` 或具体人名；agent 不能自批 |
+| `reason` | string | ≥ 24 个字符，不含套话 | 为什么覆盖。写"用户坚持"可以，写"设计需要"不行 |
+| `guard` | string | ≥ 12 个字符，至少一条断言可复算 | **脚本能重算的豁免依据**，见 4.2 |
+| `approvedBy` | string | 非空；不能是 agent | `user` 或具体人名；agent 不能自批（`OV3`） |
 | `createdAt` | string | `date-time` | ISO 8601，带时区 |
 | `expiresAt` | string \| null | — | 永不过期写 `null`；临时豁免写日期 |
 | `verification` | string | 非空 | **G4 怎么验证这条豁免是有意的**，如 `impeccable-disable overused-black` |
 
-**缺任一项 = 未登记覆盖**：`check-tokens.mjs` 规则 `O1` 报错，G4 不通过。
+**缺任一项 = 未登记覆盖**：`check-tokens.mjs` 规则 `OV1` 报错，G4 不通过。
 
-### 4.2 登记流程
+### 4.2 guard：豁免依据必须可复算
+
+`reason` 是给人看的，`guard` 是给脚本算的。**写不出 guard 的覆盖，通常说明 guard 根本不成立**——只能写"这个风格就是需要"，那多半不是证据，只是偏好。
+
+`guard` 是分号分隔的断言列表，每条形如 `key: value`。`check-tokens.mjs` 只识别四种 key：
+
+| key | 格式 | 复算方式 |
+|---|---|---|
+| `token` | `token: bg` | token 名必须存在于 `decisions.color` 任一主题，或已生成 `tokens.json` 的 token 列表；不存在 → `OV2` |
+| `contrast` | `contrast: fg/bg >= 4.5`（`≥` 同义） | 两个名字都必须是同一主题下的 color token；用 `scripts/lib/oklch.mjs` 的 `contrastRatio` 重算，不达标 → `OV2` |
+| `deltaL` | `deltaL: 0.010-0.030` | `surfaceLadder.step[]` 必须全部落在区间内；越界 → `OV2` |
+| `surface` | `surface: surface-2` | 必须匹配 `^(bg\|surface-[123]\|surface-sunken)$`；否则 `OV2` |
+
+规则：
+
+1. **至少一条可识别断言通过**，否则 `OV2: guard 无法复算`。
+2. 不认识的 key（`vibe: 很酷`）只记 `ADVISORY`，不阻断，也不构成证据。
+3. guard 的断言与 `reason` 是两套证据：前者证明技术条件成立，后者解释为什么值得违反默认值。两条都要有。
+
+### 4.3 reason 的最低质量线
+
+- 长度按 Unicode 字符数算，**CJK 算 1**，不足 24 → `OV1`。
+- 命中套话黑名单 → `OV1`。至少包含：`无`、`按需`、`暂时`、`以后再说`、`TODO`、`设计需要`、`品牌需要`、`用户要求`、`保持一致性`。其中 `用户要求` / `保持一致性` 只在**单独成句**时算套话——"用户要求把描边加深到 2px" 是有效信息。
+- 与另一条 override 的 `reason` 逐字相同 → `OV1`（复制粘贴不是两个决策）。
+- `approvedBy` 匹配 `^(agent|claude|assistant|ai|模型)$`（不区分大小写）→ `OV3`：**豁免必须由用户批准**。
+- 同一 `rule` + 同一 `scope` 登记两次 → `OV4`。同一规则、不同 scope 是合法的——R3 对不同 token 各登记一条正是正常用法。
+
+### 4.4 登记流程
 
 1. **在 P2.5 / P5 发现冲突时停下来**，不要先写代码再补登记。
 2. **回显代价**："这条会让卡片层级在低质量屏上消失"——说清后果，再问要不要。
 3. **用户明确同意**。没有明确同意 = 不走 override，走正常实现。
-4. **写入 `decisions.json.overrides[]`**，九字段齐全；`scope` 里带 token 名。
+4. **写入 `decisions.json.overrides[]`**，十字段齐全；`scope` 里带 token 名；`guard` 写成脚本能重算的断言。
 5. **跑 `build.mjs`**，让 `contract.md` §3.4 与注入块同步；`contract.md` 里"刻意偏离"写进第 9 段。
 6. **在 G4 满足 `verification`**：跑对应命令或截图，把结果贴进 `alignment-report.md`。
+7. **重跑 `check-tokens.mjs`**：`OV1`–`OV4` 应清零；`ADVISORY` 是提示，不是通过。
 
-### 4.3 示例
+### 4.5 示例
 
 ```json
 {
@@ -251,25 +283,30 @@
   "scope": "neo-brutalism.border",
   "requestedValue": "#000",
   "effectiveValue": "#000",
-  "reason": "风格卡声明纯黑描边是签名元素，用户确认保留",
+  "reason": "硬边阴影需要与浅色米底形成无过渡边缘，任何灰度的阴影在 1x 屏上都会因次像素抗锯齿露出浅灰缝，这是这个风格最不能容忍的",
+  "guard": "token: fg; contrast: fg/bg >= 4.5",
   "approvedBy": "user",
   "createdAt": "2026-11-01T10:00:00Z",
   "expiresAt": null,
-  "verification": "impeccable-disable overused-black"
+  "verification": "check-tokens --allow-black-border 通过"
 }
 ```
 
 ```bash
 # 登记完必须重跑，让合同与注入块跟着变
 node scripts/build.mjs --project <dir>
-node scripts/check-tokens.mjs --project <dir>   # O1 应清零
+node scripts/check-tokens.mjs --project <dir>   # OV1–OV4 应清零
 ```
 
-### 4.4 常见写错
+### 4.6 常见写错
 
 | 写法 | 为什么错 |
 |---|---|
-| 只写 `reason: "设计需要"` | 三个月后没人能判断这是决策还是偷懒 |
+| 只写 `reason: "设计需要"` | 三个月后没人能判断这是决策还是偷懒；长度与套话两条都过不了 |
+| `reason: "无"` | 旧 schema 只查非空，现在长度 < 24 且命中黑名单，报两次 |
+| `guard: "随便"` | 没有任何可识别断言，`OV2: guard 无法复算` |
+| `guard: "token: my-color"` | token 不存在，`OV2`——引用了不存在的依据 |
+| `guard: "contrast: fg/bg >= 7"` 但实测 4.6 | 断言必须真的成立，脚本会重算 |
 | `approvedBy: "aesthetic"` | agent 不能自批；只能是用户 |
 | `scope: "全局"` | L1 按 `scope.includes(token 名)` 匹配豁免，`全局` 匹配不到任何 token |
 | `verification: "以后再说"` | 无法执行 = 无法通过 G4 |
@@ -291,6 +328,6 @@ node scripts/check-tokens.mjs --project <dir>   # O1 应清零
 | R7 | — | `audit.mjs` L2 | `tabular-nums` 生效或无位移换行 |
 | R8 | — | `audit.mjs` L2 | 无外层框、组间 40–48、控件右缘一致 |
 | R9 | `A11Y`（必填语义）、`audit.mjs` | L1 + L2 | 输入全宽、字段间距 24、错误态不跳 |
-| override | `O1` | `check-tokens.mjs` L1 | 九字段齐全 |
+| override | `OV1`–`OV4` | `check-tokens.mjs` L1 | 十字段齐全，guard 可复算，reason 非套话，用户批准，无重复 |
 
 **只有 `alignment-report.md` 的机读块是 `status: pass` 时，以上才算通过。** 全绿但结论是 `conditional`，任务仍然没完成。

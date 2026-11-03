@@ -24,8 +24,15 @@
   --fg-muted: oklch(0.455 0.020 265);        /* #515762  6.6:1 */
   --accent: oklch(0.535 0.145 275);          /* #5762C0  4.8:1 */
   --accent-hover: oklch(0.490 0.150 275);
+  /* 状态色：三支共用一套（基座冷紫灰 + accent L 0.535 带） */
+  --danger: oklch(0.516 0.145 20);           /* #AB3C44  5.5:1 vs bg */
+  --danger-hover: oklch(0.474 0.150 20);
+  --danger-soft: color-mix(in oklab, var(--danger) 10%, transparent);
+  --on-danger: oklch(0.990 0 0);             /* #FCFCFC */
+  --success: oklch(0.478 0.118 155);         /* #00703E  5.6:1 vs bg */
+  --warning: oklch(0.498 0.108 70);          /* #895600  5.6:1 vs bg */
   --line-1: oklch(0.900 0.020 265);          /* #D7DEEC */
-  --line-inset: color-mix(in oklab, var(--fg) 10%, transparent);
+  --line-inset: color-mix(in oklab, var(--fg) 8%, transparent);
 
   /* 小圆角会在倒角处露出模糊断裂 */
   --r-sm: 10px;
@@ -67,6 +74,13 @@
   --fg-muted: oklch(0.740 0.015 270);        /* #A7ABB5  8.3:1 */
   --accent: oklch(0.790 0.105 280);          /* #ADB3FD  10.0:1 */
   --accent-hover: oklch(0.840 0.095 280);
+  /* 状态色暗色套：L 提到 accent 带，不是浅色压暗 */
+  --danger: oklch(0.790 0.122 20);           /* #FF9A9A  9.4:1 vs bg */
+  --danger-hover: oklch(0.840 0.112 20);
+  --danger-soft: color-mix(in oklab, var(--danger) 14%, transparent);
+  --on-danger: oklch(0.170 0.020 20);
+  --success: oklch(0.790 0.145 155);         /* #62D691  10.5:1 vs bg */
+  --warning: oklch(0.790 0.145 70);          /* #F5A843  9.7:1 vs bg */
   --line-1: oklch(0.340 0.025 270);          /* #333845 */
   --line-inset: color-mix(in oklab, var(--fg) 8%, transparent);
 
@@ -166,6 +180,12 @@
 :root[data-style="glass-frosted"] .btn[data-variant="primary"] {
   background: color-mix(in oklab, var(--accent) 78%, transparent);
   color: var(--on-accent);
+  border-color: color-mix(in oklab, white 26%, transparent);
+}
+/* 危险按钮：玻璃胶囊里灌 status 色，下限 88%（85% 时 on-danger 只有 4.36:1） */
+:root[data-style="glass-frosted"] .btn[data-variant="danger"] {
+  background: color-mix(in oklab, var(--danger) 88%, transparent);
+  color: var(--on-danger);
   border-color: color-mix(in oklab, white 26%, transparent);
 }
 

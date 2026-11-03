@@ -129,13 +129,18 @@
       "items": {
         "type": "object",
         "required": ["rule", "scope", "requestedValue", "effectiveValue",
-                     "reason", "approvedBy", "createdAt", "expiresAt", "verification"],
+                     "reason", "guard", "approvedBy", "createdAt", "expiresAt", "verification"],
         "properties": {
           "rule": { "type": "string", "pattern": "^(R[1-9]|A11Y|T2)$" },
           "scope": { "type": "string", "minLength": 1 },
           "requestedValue": {},
           "effectiveValue": {},
-          "reason": { "type": "string", "minLength": 1 },
+          "reason": { "type": "string", "minLength": 24 },
+          "guard": {
+            "type": "string",
+            "minLength": 12,
+            "description": "可复算的豁免依据。分号分隔的断言，每条形如 `key: value`。识别 token / contrast / deltaL / surface 四种 key。"
+          },
           "approvedBy": { "type": "string", "minLength": 1 },
           "createdAt": { "type": "string", "format": "date-time" },
           "expiresAt": { "type": ["string", "null"] },

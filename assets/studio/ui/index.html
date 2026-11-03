@@ -157,12 +157,22 @@
         </div>
       </section>
 
+      <!-- 配色方案：选风格时用户已经表达过一次意图，这里直接给该风格的成品配色。
+           自由调色降级为下面的「高级微调」，主路径是「点一下就用」。 -->
+      <section class="block" id="schemes-block">
+        <div class="block-head">
+          <h2>配色方案</h2>
+          <span class="scheme-badge" id="schemes-badge" hidden>已微调</span>
+        </div>
+        <p class="schemes-sub" id="schemes-sub">三个方案 · 都符合当前风格</p>
+        <!-- 方案卡由 studio.js 按 state.styleCard 从 palettes.json 渲染。
+             用 role=radio 而不是原生 radio：微调后三个方案都不选中，
+             原生 radio 组在全不选中时没有 Tab 落点。 -->
+        <div class="scheme-list" id="scheme-list" role="radiogroup" aria-label="预设配色方案"></div>
+      </section>
+
       <section class="block">
         <div class="block-head"><h2>色板</h2><span class="block-sub" id="palette-sub">OKLCH</span></div>
-        <p class="palette-intro">
-          色值框、色环与滑块改的是同一组值，任意一处改动其余同步。
-          它们只改主色与中性色系；状态色（danger / success / warning）保持项目原值，不随滑块走。
-        </p>
 
         <!-- 当前主色：整个调色台的视觉锚点。
              先前信息从色值框到 token 长列表平铺，没有一处回答「我现在选的是什么」。
@@ -203,97 +213,112 @@
              字符串挤到换行；整行可点 + 右侧复制图标，命中面积更大且不占宽。 -->
         <div class="format-list" id="format-list" aria-label="色值格式（点击复制）"></div>
 
-        <div class="pick-head">
-          <span class="pick-title">取色</span>
-        </div>
+        <!-- 自由调色收进默认收起的折叠区。
+             风格已经把配色方向定好了；色环 + 四个滑块摊在页面上，等于让用户
+             再从零调一遍，把设计决策推回去。需要精确色值的人才展开。 -->
+        <details class="advanced" id="advanced-panel">
+          <summary class="advanced-summary">
+            <span class="advanced-title">高级微调</span>
+            <span class="advanced-sub">需要精确色值时用；改动会标记为「已微调」</span>
+          </summary>
+          <div class="advanced-body">
+            <p class="palette-intro">
+              色值框、色环与滑块改的是同一组值，任意一处改动其余同步。
+              它们只改主色与中性色系；状态色（danger / success / warning）保持项目原值，不随滑块走。
+            </p>
 
-        <!--
-          新色轮：外环 = 色相（永远完整），内部 = 当前色相的 C × L 二维平面。
-          旧实现按极坐标逐像素画 OKLCH，超出 sRGB 的点直接透明 —— 默认 L 0.52 时
-          只有一小块扇形有颜色，屏幕上看起来像坏掉的控件。
-          现在外环只依赖色相，任何 L 下都满载；内部平面按像素判断是否在色域内，
-          超域区域降透明度并画一条色域边界线，诚实地表示「这块屏幕显示不出来」，
-          而不是留一大片空白。（结构同 Chrome DevTools 的取色器与 oklch.com：
-          色相与明度 / 彩度分开，色域边界可视化。）
-        -->
-        <div class="wheel-wrap" id="wheel-wrap">
-          <!-- role=group 而不是 application：application 会让屏幕阅读器交出
-               全部键盘事件，要求控件自己实现完整的键盘模型；这里只实现了
-               方向键 / Home / PageUp•PageDown，用 group + 明确的 aria-label
-               更诚实 —— 读屏用户仍能听到当前值与操作说明。 -->
-          <canvas id="accent-wheel" width="212" height="212" tabindex="0"
-                  role="group"
-                  aria-label="取色盘：外环调色相，内部平面调彩度与明度"
-                  aria-describedby="wheel-hint wheel-value"
-                  aria-valuenow="250" aria-valuetext="色相 250°"></canvas>
-          <span class="sr-only" id="wheel-value" aria-live="polite"></span>
-          <span class="wheel-marker" id="accent-wheel-marker" aria-hidden="true"></span>
-          <!-- 平面标记与回位标记是两件事：外环标记表示当前色相，平面标记表示当前 C / L。 -->
-          <span class="wheel-marker is-plane" id="accent-plane-marker" aria-hidden="true"></span>
-        </div>
-        <p class="wheel-hint" id="wheel-hint">
-          外环：色相 · 内部：横轴彩度 ↑ 向右增大，纵轴明度 ↑ 向上变亮。虚线内是这台显示器能显示的 sRGB 色域。
-        </p>
-        <div class="wheel-legend" aria-hidden="true">
-          <span class="legend-item"><i class="legend-dot in"></i>色域内</span>
-          <span class="legend-item"><i class="legend-dot out"></i>超出 sRGB（降饱和显示）</span>
-        </div>
+            <div class="pick-head">
+              <span class="pick-title">取色</span>
+            </div>
 
-        <!-- 色相：滑块 + 数字框（保留原有两条输入路径） -->
-        <div class="slider">
-          <span class="slider-label">主色色相</span>
-          <input type="range" id="accent-hue" min="0" max="360" step="1" value="250" aria-label="主色色相滑块">
-          <span class="slider-value">
-            <output id="accent-hue-out">250°</output>
-            <input type="number" id="accent-hue-num" min="0" max="360" step="1" value="250"
-                   aria-label="主色色相数值（0–360）">
-            <i class="slider-chip" id="accent-hue-chip" aria-hidden="true"></i>
-          </span>
-        </div>
-        <p class="slider-influence">影响：accent、accent-hover，以及由 accent 派生的 focus ring。</p>
+          <!--
+            新色轮：外环 = 色相（永远完整），内部 = 当前色相的 C × L 二维平面。
+            旧实现按极坐标逐像素画 OKLCH，超出 sRGB 的点直接透明 —— 默认 L 0.52 时
+            只有一小块扇形有颜色，屏幕上看起来像坏掉的控件。
+            现在外环只依赖色相，任何 L 下都满载；内部平面按像素判断是否在色域内，
+            超域区域降透明度并画一条色域边界线，诚实地表示「这块屏幕显示不出来」，
+            而不是留一大片空白。（结构同 Chrome DevTools 的取色器与 oklch.com：
+            色相与明度 / 彩度分开，色域边界可视化。）
+          -->          <div class="wheel-wrap" id="wheel-wrap">
+            <!-- role=group 而不是 application：application 会让屏幕阅读器交出
+                 全部键盘事件，要求控件自己实现完整的键盘模型；这里只实现了
+                 方向键 / Home / PageUp•PageDown，用 group + 明确的 aria-label
+                 更诚实 —— 读屏用户仍能听到当前值与操作说明。 -->
+            <canvas id="accent-wheel" width="212" height="212" tabindex="0"
+                    role="group"
+                    aria-label="取色盘：外环调色相，内部平面调彩度与明度"
+                    aria-describedby="wheel-hint wheel-value"
+                    aria-valuenow="250" aria-valuetext="色相 250°"></canvas>
+            <span class="sr-only" id="wheel-value" aria-live="polite"></span>
+            <span class="wheel-marker" id="accent-wheel-marker" aria-hidden="true"></span>
+            <!-- 平面标记与回位标记是两件事：外环标记表示当前色相，平面标记表示当前 C / L。 -->
+            <span class="wheel-marker is-plane" id="accent-plane-marker" aria-hidden="true"></span>
+          </div>
+          <p class="wheel-hint" id="wheel-hint">
+            外环：色相 · 内部：横轴彩度 ↑ 向右增大，纵轴明度 ↑ 向上变亮。虚线内是这台显示器能显示的 sRGB 色域。
+          </p>
+          <div class="wheel-legend" aria-hidden="true">
+            <span class="legend-item"><i class="legend-dot in"></i>色域内</span>
+            <span class="legend-item"><i class="legend-dot out"></i>超出 sRGB（降饱和显示）</span>
+          </div>
 
-        <!-- 色值输入挪到滑块之后：顶部色卡已经显示当前色，这里只作为「精确输入」的入口 -->
-        <label class="field hex-field">
-          <span class="field-label">直接输入色值（#hex / rgb() / hsl() / oklch()）</span>
-          <input type="text" id="accent-hex" autocomplete="off" spellcheck="false"
-                 aria-label="主色色值，支持 #hex、rgb()、hsl()、oklch()" placeholder="#F2D045">
-        </label>
-        <p class="input-msg" id="accent-hex-msg" hidden role="alert"></p>
-        <p class="hex-echo" id="accent-hex-echo" aria-live="polite"></p>
+          <!-- 色相：滑块 + 数字框（保留原有两条输入路径） -->
+          <div class="slider">
+            <span class="slider-label">主色色相</span>
+            <input type="range" id="accent-hue" min="0" max="360" step="1" value="250" aria-label="主色色相滑块">
+            <span class="slider-value">
+              <output id="accent-hue-out">250°</output>
+              <input type="number" id="accent-hue-num" min="0" max="360" step="1" value="250"
+                     aria-label="主色色相数值（0–360）">
+              <i class="slider-chip" id="accent-hue-chip" aria-hidden="true"></i>
+            </span>
+          </div>
+          <p class="slider-influence">影响：accent、accent-hover，以及由 accent 派生的 focus ring。</p>
 
-        <div class="slider">
-          <span class="slider-label">彩度</span>
-          <input type="range" id="accent-chroma" min="0" max="0.4" step="0.005" value="0.12" aria-label="主色彩度滑块">
-          <span class="slider-value">
-            <output id="accent-chroma-out">C 0.120</output>
-            <i class="slider-chip" id="accent-chroma-chip" aria-hidden="true"></i>
-          </span>
-        </div>
-        <p class="slider-influence">影响：accent 的 C（上限受转写表「彩度上限」约束）。</p>
+          <!-- 色值输入挪到滑块之后：顶部色卡已经显示当前色，这里只作为「精确输入」的入口 -->
+          <label class="field hex-field">
+            <span class="field-label">直接输入色值（#hex / rgb() / hsl() / oklch()）</span>
+            <input type="text" id="accent-hex" autocomplete="off" spellcheck="false"
+                   aria-label="主色色值，支持 #hex、rgb()、hsl()、oklch()" placeholder="#F2D045">
+          </label>
+          <p class="input-msg" id="accent-hex-msg" hidden role="alert"></p>
+          <p class="hex-echo" id="accent-hex-echo" aria-live="polite"></p>
 
-        <div class="slider">
-          <span class="slider-label">明度</span>
-          <input type="range" id="accent-light" min="0.2" max="0.95" step="0.005" value="0.52" aria-label="主色明度滑块">
-          <span class="slider-value">
-            <output id="accent-light-out">L 0.520</output>
-            <i class="slider-chip" id="accent-light-chip" aria-hidden="true"></i>
-          </span>
-        </div>
-        <div class="light-actions">
-          <button type="button" id="accent-light-follow" class="mini-btn" aria-pressed="true">跟随主题</button>
-          <span class="mini-note" id="accent-light-note">跟随项目 accent 的 L</span>
-        </div>
-        <p class="slider-influence">影响：accent 的 L；手动改过后不再跟随项目值，点「跟随主题」复位。</p>
+          <div class="slider">
+            <span class="slider-label">彩度</span>
+            <input type="range" id="accent-chroma" min="0" max="0.4" step="0.005" value="0.12" aria-label="主色彩度滑块">
+            <span class="slider-value">
+              <output id="accent-chroma-out">C 0.120</output>
+              <i class="slider-chip" id="accent-chroma-chip" aria-hidden="true"></i>
+            </span>
+          </div>
+          <p class="slider-influence">影响：accent 的 C（上限受转写表「彩度上限」约束）。</p>
 
-        <div class="slider">
-          <span class="slider-label">中性温度</span>
-          <input type="range" id="neutral-temp" min="0" max="100" step="1" value="0" aria-label="中性色温度滑块">
-          <span class="slider-value">
-            <output id="neutral-temp-out">H 250 · 冷</output>
-            <i class="slider-chip" id="neutral-temp-chip" aria-hidden="true"></i>
-          </span>
-        </div>
-        <p class="slider-influence">影响：bg / surface-1..3 / surface-sunken / fg / fg-muted / line-1..2 / line-inset 的色相。</p>
+          <div class="slider">
+            <span class="slider-label">明度</span>
+            <input type="range" id="accent-light" min="0.2" max="0.95" step="0.005" value="0.52" aria-label="主色明度滑块">
+            <span class="slider-value">
+              <output id="accent-light-out">L 0.520</output>
+              <i class="slider-chip" id="accent-light-chip" aria-hidden="true"></i>
+            </span>
+          </div>
+          <div class="light-actions">
+            <button type="button" id="accent-light-follow" class="mini-btn" aria-pressed="true">跟随主题</button>
+            <span class="mini-note" id="accent-light-note">跟随项目 accent 的 L</span>
+          </div>
+          <p class="slider-influence">影响：accent 的 L；手动改过后不再跟随项目值，点「跟随主题」复位。</p>
+
+          <div class="slider">
+            <span class="slider-label">中性温度</span>
+            <input type="range" id="neutral-temp" min="0" max="100" step="1" value="0" aria-label="中性色温度滑块">
+            <span class="slider-value">
+              <output id="neutral-temp-out">H 250 · 冷</output>
+              <i class="slider-chip" id="neutral-temp-chip" aria-hidden="true"></i>
+            </span>
+          </div>
+          <p class="slider-influence">影响：bg / surface-1..3 / surface-sunken / fg / fg-muted / line-1..2 / line-inset 的色相。</p>
+          </div>
+        </details>
       </section>
 
       <!-- 七样本缩略条：收起状态下的唯一入口。

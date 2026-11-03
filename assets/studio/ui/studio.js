@@ -275,6 +275,11 @@ const state = {
   // 画廊里选了风格后，配色基线换成该变体自己的 token（见 colorSet）
   variantPicked: false, variantColor: null, variantColorCache: null, loadedFrameVariant: null,
   neutralPinned: null,
+  // 配色方案的关系状态：
+  //   schemeEdited = 用户动过自由调色控件（色相 / 彩度 / 明度 / 中性温度 / 色值框）。
+  //     一旦为真，方案卡全部取消高亮，直到重新点方案或换风格。
+  //   schemePick   = 最近点过的方案 id，仅用于调试与「恢复」语义。
+  schemeEdited: false, schemePick: null,
   translation: Object.fromEntries(DIM_KEYS.map(([k, , value, from]) => [k, { value, from }])),
   weights: { light: { body: 400, strong: 600, display: 700 }, dark: { body: 350, strong: 500, display: 600 } },
   direction: structuredClone(DEFAULT_DIRECTION),
@@ -829,6 +834,8 @@ function setTranslationValue(key, value) {
     const cap = numbersOf(value)[0];
     if (Number.isFinite(cap)) state.accentChroma = Math.min(state.accentChroma, Math.max(0, cap));
   }
+  // 中性温度 / 彩度上限也是配色方案之外的「手动设定」：改完就不再是预设方案了。
+  if (key === 'neutralTemp' || key === 'chromaCap') markSchemeTuned();
   void p;
 }
 
@@ -1585,8 +1592,284 @@ function syncPaletteInputs() {
   if (live) live.textContent = `色相 ${Math.round(state.accentHue)}°，彩度 ${state.accentChroma.toFixed(3)}，明度 ${L.toFixed(3)}`;
   renderHero();
   renderFormats();
+  // 方案卡跟着同一份 state 走：四条输入路径改完 state 都会到这里，
+  // 选中态由「当前值离哪个方案在容差内」推出，不必每条路径各写一遍。
+  renderSchemes();
   drawWheel();
 }
+
+// === 配色方案（palettes.json） ===
+//
+// 为什么要有这一层：用户选风格时已经表达过一次配色意图，风格本身就决定了
+// 配色该长什么样。把色相环和四个滑块摊在主路径上，等于要求用户从零再调一遍，
+// 是把设计决策推回给他。主路径改成「从 3 个成品方案里点一个」，
+// 自由调色收进「高级微调」，只服务确实需要精确色值的人。
+//
+// 数据按逻辑卡分组（玻璃三支共用 glassmorphism），canonical 方案的数值
+// 与 references/styles/<card>.md 的典型配色一致，其余两支在该卡的彩度上限内推导。
+
+// 容差：比肉眼可分辨的差异略宽。用户把项目色微调过一点点仍算「还是这个方案」，
+// 改得多才落到「已微调」。
+const SCHEME_TOL = { H: 2, C: 0.005, L: 0.01 };
+
+let palettes = null;
+let palettesPromise = null;
+let schemesKey = '';
+
+/** 两个色相之间的最短角度差（355° 与 5° 只差 10°，不是 350°）。 */
+function hueDistance(a, b) {
+  const d = Math.abs((((a - b) % 360) + 360) % 360);
+  return Math.min(d, 360 - d);
+}
+
+/** 逻辑卡 id。玻璃三支共用一组方案，由 style-index 的 card 字段保证。 */
+const paletteCardId = () => state.styleCard || 'minimalism';
+
+/** 读一次缓存到底：方案是静态数据，页面生命周期内不刷新。 */
+function ensurePalettes() {
+  if (!palettesPromise) {
+    palettesPromise = (async () => {
+      try {
+        const res = await fetch('/studio/styles/palettes.json', { credentials: 'same-origin' });
+        if (!res.ok) return null;
+        const data = await res.json();
+        palettes = data && typeof data.palettes === 'object' ? data : null;
+      } catch { palettes = null; }
+      return palettes;
+    })();
+  }
+  return palettesPromise;
+}
+
+const schemesForCurrentCard = () => {
+  const list = palettes?.palettes?.[paletteCardId()];
+  return Array.isArray(list) ? list : [];
+};
+
+/**
+ * 当前值是否就是某个方案。
+ *
+ * L 只在用户显式指定过（state.accentLight !== null）时才比较：
+ * null = 「跟随主题」，用户没有对明度做决定，不该因此判成偏离方案。
+ */
+function schemeMatches(scheme) {
+  if (!scheme) return false;
+  return hueDistance(scheme.accent.H, state.accentHue) <= SCHEME_TOL.H
+    && Math.abs(scheme.accent.C - state.accentChroma) <= SCHEME_TOL.C
+    && (state.accentLight === null
+      || Math.abs(scheme.accent.L - state.accentLight) <= SCHEME_TOL.L)
+    && hueDistance(scheme.neutral.H, effectiveNeutralHue()) <= SCHEME_TOL.H;
+}
+
+/** 命中的方案；用户刚动过自由调色控件时一律不命中（见 state.schemeEdited）。 */
+function matchedScheme() {
+  if (state.schemeEdited) return null;
+  return schemesForCurrentCard().find(schemeMatches) || null;
+}
+
+/** 「已微调」= 用户动过控件，或当前值落不进任何方案。 */
+function schemesTuned() {
+  if (state.schemeEdited) return true;
+  return !matchedScheme();
+}
+
+/**
+ * 方案卡的颜色点用「当前主题下实际生效的 bg / fg」，
+ * 而不是方案里再存一份：用户看到的是这一整套搭配，不只是强调色。
+ * bg / fg 随中性温度与主题变，所以方案区的渲染 key 里带上 theme。
+ */
+function schemeDotColors() {
+  const set = colorSet(state.theme) || {};
+  return { bg: set.bg?.oklch || 'transparent', fg: set.fg?.oklch || 'transparent' };
+}
+
+function renderSchemes({ force = false } = {}) {
+  const host = $('#scheme-list');
+  if (!host) return;
+  const list = schemesForCurrentCard();
+  const key = `${paletteCardId()}|${list.map((s) => s.id).join(',')}|${state.theme}`;
+  if (!force && key === schemesKey) { syncSchemeSelection(); return; }
+  schemesKey = key;
+  host.textContent = '';
+
+  if (!list.length) {
+    // 数据还没读回来时什么都别画：先闪一句「读不到」再消失，比空白更像故障。
+    if (palettes) {
+      host.append(el('p', { class: 'scheme-empty' },
+        el('span', { text: '这一风格没有预设配色方案，直接用下面的高级微调。' })));
+    }
+    syncSchemeSelection();
+    return;
+  }
+
+  const dots = schemeDotColors();
+  list.forEach((scheme) => {
+    const accent = toColor(scheme.accent.L, scheme.accent.C, scheme.accent.H);
+    // 整卡是一个 button：点击区域覆盖色块 / 名字 / 说明 / 色点，
+    // 不用逐块挂事件，键盘也能一步聚焦。
+    const card = el('button', {
+      type: 'button', class: 'scheme-card', role: 'radio',
+      'aria-checked': 'false', dataset: { scheme: scheme.id },
+      'aria-label': `${scheme.name} 配色：${scheme.note}`,
+    },
+    el('span', { class: 'scheme-top' },
+      el('span', { class: 'scheme-swatch', 'aria-hidden': 'true',
+        style: { background: accent.oklch } },
+      el('span', { class: 'scheme-check', 'aria-hidden': 'true', text: '✓' })),
+      el('span', { class: 'scheme-name', text: scheme.name })),
+    el('span', { class: 'scheme-note', text: scheme.note }),
+    el('span', { class: 'scheme-dots', 'aria-hidden': 'true', title: '页面底 / 强调 / 正文' },
+      el('i', { style: { background: dots.bg } }),
+      el('i', { style: { background: accent.oklch } }),
+      el('i', { style: { background: dots.fg } })));
+    card.addEventListener('click', () => applyScheme(scheme));
+    // 单选组键盘模型（WAI-ARIA radiogroup）：方向键在选项间移动并直接选中，
+    // Enter / Space 由 button 原生行为触发。不实现这层的话，role=radio 只是
+    // 一个「听起来像单选」的按钮，键盘用户拿不到方向键。
+    card.addEventListener('keydown', (e) => {
+      const dir = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1
+        : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
+      if (!dir) return;
+      e.preventDefault();
+      const cards = $$('.scheme-card', host);
+      const i = cards.indexOf(card);
+      const next = cards[(i + dir + cards.length) % cards.length];
+      next.focus();
+      applyScheme(list.find((x) => x.id === next.dataset.scheme));
+    });
+    host.append(card);
+  });
+  syncSchemeSelection();
+}
+
+/**
+ * 选中态与「已微调」徽标。不重建 DOM，只改 class / aria：
+ * 卡片可能正持有焦点（键盘用户按回车套用方案），重建会把焦点丢到 body。
+ *
+ * roving tabindex：单选组整体只占一个 Tab 落点（选中卡；都没选中时第一张），
+ * 组内用方向键移动。三张卡各占一个 Tab 停靠点会让键盘用户在调色页多按两次。
+ */
+function syncSchemeSelection() {
+  const host = $('#scheme-list');
+  if (!host) return;
+  const list = schemesForCurrentCard();
+  const matched = matchedScheme();
+  const canonical = list.find((s) => s.canonical) || list[0] || null;
+  // 没命中某方案时高亮 canonical：让用户知道「这一风格的基准配色是哪个」，
+  // 同时徽标说明当前值已经被改过。
+  const selected = matched || (state.schemeEdited ? null : canonical);
+  const tuned = schemesTuned();
+
+  const cards = $$('.scheme-card', host);
+  const tabStop = (selected && cards.find((c) => c.dataset.scheme === selected.id)) || cards[0] || null;
+  for (const card of cards) {
+    const on = !!selected && card.dataset.scheme === selected.id;
+    card.classList.toggle('is-selected', on);
+    card.setAttribute('aria-checked', String(on));
+    card.tabIndex = card === tabStop ? 0 : -1;
+  }
+
+  const badge = $('#schemes-badge');
+  if (badge) badge.hidden = !tuned || !list.length;
+  const sub = $('#schemes-sub');
+  if (sub) {
+    sub.textContent = !list.length
+      ? '方案数据不可用'
+      : (tuned ? '已微调 · 点任一方案可恢复' : '三个方案 · 都符合当前风格');
+  }
+}
+
+/**
+ * 套用方案：只写配色相关的 state，不碰七项设计参数。
+ *
+ * 明度：方案里的 L 是**浅色模式**的值（与 references 典型配色表一致）。
+ * 只有浅色下才写成显式覆盖（accentLight = 方案 L）—— 那一档是方案作者
+ * 按浅底调过对比度的，跟随项目基线反而会跑色。
+ *
+ * 深色 / 换风格时保持 null（跟随变体基线）：
+ *   · 变体 CSS 自带一套为暗底调过的 accent L（典型配色表的「暗色」列）；
+ *   · 把浅色的 L 硬套到暗底上，深灰会掉到 3:1 左右，主色几乎看不见。
+ *
+ * 彩度上限：方案是按该卡的「彩度上限」推导的，但项目里存的 chromaCap
+ * 可能是另一个值（新项目默认 0.12，而新粗野主义的 canonical 是 0.155）。
+ * 不把上限抬到方案 C，effectiveChroma() 会把它压回去 —— 卡片上是一支亮黄，
+ * 套用后主色却是土黄。上限本来就是「这一风格允许的最高 C」，
+ * 方案的 C 已经过该卡上限校验，抬到它不违规。
+ */
+function applyScheme(scheme, { followLight = false, silent = false } = {}) {
+  if (!scheme) return;
+  state.accentHue = scheme.accent.H;
+  state.accentChroma = scheme.accent.C;
+  state.accentLight = followLight || state.theme === 'dark' ? null : scheme.accent.L;
+  if (designParams().chromaCap < scheme.accent.C) {
+    state.translation.chromaCap.value = scheme.accent.C;
+  }
+  state.neutralPinned = ((scheme.neutral.H % 360) + 360) % 360;
+  // 中性温度滑块只是「量程内最近点」；真实色相由 neutralPinned 决定，
+  // 滑块位置与读数的关系见 effectiveNeutralHue()。
+  state.neutral = Math.round(Math.min(100, Math.max(0, (250 - state.neutralPinned) / 165 * 100)));
+  const neutralSlider = $('#neutral-temp');
+  if (neutralSlider) neutralSlider.value = String(state.neutral);
+
+  state.schemeEdited = false;
+  state.schemePick = scheme.id;
+  wheelDrawnFor = null;          // 色相与明度都变了，色轮底图必须重画
+
+  syncPaletteInputs();
+  syncParamControls();           // 七项表里的中性温度读数跟着走
+  markDirty();
+  applyPreview();
+  if (!silent) {
+    setStatus('ok', `已套用「${scheme.name}」配色。需要精确色值时展开「高级微调」。`, 5000);
+  }
+}
+
+/** 用户动了任何调色控件：取消方案高亮，标「已微调」。 */
+function markSchemeTuned() {
+  if (state.schemeEdited) return;
+  state.schemeEdited = true;
+  state.schemePick = null;
+}
+
+// --- 高级微调的展开 / 收起 ---
+
+// 主路径是方案卡；自由调色只在需要时展开。默认收起，
+// 折叠状态记 localStorage（隐私模式下读写失败不能拖垮页面，一律 try/catch）。
+const ADVANCED_STORE_KEY = 'aesthetic-studio:advanced-open';
+
+function bindAdvancedPanel() {
+  const panel = $('#advanced-panel');
+  if (!panel) return;
+  // 先按存储恢复，再挂监听：初始赋值不该被当成用户操作写回去。
+  panel.open = storeGet(ADVANCED_STORE_KEY) === '1';
+  panel.addEventListener('toggle', () => {
+    storeSet(ADVANCED_STORE_KEY, panel.open ? '1' : '0');
+  });
+}
+
+/**
+ * 已知配色被改过时把折叠区打开：用户要能看见自己改了什么。
+ *
+ * 判据只看「持久事实」，不记临时标记：
+ *   · 项目里存着一份配色（decisions.json 的 color 段，或刚在画廊选过的变体），
+ *     且当前值落不进任何方案 —— 这是「别人/你自己之前改过并保存了」的证据。
+ *   · 本次会话里动过控件（state.schemeEdited），且没有显式折叠偏好。
+ *
+ * 为什么不把「动过控件」写进 localStorage：未保存的改动刷新后就没了，
+ * 下次进来仍然是一套干净的项目配色，再展开只会让用户找不存在的差异。
+ *
+ * 已经有显式折叠偏好时一律不执行：手动收起过的人不该每次刷新都被弹开。
+ */
+function revealAdvancedIfTuned() {
+  const panel = $('#advanced-panel');
+  if (!panel) return;
+  const hasPreference = storeGet(ADVANCED_STORE_KEY) !== null;
+  const hasBaseline = !!(state.remoteColor || state.variantPicked);
+  const savedOffScheme = hasBaseline && schemesTuned();
+  if (savedOffScheme) { panel.open = true; return; }
+  if (!hasPreference && state.schemeEdited) panel.open = true;
+}
+
 
 /** 外环上某色相的标记位置（CSS px，相对 .wheel-wrap）。 */
 function hueRingPoint(H) {
@@ -1833,6 +2116,7 @@ function applyWheelPick(event) {
     state.accentChroma = pick.C;
     state.accentLight = pick.L;
   }
+  markSchemeTuned();
   // 拖动时控件与预览一帧一次，别在 pointermove 里同步重画整个面板
   if (wheelRaf) return;
   wheelRaf = requestAnimationFrame(() => {
@@ -1856,6 +2140,7 @@ function commitHexInput() {
     // 色值本身带明度：不顺手设 L 的话，输入 #F2D045 会被项目 L 0.52 拉暗，
     // 回显的 hex 和用户输入对不上。输入色值即视为手动指定明度。
     state.accentLight = Math.round(c.L * 1000) / 1000;
+    markSchemeTuned();
     setAccentError('');
     syncPaletteInputs();
     markDirty();
@@ -1876,6 +2161,7 @@ function commitHueNumber() {
   const clamped = Math.min(360, Math.max(0, Math.round(v * 10) / 10));
   if (clamped !== v) setStatus('warn', `色相 ${v} 超出 0–360，已夹到 ${clamped}。`, 8000);
   state.accentHue = clamped % 361;
+  markSchemeTuned();
   syncPaletteInputs();
   markDirty();
   applyPreview();
@@ -1900,6 +2186,7 @@ function bindPaletteInputs() {
   });
 
   $('#accent-light-follow').addEventListener('click', () => {
+    markSchemeTuned();          // 回到「跟随主题」也是离开方案的一步
     state.accentLight = null;
     wheelDrawnFor = null;       // 明度回到项目值，色轮底图要重画
     syncPaletteInputs();
@@ -2101,6 +2388,7 @@ function bindHeroControls() {
         state.accentHue = Math.round(c.H * 10) / 10;
         state.accentChroma = Math.round(c.C * 1000) / 1000;
         state.accentLight = Math.round(c.L * 1000) / 1000;
+        markSchemeTuned();
         setAccentError('');
         syncPaletteInputs();
         markDirty();
@@ -2467,6 +2755,12 @@ function syncThemeModeControls() {
 function setTheme(theme) {
   // 单主题项目没有暗色可预览：即便有人从 URL / 脚本里把值塞进来也拉回浅色。
   if (theme === 'dark' && state.themeMode !== 'light-dark') theme = 'light';
+  // 方案钉住的 accent L 是浅色档的值（见 applyScheme）；切到深色还沿用，
+  // 深灰在近黑底上只剩 3:1 左右。切主题时放回「跟随变体」，
+  // 让变体 CSS 的暗色 accent L 生效。用户手动调过的明度不在此列。
+  if (theme !== state.theme && state.accentLight !== null && !state.schemeEdited) {
+    state.accentLight = null;
+  }
   state.theme = theme;
   document.documentElement.dataset.theme = theme;
   // 预览下拉可能被脚本写过一个不成立的值（单主题下写 dark）—— 以 state 为准回填，
@@ -2644,13 +2938,17 @@ function pickVariant(v) {
   if (!v) return;
   state.styleCard = v.card;
   state.styleVariant = v.id;
+  // 换风格就是换了一整套配色判断，上一风格里的「微调」不再适用：
+  // 方案列表会换成新卡的三个方案，并自动落到 canonical（见 applyVariantColor）。
+  state.schemeEdited = false;
+  state.schemePick = null;
   for (const card of $$('#gallery-grid .gallery-card')) {
     card.classList.toggle('is-picked', card.dataset.variant === v.id);
   }
   // 调色页预览的 URL 里带着变体：不重载的话，回来的画面还是旧风格。
   // 面板的色板也要换基线（变体自己的 token），否则显示的还是旧项目的蓝灰。
   state.variantPicked = true;
-  const applyVariantColor = () => {
+  const applyVariantColor = async () => {
     state.variantColor = state.variantColorCache?.get(v.id) || null;
     // 滑块与色板一起换成新变体的基线：选风格就是换了一整套配色，
     // 只换画面不换控件会让「拖了会变什么」的参照物仍是旧项目。
@@ -2671,6 +2969,14 @@ function pickVariant(v) {
     wheelDrawnFor = null;
     updatePaletteOutputs();
     applyPreview();
+    // 换风格后方案列表跟着换卡，并自动落到该卡的 canonical。
+    // followLight：明度仍跟随变体基线 —— 变体自带明暗两套 accent L，
+    // 强制写成方案 L 会把暗色模式的主色拉成浅色那一档。
+    await ensurePalettes();
+    renderSchemes({ force: true });
+    const canonical = schemesForCurrentCard().find((s) => s.canonical);
+    if (canonical) applyScheme(canonical, { followLight: true, silent: true });
+    else syncSchemeSelection();
     // 换风格会改 state.neutral / accentChroma，参数表的同名控件要跟着走
     syncParamControls();
   };
@@ -3313,13 +3619,16 @@ function bindEvents() {
     new ResizeObserver(() => layoutGalleryShots()).observe($('#gallery-grid'));
   }
 
-  slider('#accent-hue', (v) => { state.accentHue = v; });
+  // 下面每条自由调色路径都先 markSchemeTuned()：方案卡的存在意义是
+  // 「当前值就是某个成品配色」；一旦用户亲手改过，这个判断就不成立了。
+  slider('#accent-hue', (v) => { markSchemeTuned(); state.accentHue = v; });
   // 底部「彩度」改的是主色实际的 C，不是「彩度上限」（那是上限，两回事）。
   // 它只受上限约束，不写 translation.chromaCap —— 否则把主色调淡会连上限一起降。
-  slider('#accent-chroma', (v) => { state.accentChroma = v; syncParamControls(); });
+  slider('#accent-chroma', (v) => { markSchemeTuned(); state.accentChroma = v; syncParamControls(); });
   // 中性温度则是同一个维度：底部滑块与参数表控件必须落到同一个 translation 值，
   // 否则拖完滑块，写进 decisions.json 的仍是旧值 —— 界面与产物不一致。
   slider('#neutral-temp', (v) => {
+    markSchemeTuned();
     state.neutral = v;
     state.neutralPinned = null;   // 用户一动滑块就解除变体色相的钉住
     state.translation.neutralTemp.value = `H ${Math.round(neutralHue())}, C ${neutralC()}`;
@@ -3328,6 +3637,7 @@ function bindEvents() {
   });
   // 明度滑块 = 手动覆盖。拖一格就退出「跟随主题」，语义由按钮 aria-pressed 表达。
   on('#accent-light', 'input', (e) => {
+    markSchemeTuned();
     state.accentLight = Number(e.target.value);
     wheelDrawnFor = null;          // 底图随 L 变，必须重画
     updatePaletteOutputs();
@@ -3365,6 +3675,26 @@ async function init() {
   // —— 转写表写着别人的「依据」，色板也不是当前项目的主色。
   renderTranslation();
   syncControls();
+
+  // 方案数据要在首次渲染之后读：它只决定「高亮哪一张卡」，
+  // 不阻塞调色控件本身可用；失败时方案区显示一句说明，其余功能照常。
+  bindAdvancedPanel();
+  await ensurePalettes();
+
+  // 全新项目（没有 decisions 的 color 段，也没在画廊选过变体）没有「项目原本
+  // 是什么颜色」可言：state 里的 accent 只是 Studio 的硬编码默认值。
+  // 此时直接落到该卡的 canonical —— 首屏就是一套成品配色，而不是先给一个
+  // 默认值再标「已微调」让用户去猜哪里被改过。已有基线时保持原值，
+  // 由 renderSchemes 按容差判断高亮还是标「已微调」。
+  if (!state.remoteColor && !state.variantPicked) {
+    const canonical = schemesForCurrentCard().find((s) => s.canonical);
+    if (canonical) applyScheme(canonical, { silent: true });
+    // applyScheme 会走 markDirty()；新项目本来就没有可写回的产物，这里把它还原，
+    // 免得首屏还没做任何事就显示「未写 decisions」的脏标记误导用户。
+    setArtifacts({});
+  }
+  renderSchemes({ force: true });
+  revealAdvancedIfTuned();
 
   const ready = state.fixture === 'ready';
   $('#fixture-frame').hidden = !ready;

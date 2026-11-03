@@ -252,8 +252,41 @@ test('schema: ΔL 越界被拒', () => {
 
 test('schema: override 缺字段被拒', () => {
   const r = validate(SCHEMA, sampleDecisions({ overrides: [{ rule: 'R3' }] }));
-  truthy(!r.valid, '九字段不全应失败');
+  truthy(!r.valid, '十字段不全应失败');
   truthy(r.errors.some((e) => e.includes('scope') || e.includes('reason')));
+});
+
+/** 一条字段齐全、guard 可复算的 override。 */
+function validOverride(extra = {}) {
+  return {
+    rule: 'R3',
+    scope: 'sample.border',
+    requestedValue: '#000',
+    effectiveValue: '#000',
+    reason: '硬边阴影需要与浅色底形成无过渡边缘，灰阶阴影会在 1x 屏上露出抗锯齿浅灰缝',
+    // schema 对 guard 有 12 字符下限；单写 `token: bg` 只有 9 字符，语义成立但
+    // 结构上太短。默认用两条断言，既过下限也覆盖多种 key。
+    guard: 'token: bg; contrast: fg/bg >= 4.5',
+    approvedBy: 'user',
+    createdAt: '2026-11-01T10:00:00Z',
+    expiresAt: null,
+    verification: 'check-tokens --allow-black-border',
+    ...extra,
+  };
+}
+
+test('schema: override 缺 guard 被拒', () => {
+  const o = validOverride();
+  delete o.guard;
+  const r = validate(SCHEMA, sampleDecisions({ overrides: [o] }));
+  truthy(!r.valid, '缺 guard 应失败');
+  truthy(r.errors.some((e) => e.includes('guard')), '应指出 guard');
+});
+
+test('schema: override reason 少于 24 字被拒', () => {
+  const r = validate(SCHEMA, sampleDecisions({ overrides: [validOverride({ reason: '无' })] }));
+  truthy(!r.valid, 'reason: "无" 应失败');
+  truthy(r.errors.some((e) => e.includes('minLength')), '应报 minLength');
 });
 
 // ---------------------------------------------------------------------------
@@ -497,6 +530,124 @@ test('lint: 小字字重被降档时被报', () => {
   writeDecisions(dir, d);
   const r = run('check-tokens.mjs', ['--project', dir], 1);
   truthy(r.out.includes('小字') || r.out.includes('small'), '应报小字被降档');
+});
+
+// ---------------------------------------------------------------------------
+// 6b. override guard: 豁免必须能被机器复算
+// ---------------------------------------------------------------------------
+
+function runOverride(overrides, expectExit = 0) {
+  const dir = makeProject();
+  writeDecisions(dir, sampleDecisions({ overrides }));
+  return run('check-tokens.mjs', ['--project', dir], expectExit);
+}
+
+test('guard: token 存在 → 通过', () => {
+  runOverride([validOverride({ guard: 'token: bg; token: fg' })]);
+});
+
+test('guard: 裸 `token: bg` 可复算（仅受 schema 长度下限约束）', () => {
+  // 规格要求 schema minLength 12，`token: bg` 只有 9 字符，会先被 schema 挡下。
+  // 这里确认 guard 复算本身没有报 OV2 —— 语义上 token 是存在的。
+  const r = runOverride([validOverride({ guard: 'token: bg' })], 1);
+  truthy(!r.out.includes('OV2'), `不应报 OV2，实际：\n${r.out}`);
+});
+
+test('guard: token 不存在 → OV2', () => {
+  const r = runOverride([validOverride({ guard: 'token: not-a-token' })], 1);
+  truthy(r.out.includes('OV2'), '应报 OV2');
+  truthy(r.out.includes('not-a-token'), '应点名不存在的 token');
+});
+
+test('guard: contrast 达标 → 通过（≥ 与 >= 都认）', () => {
+  runOverride([
+    validOverride({ guard: 'contrast: fg/bg >= 4.5' }),
+    validOverride({
+      rule: 'A11Y', scope: 'sample.muted', guard: 'contrast: fg-muted/bg ≥ 3.0',
+      reason: '次要文本在本项目只承载辅助说明，但仍须达到大字号门槛以上',
+    }),
+  ]);
+});
+
+test('guard: contrast 不达标 → OV2', () => {
+  // 造一个对比度必然不足的 token：浅灰字压浅灰底。
+  const dir = makeProject();
+  const d = sampleDecisions({
+    overrides: [validOverride({ guard: 'contrast: line-1/bg >= 4.5' })],
+  });
+  writeDecisions(dir, d);
+  const r = run('check-tokens.mjs', ['--project', dir], 1);
+  truthy(r.out.includes('OV2'), '应报 OV2');
+  truthy(r.out.includes('4.5'), '应报阈值');
+});
+
+test('guard: 至少一条可识别断言通过', () => {
+  const r = runOverride([validOverride({ guard: '随便' })], 1);
+  truthy(r.out.includes('guard 无法复算') || r.out.includes('OV2'), '应报 OV2');
+});
+
+test('guard: deltaL / surface 断言', () => {
+  runOverride([validOverride({ guard: 'deltaL: 0.010-0.030; surface: surface-2' })]);
+  const bad = runOverride([validOverride({ guard: 'surface: surface-9' })], 1);
+  truthy(bad.out.includes('OV2'), '非法表面名应报 OV2');
+  const wide = runOverride([validOverride({ guard: 'deltaL: 0.011-0.012' })], 1);
+  truthy(wide.out.includes('deltaL') || wide.out.includes('OV2'), 'step 越界应报');
+});
+
+test('guard: 未知 key 只记 ADVISORY', () => {
+  const r = runOverride([validOverride({ guard: 'token: bg; vibe: 很酷' })]);
+  truthy(r.out.includes('ADVISORY'), '未知 key 应提示');
+});
+
+test('reason: 「无」同时触发长度与套话', () => {
+  const r = runOverride([validOverride({ reason: '无' })], 1);
+  truthy(r.out.includes('24'), '应报长度不足');
+  truthy(r.out.includes('套话'), '应报套话黑名单');
+});
+
+test('reason: 另一条 override 逐字相同 → 报错', () => {
+  const a = validOverride();
+  const b = validOverride({ scope: 'sample.other-token' });
+  const r = runOverride([a, b], 1);
+  truthy(r.out.includes('完全相同'), '应报重复理由');
+});
+
+test('approvedBy: agent 自批 → OV3', () => {
+  const r = runOverride([validOverride({ approvedBy: 'claude' })], 1);
+  truthy(r.out.includes('OV3'), '应报 OV3');
+});
+
+test('OV4: 同 rule 同 scope 重复 → 报错；不同 scope → 通过', () => {
+  const dup = runOverride([validOverride(), validOverride({ reason: '另一条完全不同的理由，用来区分这两个独立登记的场景' })], 1);
+  truthy(dup.out.includes('OV4'), '重复 rule+scope 应报 OV4');
+
+  runOverride([
+    validOverride({ scope: 'sample.a' }),
+    validOverride({ scope: 'sample.b', reason: '同一规则命中另一个 token，需要单独登记一次以区分代价' }),
+  ]);
+});
+
+test('guard: 四种 key 全通过', () => {
+  runOverride([validOverride({
+    guard: 'token: bg; contrast: fg/bg >= 4.5; deltaL: 0.010-0.030; surface: surface-2',
+  })]);
+});
+
+test('guard: contrast 引用非 token → OV2', () => {
+  const r = runOverride([validOverride({ guard: 'contrast: fg/unknown >= 4.5' })], 1);
+  truthy(r.out.includes('OV2'), '应报 OV2');
+  truthy(r.out.includes('unknown'), '应点名不存在的 token');
+});
+
+test('reason: 「设计需要」套话被拒', () => {
+  const r = runOverride([validOverride({ reason: '设计需要，别问' })], 1);
+  truthy(r.out.includes('套话'), '应报套话');
+});
+
+test('reason: 套话只按整句匹配，「无过渡边缘」不误杀', () => {
+  runOverride([validOverride({
+    reason: '硬边阴影需要与浅色米底形成无过渡边缘，任何灰度的阴影都会露出浅灰缝',
+  })]);
 });
 
 test('build: 小字字重跨主题恒定', () => {

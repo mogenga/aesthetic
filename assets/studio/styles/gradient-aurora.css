@@ -23,6 +23,20 @@
   --fg-muted: oklch(0.465 0.030 290);        /* #595769  6.5:1 */
   --accent: oklch(0.545 0.165 300);          /* #8053C0  5.0:1 */
   --accent-hover: oklch(0.500 0.170 300);
+
+  /* 状态色：卡片要求「色相只走冷调：紫 → 靛 → 青，不跨过黄与红」。
+     标准红 danger（H 27）会直接破坏这条，所以：
+       danger  = 紫红 H 342（落在冷紫到品红的同一侧，不进入橙红区间）
+       success = 青     H 195（卡片冷调的另一端）
+       warning = 靛蓝   H 265（"警告"靠低彩度 + 文案，不靠黄）
+     warning 不再使用黄色：卡片把黄色列为会读成"营销模板"的暖色，
+     所以这里用冷调里最接近"注意"语义的靛蓝，并在交付说明里标注。 */
+  --danger: oklch(0.528 0.170 342);          /* #A83886  5.4:1 vs bg */
+  --danger-hover: oklch(0.482 0.175 342);
+  --danger-soft: color-mix(in oklab, var(--danger) 10%, transparent);
+  --on-danger: oklch(0.990 0 0);             /* #FCFCFC */
+  --success: oklch(0.488 0.083 195);         /* #016E6E  5.6:1 vs bg */
+  --warning: oklch(0.506 0.170 265);         /* #345CC4  5.6:1 vs bg */
   --line-1: oklch(0.900 0.020 300);          /* #E0DBEA */
   --line-inset: color-mix(in oklab, var(--fg) 8%, transparent);
 
@@ -64,6 +78,14 @@
   --fg-muted: oklch(0.730 0.020 290);        /* #A7A6B4  8.1:1 */
   --accent: oklch(0.800 0.135 320);          /* #E4A0F4  9.9:1 */
   --accent-hover: oklch(0.850 0.125 320);
+  /* 暗色状态色：同一组冷调色相（紫红 342 / 青 195 / 靛 265），
+     L 提到 accent 带（0.80），不是浅色压暗 */
+  --danger: oklch(0.800 0.151 342);          /* #FF94D9  9.7:1 vs bg */
+  --danger-hover: oklch(0.850 0.139 342);
+  --danger-soft: color-mix(in oklab, var(--danger) 14%, transparent);
+  --on-danger: oklch(0.160 0.030 285);
+  --success: oklch(0.800 0.137 195);         /* #00D8D9  11.0:1 vs bg */
+  --warning: oklch(0.800 0.100 265);         /* #9EBDFF  10.4:1 vs bg */
   --line-1: oklch(0.330 0.030 285);          /* #343344 */
   --line-inset: color-mix(in oklab, var(--fg) 6%, transparent);
 
@@ -131,6 +153,16 @@
 }
 :root[data-style="gradient-aurora"] .btn[data-variant="primary"]:hover {
   box-shadow: 0 6px 22px -4px color-mix(in oklab, var(--accent) 55%, transparent);
+}
+/* 危险按钮：与主按钮同一套柔光语言，但改用冷调紫红——
+   不用红色，卡片要求色相只走冷调、不跨过黄与红 */
+:root[data-style="gradient-aurora"] .btn[data-variant="danger"] {
+  background: var(--danger);
+  color: var(--on-danger);
+  box-shadow: 0 4px 16px -4px color-mix(in oklab, var(--danger) 45%, transparent);
+}
+:root[data-style="gradient-aurora"] .btn[data-variant="danger"]:hover {
+  box-shadow: 0 6px 22px -4px color-mix(in oklab, var(--danger) 55%, transparent);
 }
 
 /* 输入框：大圆角 + 内高光 */

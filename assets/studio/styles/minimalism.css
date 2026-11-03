@@ -24,6 +24,14 @@
   --fg-muted: oklch(0.520 0.004 85);         /* #6A6966  5.3:1 */
   --accent: oklch(0.505 0.090 252);          /* #3C6797  5.6:1 */
   --accent-hover: oklch(0.460 0.095 252);
+  /* 状态色：彩度上限与 accent 同级（C ≤ 0.090），明度落在 accent 带，
+     三个色相（红 27 / 绿 150 / 琥珀 70）是全站除 accent 之外仅有的彩色 */
+  --danger: oklch(0.504 0.090 27);           /* #914F48  5.9:1 vs bg */
+  --danger-hover: oklch(0.460 0.095 27);
+  --danger-soft: color-mix(in oklab, var(--danger) 10%, transparent);
+  --on-danger: oklch(0.990 0 0);             /* #FCFCFC */
+  --success: oklch(0.500 0.090 150);         /* #397247  5.5:1 vs bg */
+  --warning: oklch(0.504 0.090 70);          /* #855A23  5.8:1 vs bg */
   --line-1: oklch(0.900 0.003 85);           /* #DFDEDC */
   --line-inset: color-mix(in oklab, var(--fg) 8%, transparent);
 
@@ -63,6 +71,13 @@
   --fg-muted: oklch(0.720 0.004 85);         /* #A6A4A2  7.6:1 */
   --accent: oklch(0.740 0.095 252);          /* #7EAFE5  8.2:1 */
   --accent-hover: oklch(0.790 0.085 252);
+  /* 暗色状态色：L 抬到与 accent 同一带（0.74），不是把浅色压暗 */
+  --danger: oklch(0.740 0.090 27);           /* #DE958C  7.9:1 vs bg */
+  --danger-hover: oklch(0.790 0.080 27);
+  --danger-soft: color-mix(in oklab, var(--danger) 14%, transparent);
+  --on-danger: oklch(0.180 0.010 27);
+  --success: oklch(0.740 0.090 150);         /* #81BB8D  8.5:1 vs bg */
+  --warning: oklch(0.740 0.090 70);          /* #D0A16B  8.0:1 vs bg */
   --line-1: oklch(0.300 0.003 85);           /* #2E2E2C */
   --line-inset: color-mix(in oklab, var(--fg) 6%, transparent);
 

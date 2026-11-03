@@ -23,6 +23,13 @@
   --fg-muted: oklch(0.470 0.008 80);         /* #5D5A56  6.5:1 */
   --accent: oklch(0.520 0.140 40);           /* #A94620  5.6:1 */
   --accent-hover: oklch(0.470 0.150 40);
+  /* 状态色：允许比极简稍艳，但不超过 0.140；明度与 accent 同带 */
+  --danger: oklch(0.520 0.140 25);           /* #AB413E  5.6:1 vs bg */
+  --danger-hover: oklch(0.475 0.145 25);
+  --danger-soft: color-mix(in oklab, var(--danger) 10%, transparent);
+  --on-danger: oklch(0.990 0 0);             /* #FCFCFC */
+  --success: oklch(0.492 0.136 150);         /* #007533  5.5:1 vs bg */
+  --warning: oklch(0.514 0.115 65);          /* #935701  5.5:1 vs bg */
   --line-1: oklch(0.905 0.006 80);           /* #E2DFDB */
   --line-inset: color-mix(in oklab, var(--fg) 8%, transparent);
 
@@ -58,6 +65,13 @@
   --fg-muted: oklch(0.730 0.008 80);         /* #AAA7A2  7.8:1 */
   --accent: oklch(0.760 0.130 45);           /* #F59569  8.3:1 */
   --accent-hover: oklch(0.810 0.115 45);
+  /* 暗色状态色：L 与 accent 同带（0.76），色相降到暖中性一侧以免和橙 accent 抢 */
+  --danger: oklch(0.760 0.140 25);           /* #FE8B83  8.2:1 vs bg */
+  --danger-hover: oklch(0.810 0.125 25);
+  --danger-soft: color-mix(in oklab, var(--danger) 14%, transparent);
+  --on-danger: oklch(0.185 0.010 25);
+  --success: oklch(0.760 0.140 150);         /* #68CA80  9.2:1 vs bg */
+  --warning: oklch(0.760 0.140 65);          /* #ED9D44  8.4:1 vs bg */
   --line-1: oklch(0.320 0.006 80);           /* #34332F */
   --line-inset: color-mix(in oklab, var(--fg) 6%, transparent);
 

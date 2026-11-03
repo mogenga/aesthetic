@@ -556,6 +556,102 @@ main { flex: 1 1 auto; min-height: 0; display: flex; }
   margin: 0 0 10px; font-size: 11px; line-height: 1.6; color: var(--ui-fg-muted);
 }
 
+/* ---------------------------------------------------------------- 配色方案 */
+
+/* 主路径：从 3 个该风格的成品配色里点一个。
+   为什么是卡片而不是下拉：配色要看，不能只读名字 —— 每张卡同时给出
+   强调色块、整套搭配的三个色点和一句人话说明，用户不必先点开比较。 */
+.schemes-sub { margin: 0 0 8px; font-size: 10.5px; color: var(--ui-fg-muted); }
+.scheme-badge {
+  margin-left: auto; padding: 1px 7px; border-radius: 999px;
+  font-size: 10px; white-space: nowrap;
+  color: var(--ui-warn); background: color-mix(in oklab, var(--ui-warn) 16%, transparent);
+}
+.scheme-list {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px; align-items: stretch;
+}
+.scheme-empty { margin: 0; font-size: 10.5px; line-height: 1.5; color: var(--ui-fg-muted); }
+
+.scheme-card {
+  position: relative; display: flex; flex-direction: column; gap: 5px;
+  min-width: 0; padding: 7px; text-align: left; cursor: pointer;
+  border: 1px solid var(--ui-line-strong); border-radius: var(--ui-radius-sm);
+  background: var(--ui-panel); color: inherit;
+  transition: border-color var(--ui-dur) var(--ui-ease), background var(--ui-dur) var(--ui-ease);
+}
+.scheme-card:hover { border-color: var(--ui-fg-muted); }
+.scheme-card:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 1px; }
+/* 选中：2px accent 边框。全局 box-sizing: border-box 兜住外框尺寸，
+   padding 同步减 1 让内容基线不因边框变粗而挪位。 */
+.scheme-card.is-selected {
+  border-width: 2px; border-color: var(--ui-accent); padding: 6px;
+  background: var(--ui-accent-soft);
+}
+
+.scheme-top { display: flex; align-items: center; gap: 6px; min-width: 0; padding-right: 15px; }
+.scheme-swatch {
+  position: relative; flex: 0 0 auto; width: 44px; height: 44px;
+  border-radius: 6px; border: 1px solid var(--ui-line-strong);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / .18);
+}
+/* 勾放卡片右上角而不是色块上：色块是「这个方案的强调色」，勾是「当前选中」，
+   两者叠在一起会让用户以为色块里本来就带一个标记。 */
+.scheme-check {
+  position: absolute; top: 3px; right: 3px;
+  display: none; place-items: center;
+  width: 14px; height: 14px; border-radius: 50%;
+  font-size: 9px; line-height: 1;
+  color: var(--ui-accent-fg); background: var(--ui-accent);
+}
+.scheme-card.is-selected .scheme-check { display: grid; }
+
+.scheme-name {
+  font-size: 12px; font-weight: 600; line-height: 1.25;
+  min-width: 0; overflow-wrap: anywhere;
+}
+/* 两行封顶：说明是「帮助比较」的，不是文案；三张卡不等高会让色点对不齐。 */
+.scheme-note {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; min-height: 2.7em;
+  font-size: 10.5px; line-height: 1.35; color: var(--ui-fg-muted);
+}
+.scheme-dots { display: flex; gap: 3px; margin-top: auto; }
+.scheme-dots i {
+  width: 10px; height: 10px; border-radius: 50%;
+  border: 1px solid var(--ui-line-strong); background: var(--ui-sunken);
+}
+.scheme-dots i:nth-child(2) { box-shadow: 0 0 0 1px var(--ui-panel); }
+
+/* ---------------------------------------------------------------- 高级微调 */
+
+/* 自由调色（色环 + 四个滑块 + 色值框）默认收起：选风格时用户已经表达过
+   配色意图，把这些控件摊在主路径上等于让他从零再调一遍。
+   用原生 <details>：键盘与屏幕阅读器的展开语义浏览器已经实现，不需要自己造。 */
+.advanced { margin: 8px 0 0; border-top: 1px solid var(--ui-line); }
+.advanced-summary {
+  display: flex; flex-direction: column; gap: 1px;
+  padding: 8px 0 6px 16px; cursor: pointer; position: relative;
+  list-style: none;
+}
+.advanced-summary::-webkit-details-marker { display: none; }
+/* 自绘三角：默认 marker 在各浏览器里位置与大小不一致，且不跟当前文字色。 */
+.advanced-summary::before {
+  content: ""; position: absolute; left: 2px; top: 13px;
+  width: 0; height: 0;
+  border-left: 5px solid var(--ui-fg-muted);
+  border-top: 4px solid transparent; border-bottom: 4px solid transparent;
+  transition: transform var(--ui-dur) var(--ui-ease);
+  transform-origin: 2px 4px;
+}
+.advanced[open] > .advanced-summary::before { transform: rotate(90deg); }
+.advanced-summary:hover { color: var(--ui-fg); }
+.advanced-summary:hover::before { border-left-color: var(--ui-fg); }
+.advanced-summary:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 1px; }
+.advanced-title { font-size: 11.5px; font-weight: 600; }
+.advanced-sub { font-size: 10.5px; line-height: 1.45; color: var(--ui-fg-muted); }
+.advanced-body { padding-top: 4px; }
+
 /* 色值输入 */
 .hex-field { display: flex; flex-direction: column; gap: 3px; margin-bottom: 4px; }
 .hex-field .field-label { font-size: 10px; letter-spacing: .04em; color: var(--ui-fg-muted); }

@@ -3,6 +3,9 @@
 *.bak
 *.tmp
 
+# 设计依据文档：只留在本地，不上传
+SKILL-DESIGN.md
+
 # Studio 运行时
 assets/studio/.cache/
 

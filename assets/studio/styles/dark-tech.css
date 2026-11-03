@@ -22,6 +22,15 @@
   --fg-muted: oklch(0.445 0.008 260);        /* #515458  7.0:1 */
   --accent: oklch(0.505 0.100 170);          /* #00775C  5.1:1 */
   --accent-hover: oklch(0.460 0.105 170);
+  /* 状态色：「其余全部无彩」——状态色必须低彩度，只保留足以区分色相的
+     C 0.060（不到 accent 的 2/3）。颜色不是唯一通道：base.css 的
+     .dot/.tag/.badge 带 data-tone，形状与文案仍需承担大半语义。 */
+  --danger: oklch(0.504 0.060 27);           /* #835752  5.6:1 vs bg */
+  --danger-hover: oklch(0.462 0.064 27);
+  --danger-soft: color-mix(in oklab, var(--danger) 10%, transparent);
+  --on-danger: oklch(0.990 0 0);             /* #FCFCFC */
+  --success: oklch(0.492 0.060 165);         /* #3E6C58  5.5:1 vs bg */
+  --warning: oklch(0.500 0.060 75);          /* #775E3B  5.6:1 vs bg */
   --line-1: oklch(0.880 0.004 260);          /* #D6D7DA */
   --line-inset: color-mix(in oklab, var(--fg) 8%, transparent);
 
@@ -57,6 +66,14 @@
   --fg-muted: oklch(0.700 0.008 260);        /* #9B9FA3  7.2:1 */
   --accent: oklch(0.815 0.125 170);          /* #60DDB6  11.4:1 */
   --accent-hover: oklch(0.860 0.115 170);
+  /* 暗色状态色：L 与 accent 同带（0.815），C 仍压在 0.060 以下；
+     状态点靠 base.css 的文案/形状区分，不靠彩度 */
+  --danger: oklch(0.814 0.060 27);           /* #E7B4AD  10.6:1 vs bg */
+  --danger-hover: oklch(0.860 0.054 27);
+  --danger-soft: color-mix(in oklab, var(--danger) 14%, transparent);
+  --on-danger: oklch(0.165 0.010 27);
+  --success: oklch(0.814 0.060 165);         /* #9ECFB9  11.1:1 vs bg */
+  --warning: oklch(0.814 0.060 75);          /* #D9BD97  10.8:1 vs bg */
   --line-1: oklch(0.300 0.006 260);          /* #2C2E31 */
   --line-inset: color-mix(in oklab, var(--fg) 6%, transparent);
 
@@ -136,6 +153,19 @@
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
+}
+
+/* 危险按钮：本卡不允许实心饱和块（暗底上会产生同时对比），
+   所以危险态 = 低彩度 danger 描边 + danger 文字，靠描边而不是填充 */
+:root[data-style="dark-tech"] .btn[data-variant="danger"] {
+  background: color-mix(in oklab, var(--danger) 8%, transparent);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+:root[data-style="dark-tech"] .btn[data-variant="danger"]:hover {
+  background: color-mix(in oklab, var(--danger) 14%, transparent);
+  border-color: var(--danger-hover);
+  color: var(--danger-hover);
 }
 
 /* 单点高光：只在当前活动项上出现 */

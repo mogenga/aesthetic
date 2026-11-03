@@ -179,7 +179,6 @@ decisions.json → tokens.json / tokens.css → contract.md → 注入块
 ```
 aesthetic/
 ├── SKILL.md                # 执行手册（agent 入口）
-├── SKILL-DESIGN.md         # 设计依据（给维护者）
 ├── README.md               # 你正在读的
 ├── references/
 │   ├── phrasing.md         # 内部术语 → 对用户白话的对照表
@@ -187,10 +186,11 @@ aesthetic/
 │   ├── translation.md      # 散文 → 数字
 │   ├── injection.md        # 注入块
 │   ├── layout-patterns.md  # 页型线框
+│   ├── reflex.md           # 模型的默认手清单
 │   ├── rules/              # R1–R9 全文
 │   └── styles/             # 10 张风格卡（自导模式）
 ├── schemas/                # decisions / tokens JSON Schema
-├── scripts/                # build·inject·check·shoot·audit·studio
+├── scripts/                # build·inject·check·shoot·audit·studio·baseline
 ├── assets/
 │   ├── studio/             # 工作台 UI + 夹具 + 12 个变体 CSS
 │   ├── readme/             # README 用的风格预览图
