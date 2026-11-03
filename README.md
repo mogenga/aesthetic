@@ -6,6 +6,29 @@
 
 ---
 
+## 风格预览
+
+10 张逻辑风格卡 / 12 个 CSS 变体。同一套内容、同一套结构，只换变体 CSS——所以差别全部来自风格本身，不来自页面内容。
+
+|  |  |
+|---|---|
+| ![极简主义](assets/readme/styles/minimalism.jpg) | ![便当盒](assets/readme/styles/bento.jpg) |
+| **极简主义**<br>用留白与字级建立秩序，只有一条发丝线 | **便当盒**<br>用尺寸不同的格子讲内容优先级 |
+| ![新拟态](assets/readme/styles/neumorphism.jpg) | ![新粗野主义](assets/readme/styles/neo-brutalism.jpg) |
+| **新拟态**<br>明暗双阴影把控件挤进或挤出表面 | **新粗野主义**<br>零圆角、厚描边、无模糊硬阴影、撞色 |
+| ![材料设计](assets/readme/styles/material.jpg) | ![像素风](assets/readme/styles/pixel.jpg) |
+| **材料设计**<br>三档高度语义 + 状态层 + 大圆角 | **像素风**<br>8px 网格、硬边、无抗锯齿 |
+| ![渐变·弥散光](assets/readme/styles/gradient-aurora.jpg) | ![黑色科技极简](assets/readme/styles/dark-tech-dark.jpg) |
+| **渐变 · 弥散光**<br>大色斑做氛围底，表面半透 | **黑色科技极简**<br>近黑底、极细同宽线、单点高光 |
+| ![赛博朋克](assets/readme/styles/cyberpunk-dark.jpg) | ![透明玻璃](assets/readme/styles/glass-transparent.jpg) |
+| **赛博朋克**<br>暗底荧光、切角、等宽字、扫描线 | **透明玻璃**<br>不模糊，只染色，靠亮边立形 |
+| ![毛玻璃](assets/readme/styles/glass-frosted.jpg) | ![液态玻璃](assets/readme/styles/glass-liquid.jpg) |
+| **毛玻璃**<br>背景被糊掉，边缘靠双 inset 伪造厚度 | **液态玻璃**<br>边缘折射并弯曲背后的内容（仅 Chromium 真渲染） |
+
+每张卡在 `references/styles/*.md` 里有签名特征、代价与适用场景。完整清单见 `assets/studio/styles/style-index.json`（渲染时唯一计数源）。
+
+---
+
 ## 四条硬约束
 
 1. **先问要不要起工作台；起了就给完整 URL 并等用户确认真的打开，再问别的。** 不接受或打不开就走纯 CLI 形态（表格 + ASCII 线框），不得默认启动服务，不得在用户拒绝后偷偷启动，也不得把 URL 只写进日志或文件。
@@ -35,7 +58,7 @@ flowchart LR
 | 编译层 | 本 skill | token 表、非协商项取值、注入块、合同 |
 | 验收层 | 本 skill | L1 token / L2 几何 / L3 知觉 |
 
-两个导演都不在时，本 skill 自导：10 张逻辑风格卡 + 3 个玻璃变体。
+两个导演都不在时，本 skill 自导：上面那 10 张卡 + 3 个玻璃变体。
 
 ---
 
@@ -61,9 +84,23 @@ flowchart LR
 |---|---|---|
 | **G0** | 用户确认业务对象 / 受众 / 品牌约束，以及 **agent 提案后用户拍板**的主页面 | P0 |
 | **G1** | 用户确认方向；导演层产物已读入 | P1 |
-| **G2** | 用户逐项确认七维转写表 | P2.1 |
+| **G2** | 用户逐项确认七项设计参数（每项注明出自哪句话） | P2.1 |
 | **G3** | 自检全绿 + `check-consistency` 通过 | P4 |
 | **G4** | `status: pass`（不是 conditional） | P5 |
+
+---
+
+## 工作台
+
+`scripts/studio.mjs` 起一个本地服务，三个模式：
+
+| 模式 | 做什么 |
+|---|---|
+| **画廊** | 12 个变体并排等比缩略，可放大看整页，选中即写进 `decisions.json` |
+| **调色** | 色相环 + C×L 平面、吸管、hex/rgb/hsl/oklch 四格式；七项设计参数全部控件驱动，每项配真实值渲染的样本 |
+| **组件实验室** | 在**当前项目的 token + 当前风格**下看组件真实渲染；可把某一屏的计算样式固化成 CSS 片段写进项目 |
+
+零依赖、原生 ESM、无构建。所有写回端点都要求一次性 token，且只监听 `127.0.0.1`。
 
 ---
 
@@ -113,6 +150,8 @@ decisions.json → tokens.json / tokens.css → contract.md → 注入块
 
 每个派生物带 `sourceHash`；任一派生物过期，G3 失败。
 
+项目做不做暗色是显式决定：`meta.theme` 为 `light` 时 `color` 段只有 `light`，合同里也不会出现暗色段落；写 `light-dark` 才产出两套。
+
 ---
 
 ## 非协商项
@@ -143,20 +182,23 @@ aesthetic/
 ├── SKILL-DESIGN.md         # 设计依据（给维护者）
 ├── README.md               # 你正在读的
 ├── references/
+│   ├── phrasing.md         # 内部术语 → 对用户白话的对照表
 │   ├── directors.md        # 导演层接入
 │   ├── translation.md      # 散文 → 数字
 │   ├── injection.md        # 注入块
+│   ├── layout-patterns.md  # 页型线框
 │   ├── rules/              # R1–R9 全文
 │   └── styles/             # 10 张风格卡（自导模式）
 ├── schemas/                # decisions / tokens JSON Schema
 ├── scripts/                # build·inject·check·shoot·audit·studio
 ├── assets/
-│   ├── studio/             # 工作台 UI + fixture
+│   ├── studio/             # 工作台 UI + 夹具 + 12 个变体 CSS
+│   ├── readme/             # README 用的风格预览图
 │   ├── templates/          # contract / 注入块 / 对齐报告模板
 │   ├── examples/           # 端到端样例
 │   ├── recipes/            # 组件片段（只读模板）
 │   └── vendor/             # hyalite（MIT）
-└── tests/run.mjs           # 34 项自测，零依赖
+└── tests/run.mjs           # 38 项自测，零依赖
 ```
 
 ---
@@ -164,10 +206,9 @@ aesthetic/
 ## 自测
 
 ```bash
-node tests/run.mjs
+node tests/run.mjs        # 38 项：OKLCH 数学、Schema、哈希、marker 幂等、生成链、lint、路径越界
+node tests/css-check.mjs  # 12 个变体的结构检查 + 双索引交叉校验
 ```
-
-覆盖：OKLCH 数学、JSON Schema、决策哈希、marker 幂等、生成链、lint、路径越界防护。
 
 ---
 
@@ -184,6 +225,7 @@ node tests/run.mjs
 - `backdrop-filter: url(#svg)` **只有 Chromium 真渲染**（Safari WebKit bug 245510、Firefox bug 1787623）。液态玻璃必须写三级降级链。
 - `CSS.supports('backdrop-filter','url(#x)')` 在三大引擎都返回 true，不能做特性检测。
 - 目标 `DESIGN.md` 若属于 `impeccable`，它的 `document` 会重生成该文件，注入块会消失——这是预期行为，重跑 `inject.mjs` 即可。
+- 单主题**深色**暂不支持：Schema 要求 `color.light` 必填，`commit` 端点与 `check-tokens` 都会拒绝。目前只有「单主题 · 浅」与「浅 + 深」两种。
 
 ---
 
