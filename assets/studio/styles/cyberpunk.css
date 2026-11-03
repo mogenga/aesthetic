@@ -1,19 +1,28 @@
 /* ==========================================================================
    cyberpunk.css —— 赛博朋克 · 变体 04/12
    --------------------------------------------------------------------------
-   签名：暗底荧光、切角、等宽字、扫描线。
-   代价：可读性差、易廉价——所以本变体把荧光限制在「描边 + 高光」，
-         正文永远是低彩度，且循环闪烁在 reduced-motion 下完全关闭。
+   签名：同一个视觉语言的两种载体。
+     暗色 = 荧光显像管：蓝紫黑底 + 40px 青网格 + 3px 扫描线 + 下移扫描带，
+            切角、终端角标、标题/数值的 RGB 通道分离、只在活跃元素上发光。
+     浅色 = 印刷的终端：米青纸底 + 半调网点、深紫墨字、实心墨块按钮、
+            套准角标、硬边套印偏移——纸不会发光，所以这里没有辉光。
+
+   代价：两种载体各有各的失效方式——屏幕态辉光会侵蚀字形边缘，
+         印刷态网点会与细字互相干扰。所以正文只用一个颜色，荧光只做
+         描边/高光，网点只做页面底纹，绝不铺到正文底下。
 
    加载方式：<html data-style="cyberpunk">
    ========================================================================== */
 
 /* --------------------------------------------------------------------------
    1. TOKEN OVERRIDE
+   基础块 = 浅色（印刷态）。暗色块 = 屏幕态主形态。
    -------------------------------------------------------------------------- */
 
 :root[data-style="cyberpunk"] {
-  /* 浅色是「褪色的终端」而不是纯白 */
+  /* 纸不是白的：米青纸底，深紫墨字 */
+  color-scheme: light;
+
   --bg: oklch(0.960 0.010 200);              /* #EBF4F4 */
   --surface-1: oklch(0.945 0.010 200);       /* #E6EFEF  ΔL 0.015 */
   --surface-2: oklch(0.928 0.010 200);       /* #E0E9EA  ΔL 0.017 */
@@ -21,40 +30,63 @@
   --surface-sunken: oklch(0.938 0.010 200);
   --fg: oklch(0.220 0.030 280);              /* #181928  15.5:1 */
   --fg-muted: oklch(0.435 0.050 280);        /* #4B4E6D  7.2:1 */
-  --accent: oklch(0.520 0.190 330);          /* #A1319B  品红，5.5:1 */
+  --accent: oklch(0.520 0.190 330);          /* #A1319B  品红墨，5.5:1 */
   --accent-hover: oklch(0.470 0.195 330);
-  --accent-2: oklch(0.700 0.080 200);        /* 青色辅助 */
-  /* 状态色：只用卡片声明的两个荧光色相（青 185–195 / 品红 320–335）+
-     一个荧光黄做警告。danger 用品红（浅色下即 accent 色相，暗色下同色相提亮），
-     success 用主青，warning 用 H 80 的荧光黄；暗色下的辉光由签名段统一加。 */
+  --accent-2: oklch(0.560 0.090 200);        /* #188489  青墨，只做装饰 */
+  --accent-soft: color-mix(in oklab, var(--accent) 12%, transparent);
+  /* 实心墨块上的字用纸色；纸与墨是一对，白与墨不是 */
+  --on-accent: oklch(0.960 0.010 200);
+  /* 状态色：danger 用品红墨，success 用主青墨，warning 用荧光黄墨 */
   --danger: oklch(0.520 0.190 330);          /* #A1319B  5.5:1 vs bg */
   --danger-hover: oklch(0.475 0.195 330);
   --danger-soft: color-mix(in oklab, var(--danger) 14%, transparent);
-  --on-danger: oklch(0.990 0 0);             /* #FCFCFC  5.9:1 vs danger */
+  --on-danger: oklch(0.960 0.010 200);       /* 5.9:1 vs danger */
   --success: oklch(0.480 0.083 190);         /* #006C68  5.6:1 vs bg */
   --warning: oklch(0.494 0.102 80);          /* #805A01  5.6:1 vs bg */
   --line-1: oklch(0.700 0.080 200);          /* #5CAEB2 */
-  --line-inset: color-mix(in oklab, var(--accent) 45%, transparent);
+  --line-2: oklch(0.560 0.060 280);
+  --line-inset: color-mix(in oklab, var(--fg) 45%, transparent);
 
-  /* 切角，圆角近乎为零 */
+  /* 印刷态没有圆角：纸是切的，不是磨的 */
   --r-sm: 0px;
-  --r-md: 2px;
-  --r-lg: 4px;
+  --r-md: 0px;
+  --r-lg: 0px;
   --r-full: 999px;
 
-  /* 荧光辉光取代实心阴影 */
-  --shadow-1: 0 0 8px color-mix(in oklab, var(--accent) 35%, transparent);
-  --shadow-2: 0 0 18px color-mix(in oklab, var(--accent) 30%, transparent);
-  --shadow-3: 0 8px 32px -8px rgb(0 0 0 / 0.80);
-  --shadow-field-outer: 0 0 6px color-mix(in oklab, var(--line-1) 40%, transparent);
-  --shadow-field-inner: inset 0 0 8px color-mix(in oklab, var(--line-1) 18%, transparent);
+  /* 纸不发光：阴影是墨的硬边落点，不是模糊的光晕 */
+  --shadow-1: 0 1px 0 color-mix(in oklab, var(--fg) 32%, transparent);
+  --shadow-2: 0 2px 0 color-mix(in oklab, var(--fg) 40%, transparent);
+  --shadow-3: 0 8px 24px -8px rgb(0 0 0 / 0.40);
+  --shadow-field-outer: 0 1px 0 color-mix(in oklab, var(--fg) 32%, transparent);
+  --shadow-field-inner: inset 0 0 0 1px var(--line-inset);
 
   --fw-body: 400;
   --fw-strong: 600;
   --fw-display: 700;
-  /* base.css 消费的是 --font-sans；覆盖它才真的换掉正文字族 */
+
+  /* 字族：正文是终端等宽（卡 §5 明写"等宽字是正文"）；
+     标题也走等宽，用更窄的字重与 0.04em 字距把终端感做足。 */
+  --font-mono: "Cascadia Mono", "Cascadia Code", "SF Mono", "Consolas",
+    "Sarasa Mono SC", "Microsoft YaHei", monospace;
   --font-sans: var(--font-mono);
   --font-display: var(--font-mono);
+
+  /* 类型比例：等宽字本身占宽，阶梯压到更少档位 */
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-md: 14px;
+  --fs-lg: 17px;
+  --fs-xl: 22px;
+  --fs-2xl: 30px;
+  --fs-3xl: 40px;
+  --lh-tight: 1.08;
+  --lh-snug: 1.32;
+  --lh-body: 1.72;
+
+  /* 布局：单列宽屏（终端是竖着读的）；顶栏压低，侧栏收窄成标签列 */
+  --rail-w: 192px;
+  --topbar-h: 48px;
+  --content-max: 1240px;
 
   --dur-fast: 100ms;
   --dur-base: 160ms;
@@ -65,33 +97,38 @@
 }
 
 :root[data-style="cyberpunk"][data-theme="dark"] {
-  /* 暗色：H 280 / C 0.020 —— 蓝紫黑；纯中性黑会让荧光显得脏 */
+  color-scheme: dark;
+
+  /* 屏幕态：H 280 / C 0.020 蓝紫黑；L 0.145，低于卡片声明的 0.18 上限 */
   --bg: oklch(0.145 0.020 280);              /* #080912 */
   --surface-1: oklch(0.168 0.020 280);       /* #0D0E18  ΔL 0.023 */
   --surface-2: oklch(0.192 0.020 280);       /* #12131D  ΔL 0.024 */
   --surface-3: oklch(0.217 0.020 280);       /* #181923  ΔL 0.025 */
-  --surface-sunken: oklch(0.130 0.020 280);
+  --surface-sunken: oklch(0.128 0.020 280);
   --fg: oklch(0.950 0.020 190);              /* #E0F3F1  17.3:1 */
   --fg-muted: oklch(0.780 0.040 210);        /* #9BBFC6  10.0:1 */
-  --accent: oklch(0.855 0.135 190);          /* #40EBE3  青，13.4:1 */
+  --accent: oklch(0.855 0.135 190);          /* #40EBE3  主荧光青，13.4:1 */
   --accent-hover: oklch(0.900 0.125 190);
-  --accent-2: oklch(0.720 0.180 330);        /* 品红辅助 */
-  /* 暗色状态色：danger 换成品红荧光（浅色是青主/品红次，暗色是青主/品红次，
-     但危险语义必须落在品红上）；三者 L 都在 0.85，带荧光感 */
+  --accent-2: oklch(0.720 0.180 330);        /* #E364DB  次荧光品红，只做通道分离 */
+  --accent-soft: color-mix(in oklab, var(--accent) 16%, transparent);
+  --on-accent: oklch(0.145 0.020 280);       /* 亮青底上压深色字 */
+  /* 暗色状态色：danger 落在品红荧光上，三者 L 都在 0.85 附近 */
   --danger: oklch(0.854 0.129 330);          /* #FFB0F7  12.1:1 vs bg */
   --danger-hover: oklch(0.900 0.119 330);
   --danger-soft: color-mix(in oklab, var(--danger) 16%, transparent);
-  --on-danger: oklch(0.145 0.020 280);       /* 深底反字 */
+  --on-danger: oklch(0.145 0.020 280);
   --success: oklch(0.854 0.147 190);         /* #06EDE4  13.4:1 vs bg */
   --warning: oklch(0.854 0.141 80);          /* #FFC458  12.5:1 vs bg */
   --line-1: oklch(0.430 0.100 300);          /* #59417E */
+  --line-2: oklch(0.520 0.110 300);
   --line-inset: color-mix(in oklab, var(--accent) 55%, transparent);
 
-  --shadow-1: 0 0 8px color-mix(in oklab, var(--accent) 35%, transparent);
-  --shadow-2: 0 0 18px color-mix(in oklab, var(--accent) 30%, transparent);
-  --shadow-3: 0 8px 32px -8px rgb(0 0 0 / 0.90);
-  --shadow-field-outer: 0 0 6px color-mix(in oklab, var(--accent) 25%, transparent);
-  --shadow-field-inner: inset 0 0 10px color-mix(in oklab, var(--accent) 14%, transparent);
+  /* 辉光取代实心阴影：只在描边与活跃元素上出现 */
+  --shadow-1: 0 0 10px -2px color-mix(in oklab, var(--accent) 30%, transparent);
+  --shadow-2: 0 0 20px -4px color-mix(in oklab, var(--accent) 28%, transparent);
+  --shadow-3: 0 12px 40px -12px rgb(0 0 0 / 0.90);
+  --shadow-field-outer: 0 0 8px -2px color-mix(in oklab, var(--accent) 30%, transparent);
+  --shadow-field-inner: inset 0 0 12px color-mix(in oklab, var(--accent) 16%, transparent);
 
   --fw-body: 350;
   --fw-strong: 550;
@@ -99,33 +136,334 @@
 }
 
 /* --------------------------------------------------------------------------
-   2. SIGNATURE
+   2. SIGNATURE —— 屏幕态（暗色）
    -------------------------------------------------------------------------- */
 
-/* 切角：clip-path 做真正的斜边，不是圆角 */
-:root[data-style="cyberpunk"] .card,
-:root[data-style="cyberpunk"] .surface {
-  --cut: 12px;
-  clip-path: polygon(
-    var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)),
-    calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut)
-  );
-  border: 1px solid var(--line-1);
-  border-radius: 0;
-  background: var(--surface-1);
-  box-shadow: var(--shadow-1);
+/* 底纹：40px 网格。极淡，只在页面底色上出现，不铺到任何表面上。
+   用 accent 的 color-mix 而不是写死青色：换配色时网格跟着走。 */
+:root[data-style="cyberpunk"][data-theme="dark"] body {
+  background-image:
+    linear-gradient(to right, color-mix(in oklab, var(--accent) 7%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklab, var(--accent) 7%, transparent) 1px, transparent 1px);
+  background-size: 40px 40px;
 }
 
-/* 按钮：荧光描边 + 悬停辉光 */
-:root[data-style="cyberpunk"] .btn {
+/* 扫描线：3px 周期，1px 亮线。0.035 是「看得见但不咬字」的上限——
+   再高会把 14px 等宽字的横画切断。z-index 高于顶栏与侧栏，
+   扫描线必须覆盖整块屏幕，而不只是主区；它是显像管的"面"，
+   不是一个可以躲在卡片后面的"底"。 */
+:root[data-style="cyberpunk"][data-theme="dark"] body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0 2px,
+    rgb(255 255 255 / 0.035) 2px 3px
+  );
+}
+
+/* 印刷态没有扫描线。取而代之的是半调网点，而且它属于**纸**：
+   铺在 body 的背景层上，卡片是压在纸上的实心墨，自然把网点盖住。
+   ——这就是"网点不进正文"的实现方式：不是靠透明度压，是靠层级。 */
+:root[data-style="cyberpunk"]:not([data-theme="dark"]) body {
+  background-image: radial-gradient(
+    circle at center,
+    color-mix(in oklab, var(--fg) 16%, transparent) 1.1px,
+    transparent 1.15px
+  );
+  background-size: 5px 5px;
+}
+
+/* 扫描带：一条比静态扫描线亮得多的高光，缓慢下移。
+   与静态线分开，是因为一个负责"材质"，一个负责"正在运行"。 */
+:root[data-style="cyberpunk"] body::after {
+  content: "";
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 22vh;
+  z-index: 999;
+  pointer-events: none;
+  opacity: 0;
+}
+:root[data-style="cyberpunk"][data-theme="dark"] body::after {
+  opacity: 1;
+  background: linear-gradient(
+    to bottom,
+    transparent 0,
+    color-mix(in oklab, var(--accent) 5%, transparent) 60%,
+    color-mix(in oklab, var(--accent) 8%, transparent) 88%,
+    transparent 100%
+  );
+  animation: cyber-scan 9s linear infinite;
+}
+@keyframes cyber-scan {
+  from { transform: translateY(-25vh); }
+  to   { transform: translateY(115vh); }
+}
+
+/* 切角是屏幕的物理限制（显像管切掉管角），只属于暗色。
+   印刷态是纸：直角 + 1px 墨线 + 套准角标。 */
+:root[data-style="cyberpunk"] .card,
+:root[data-style="cyberpunk"] .surface,
+:root[data-style="cyberpunk"] .stat,
+:root[data-style="cyberpunk"] .state-panel,
+:root[data-style="cyberpunk"] .form-aside,
+:root[data-style="cyberpunk"] .composer,
+:root[data-style="cyberpunk"] .danger-card {
+  --cut: 18px;
+  position: relative;
+  border-radius: 0;
+}
+:root[data-style="cyberpunk"][data-theme="dark"] .card,
+:root[data-style="cyberpunk"][data-theme="dark"] .surface,
+:root[data-style="cyberpunk"][data-theme="dark"] .stat,
+:root[data-style="cyberpunk"][data-theme="dark"] .state-panel,
+:root[data-style="cyberpunk"][data-theme="dark"] .form-aside,
+:root[data-style="cyberpunk"][data-theme="dark"] .composer,
+:root[data-style="cyberpunk"][data-theme="dark"] .danger-card {
+  /* clip-path 是所有浏览器都能拿到的底线 */
+  clip-path: polygon(
+    0 0, calc(100% - var(--cut)) 0, 100% var(--cut),
+    100% 100%, var(--cut) 100%, 0 calc(100% - var(--cut))
+  );
+}
+/* Chrome 139+ 用 corner-shape 做同一形状：外发光不再被裁掉 */
+@supports (corner-shape: bevel) {
+  :root[data-style="cyberpunk"][data-theme="dark"] .card,
+  :root[data-style="cyberpunk"][data-theme="dark"] .surface,
+  :root[data-style="cyberpunk"][data-theme="dark"] .stat,
+  :root[data-style="cyberpunk"][data-theme="dark"] .state-panel,
+  :root[data-style="cyberpunk"][data-theme="dark"] .form-aside,
+  :root[data-style="cyberpunk"][data-theme="dark"] .composer,
+  :root[data-style="cyberpunk"][data-theme="dark"] .danger-card {
+    clip-path: none;
+    border-radius: 0 var(--cut) 0 var(--cut);
+    corner-shape: bevel;
+  }
+}
+
+/* 终端角标：左上 `┌`、右下 `┘`。绝对定位 + pointer-events: none，
+   不参与卡片的 flex 布局，也不拦截点击。 */
+:root[data-style="cyberpunk"] .card::before,
+:root[data-style="cyberpunk"] .card::after,
+:root[data-style="cyberpunk"] .stat::before,
+:root[data-style="cyberpunk"] .stat::after {
+  content: "";
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  pointer-events: none;
+  z-index: 1;
+  color: color-mix(in oklab, var(--accent) 55%, transparent);
+}
+:root[data-style="cyberpunk"] .card::before,
+:root[data-style="cyberpunk"] .stat::before {
+  top: 6px;
+  left: 6px;
+  border-top: 1px solid currentColor;
+  border-left: 1px solid currentColor;
+}
+:root[data-style="cyberpunk"] .card::after,
+:root[data-style="cyberpunk"] .stat::after {
+  right: 6px;
+  bottom: 6px;
+  border-right: 1px solid currentColor;
+  border-bottom: 1px solid currentColor;
+}
+/* 印刷态不是终端角标，是印刷厂的四角套准标：`+` 十字，墨色，
+   放在裁切线内侧。同样的"四角有记号"，不同的来由。 */
+:root[data-style="cyberpunk"]:not([data-theme="dark"]) .card::before,
+:root[data-style="cyberpunk"]:not([data-theme="dark"]) .card::after,
+:root[data-style="cyberpunk"]:not([data-theme="dark"]) .stat::before,
+:root[data-style="cyberpunk"]:not([data-theme="dark"]) .stat::after {
+  inset: auto;
+  width: 9px;
+  height: 9px;
+  color: color-mix(in oklab, var(--fg) 55%, transparent);
+  background:
+    linear-gradient(currentColor, currentColor) center / 9px 1px no-repeat,
+    linear-gradient(currentColor, currentColor) center / 1px 9px no-repeat;
+  border: 0;
+}
+:root[data-style="cyberpunk"]:not([data-theme="dark"]) .card::before,
+:root[data-style="cyberpunk"]:not([data-theme="dark"]) .stat::before {
+  top: 8px;
+  left: 8px;
+}
+:root[data-style="cyberpunk"]:not([data-theme="dark"]) .card::after,
+:root[data-style="cyberpunk"]:not([data-theme="dark"]) .stat::after {
+  right: 8px;
+  bottom: 8px;
+}
+
+/* 卡片本体：屏幕态 = 描边 + 极淡外发光；只在活跃的卡上加强 */
+:root[data-style="cyberpunk"] .card,
+:root[data-style="cyberpunk"] .stat,
+:root[data-style="cyberpunk"] .state-panel,
+:root[data-style="cyberpunk"] .form-aside,
+:root[data-style="cyberpunk"] .composer {
+  background: var(--surface-1);
   border: 1px solid var(--line-1);
-  border-radius: 2px;
+  box-shadow: none;
+}
+:root[data-style="cyberpunk"][data-theme="dark"] .card,
+:root[data-style="cyberpunk"][data-theme="dark"] .stat,
+:root[data-style="cyberpunk"][data-theme="dark"] .state-panel,
+:root[data-style="cyberpunk"][data-theme="dark"] .form-aside,
+:root[data-style="cyberpunk"][data-theme="dark"] .composer {
+  border-color: color-mix(in oklab, var(--line-1) 80%, var(--accent) 20%);
+  box-shadow: 0 0 28px -18px color-mix(in oklab, var(--accent) 70%, transparent);
+}
+/* 活跃：指针在上面、或键盘焦点在内部。辉光的语义是"这里现在可操作" */
+:root[data-style="cyberpunk"][data-theme="dark"] .card:hover,
+:root[data-style="cyberpunk"][data-theme="dark"] .card:focus-within,
+:root[data-style="cyberpunk"][data-theme="dark"] .stat:hover,
+:root[data-style="cyberpunk"][data-theme="dark"] .state-panel:hover {
+  border-color: color-mix(in oklab, var(--accent) 65%, var(--line-1) 35%);
+  box-shadow:
+    0 0 24px -8px color-mix(in oklab, var(--accent) 45%, transparent),
+    inset 0 0 24px -18px color-mix(in oklab, var(--accent) 50%, transparent);
+}
+
+/* 印刷态没有辉光：用「套印偏移」代替——第二块墨落在第一块右下方 3px 处。
+   这是印刷机对不准留下的痕迹，不是投影。卡顶再压一条墨色横条，
+   像印刷样张上的裁切标记。 */
+:root[data-style="cyberpunk"]:not([data-theme="dark"]) .card,
+:root[data-style="cyberpunk"]:not([data-theme="dark"]) .stat,
+:root[data-style="cyberpunk"]:not([data-theme="dark"]) .state-panel,
+:root[data-style="cyberpunk"]:not([data-theme="dark"]) .form-aside,
+:root[data-style="cyberpunk"]:not([data-theme="dark"]) .composer {
+  border: 1px solid var(--fg);
+  box-shadow: 3px 3px 0 color-mix(in oklab, var(--accent-2) 46%, transparent);
+}
+:root[data-style="cyberpunk"]:not([data-theme="dark"]) .card,
+:root[data-style="cyberpunk"]:not([data-theme="dark"]) .stat {
+  background-image: linear-gradient(
+    to bottom,
+    color-mix(in oklab, var(--fg) 8%, transparent) 0 3px,
+    transparent 3px
+  );
+}
+/* 侧栏与顶栏在印刷态是压了色的整张纸：实底色，不让网点漏进来。
+   屏幕态不用管——扫描线与网格在它们之上，本来就是覆盖整屏的。 */
+:root[data-style="cyberpunk"]:not([data-theme="dark"]) .rail {
+  background: var(--surface-sunken);
+  border-right: 1px solid var(--fg);
+}
+:root[data-style="cyberpunk"]:not([data-theme="dark"]) .topbar {
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--fg);
+}
+
+/* 卡头：印刷态的标题栏是一块实心墨条，标题反白。
+   屏幕态没有这一条——显像管上的"标题栏"是那条扫描线本身。
+   负边距必须精确等于卡片的内边距，否则墨条会溢出卡片边缘：
+   默认卡片是 --s-5；宽屏下 .dash-split 的卡片顶内边距被压到 --s-4，
+   所以那一条在媒体查询里单独覆盖（见 §2 骨架段）。 */
+:root[data-style="cyberpunk"]:not([data-theme="dark"]) .card > .card__head {
+  margin: calc(var(--s-5) * -1) calc(var(--s-5) * -1) 0;
+  padding: var(--s-2) var(--s-5);
+  background: var(--fg);
+  color: var(--bg);
+}
+:root[data-style="cyberpunk"]:not([data-theme="dark"]) .card > .card__head .card__title {
+  color: var(--bg);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+:root[data-style="cyberpunk"]:not([data-theme="dark"]) .card > .card__head .card__sub {
+  color: color-mix(in oklab, var(--bg) 72%, transparent);
+}
+:root[data-style="cyberpunk"]:not([data-theme="dark"]) .card > .card__head .ico {
+  color: var(--bg);
+}
+/* 指标卡的标签没有 card__head，就自己压一条反白墨条。
+   四张指标卡排成两行时，这四条墨条构成页面上的横向节奏。 */
+:root[data-style="cyberpunk"]:not([data-theme="dark"]) .stat > .stat__label {
+  margin: calc(var(--s-5) * -1) calc(var(--s-5) * -1) 0;
+  padding: var(--s-1) var(--s-5);
+  background: var(--fg);
+  color: var(--bg);
+  text-transform: uppercase;
+}
+
+/* 标题：等宽 + 大写字距 + 荧光下划线；
+   屏幕态再加 RGB 通道分离。±2px 只给 h1，正文一律不加。 */
+:root[data-style="cyberpunk"] .view-head h1 {
+  font-family: var(--font-mono);
+  font-weight: var(--fw-display);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+:root[data-style="cyberpunk"][data-theme="dark"] .view-head h1 {
+  color: var(--fg);
+  text-shadow:
+    2px 0 color-mix(in oklab, var(--accent-2) 85%, transparent),
+    -2px 0 color-mix(in oklab, var(--accent) 85%, transparent);
+}
+/* 印刷态没有 RGB 通道，只有两版墨没套准：品红版偏右 1.5px、青版偏左 1.5px。
+   偏移比屏幕态小一半——纸上的错版是缺陷，不是特效。 */
+:root[data-style="cyberpunk"]:not([data-theme="dark"]) .view-head h1 {
+  color: var(--fg);
+  text-shadow:
+    1.5px 0 color-mix(in oklab, var(--accent) 55%, transparent),
+    -1.5px 0 color-mix(in oklab, var(--accent-2) 70%, transparent);
+}
+:root[data-style="cyberpunk"] .view-head h1::after {
+  content: "";
+  display: block;
+  height: 2px;
+  margin-top: var(--s-2);
+  background: linear-gradient(90deg, var(--accent), transparent 60%);
+}
+/* 小标题加终端提示符；⚠ 不是文案装饰，是"这是一个字段"的定位符 */
+:root[data-style="cyberpunk"] .eyebrow::before {
+  content: "// ";
+  color: var(--accent);
+}
+
+/* 正文与标签的字距差：正文 +0.02em 防粘连，小标签 +0.12em 做终端字段名 */
+:root[data-style="cyberpunk"] body {
+  letter-spacing: 0.02em;
+}
+:root[data-style="cyberpunk"] .eyebrow,
+:root[data-style="cyberpunk"] .stat__label,
+:root[data-style="cyberpunk"] .rail__label,
+:root[data-style="cyberpunk"] .card__sub,
+:root[data-style="cyberpunk"] .field__label {
+  letter-spacing: 0.12em;
+}
+
+/* 按钮：切角与卡片同一语言（屏幕态），印刷态是实心墨块 + 直角 */
+:root[data-style="cyberpunk"] .btn {
+  --cut: 8px;
+  border: 1px solid var(--line-1);
+  border-radius: 0;
   background: transparent;
   color: var(--fg);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
+}
+:root[data-style="cyberpunk"][data-theme="dark"] .btn {
+  clip-path: polygon(
+    0 0, calc(100% - var(--cut)) 0, 100% var(--cut),
+    100% 100%, var(--cut) 100%, 0 calc(100% - var(--cut))
+  );
+}
+@supports (corner-shape: bevel) {
+  :root[data-style="cyberpunk"][data-theme="dark"] .btn {
+    clip-path: none;
+    border-radius: 0 var(--cut) 0 var(--cut);
+    corner-shape: bevel;
+  }
 }
 :root[data-style="cyberpunk"] .btn:hover {
   border-color: var(--accent);
@@ -138,50 +476,130 @@
   color: var(--accent);
   box-shadow: var(--shadow-1);
 }
+:root[data-style="cyberpunk"][data-theme="dark"] .btn[data-variant="primary"] {
+  background: color-mix(in oklab, var(--accent) 20%, transparent);
+  box-shadow:
+    0 0 12px -2px color-mix(in oklab, var(--accent) 45%, transparent),
+    inset 0 0 16px -10px var(--accent);
+}
+/* 印刷态的主动作是实心色块：墨吃进纸里，没有半透明 */
+:root[data-style="cyberpunk"]:not([data-theme="dark"]) .btn[data-variant="primary"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  box-shadow: 3px 3px 0 var(--fg);
+}
+:root[data-style="cyberpunk"]:not([data-theme="dark"]) .btn[data-variant="primary"]:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: var(--on-accent);
+  box-shadow: 3px 3px 0 var(--fg);
+}
+/* 焦点环必须走 inset：按钮被 clip-path 裁过，外扩的 outline / box-shadow
+   会被一起裁掉，键盘用户就看不到焦点了。内描边在两种分支下都成立。
+   选择器要比印刷态的实心按钮和 danger 态都更长，否则焦点环会被它们的
+   box-shadow 覆盖掉——这里用属性选择器拉开特异性，不用 !important。 */
+:root[data-style="cyberpunk"] .btn:focus-visible,
+:root[data-style="cyberpunk"] .btn[data-variant]:focus-visible {
+  outline: none;
+  box-shadow:
+    inset 0 0 0 2px var(--accent),
+    0 0 16px -4px color-mix(in oklab, var(--accent) 55%, transparent);
+}
+:root[data-style="cyberpunk"]:not([data-theme="dark"]) .btn[data-variant]:focus-visible {
+  box-shadow:
+    inset 0 0 0 2px var(--accent),
+    3px 3px 0 var(--accent);
+}
+/* 焦点文字也做通道分离：键盘用户看到的是同一套色彩语法。
+   只给文字，不给整块按钮——两块色版叠在填充上是糊的。
+   偏移收到 1px：按钮是 11px 等宽字，标题的 2px 在这个字号上会直接糊成重影。 */
+:root[data-style="cyberpunk"][data-theme="dark"] .btn:focus-visible .btn__label {
+  text-shadow:
+    1px 0 color-mix(in oklab, var(--accent-2) 85%, transparent),
+    -1px 0 color-mix(in oklab, var(--accent) 85%, transparent);
+}
 
-/* 输入框：荧光内环 */
-:root[data-style="cyberpunk"] .field-control {
+/* 输入框：荧光内环；聚焦时内发光加强，光标取荧光色 */
+:root[data-style="cyberpunk"] .field-control,
+:root[data-style="cyberpunk"] .settings-select {
   background: var(--surface-sunken);
   border: 1px solid var(--line-1);
-  border-radius: 2px;
-  box-shadow: inset 0 0 10px color-mix(in oklab, var(--line-1) 14%, transparent);
+  border-radius: 0;
+  box-shadow:
+    var(--shadow-field-outer),
+    var(--shadow-field-inner),
+    inset 0 0 0 1px var(--line-inset);
   font-family: var(--font-mono);
+  caret-color: var(--accent);
 }
-:root[data-style="cyberpunk"] .field-control:focus-visible {
+:root[data-style="cyberpunk"] .field-control:focus-visible,
+:root[data-style="cyberpunk"] .settings-select:focus-visible {
   border-color: var(--accent);
-  box-shadow: inset 0 0 12px color-mix(in oklab, var(--accent) 18%, transparent), var(--shadow-1);
+  box-shadow:
+    var(--shadow-field-outer),
+    inset 0 0 14px color-mix(in oklab, var(--accent) 28%, transparent),
+    inset 0 0 0 1px var(--accent),
+    0 0 0 3px color-mix(in oklab, var(--accent) 22%, transparent);
+}
+/* 印刷态输入框：纸上压出来的一道凹槽——2px 实心墨框 + 外投影，
+   R4 的 B 类"硬边框法"。聚焦时框线换成品红墨，外投影也换成品红。 */
+:root[data-style="cyberpunk"]:not([data-theme="dark"]) .field-control,
+:root[data-style="cyberpunk"]:not([data-theme="dark"]) .settings-select {
+  background: var(--bg);
+  border: 2px solid var(--fg);
+  box-shadow: 3px 3px 0 color-mix(in oklab, var(--fg) 20%, transparent);
+}
+:root[data-style="cyberpunk"]:not([data-theme="dark"]) .field-control:focus-visible,
+:root[data-style="cyberpunk"]:not([data-theme="dark"]) .settings-select:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 3px 3px 0 var(--accent);
 }
 
-/* 标题：等宽 + 字距拉宽 + 荧光下划线 */
-:root[data-style="cyberpunk"] .view-head h1 {
+/* 选中：屏幕态是荧光青底深字；印刷态是品红墨块 */
+:root[data-style="cyberpunk"]::selection,
+:root[data-style="cyberpunk"] ::selection {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+:root[data-style="cyberpunk"][data-theme="dark"]::selection,
+:root[data-style="cyberpunk"][data-theme="dark"] ::selection {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+/* 导航当前项：屏幕态是一条荧光竖条 + 内发光；印刷态是一条实线 */
+:root[data-style="cyberpunk"] .nav-link[aria-current="page"] {
+  background: color-mix(in oklab, var(--accent) 10%, transparent);
+  box-shadow: inset 2px 0 0 var(--accent);
+  color: var(--accent);
+}
+:root[data-style="cyberpunk"][data-theme="dark"] .nav-link[aria-current="page"] {
+  background: color-mix(in oklab, var(--accent) 14%, transparent);
+  box-shadow:
+    inset 2px 0 0 var(--accent),
+    0 0 18px -8px color-mix(in oklab, var(--accent) 60%, transparent);
+}
+:root[data-style="cyberpunk"] .nav-link[aria-current="page"] .ico,
+:root[data-style="cyberpunk"] .nav-link[aria-current="page"] .nav-link__text {
+  color: var(--accent);
+}
+
+/* 数值：等宽数字 + 屏幕态轻微荧光；整列数字不跳动 */
+:root[data-style="cyberpunk"] .stat__value,
+:root[data-style="cyberpunk"] .timer__value,
+:root[data-style="cyberpunk"] .timeline__time,
+:root[data-style="cyberpunk"] .surface-layer__meta,
+:root[data-style="cyberpunk"] .token-table code {
   font-family: var(--font-mono);
-  font-weight: var(--fw-display);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-variant-numeric: tabular-nums slashed-zero;
 }
-:root[data-style="cyberpunk"] .view-head h1::after {
-  content: "";
-  display: block;
-  height: 2px;
-  margin-top: var(--s-2);
-  background: linear-gradient(90deg, var(--accent), transparent 60%);
+:root[data-style="cyberpunk"][data-theme="dark"] .stat__value {
+  text-shadow: 0 0 18px color-mix(in oklab, var(--accent) 28%, transparent);
 }
 
-/* 扫描线：极低透明度，只在暗色下出现 */
-:root[data-style="cyberpunk"][data-theme="dark"] .main::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background: repeating-linear-gradient(
-    to bottom,
-    transparent 0 2px,
-    rgb(255 255 255 / 0.012) 2px 3px
-  );
-  z-index: 1;
-}
-
-/* 状态点用荧光脉冲，≤1.2Hz */
+/* 状态点：荧光脉冲（≤1.2Hz）。只在暗色下发光，浅色下靠色相 */
 @keyframes cyber-pulse {
   0%, 100% { opacity: 1; }
   50%      { opacity: 0.45; }
@@ -190,9 +608,6 @@
 :root[data-style="cyberpunk"] .dot[data-tone="danger"] {
   animation: cyber-pulse 1.2s steps(2, end) infinite;
 }
-
-/* 状态色的辉光是文字色/边框色的彩色扩散（本卡签名），
-   不是渐变：每个元素最多两层，与 accent 同一套辉光语言 */
 :root[data-style="cyberpunk"] .dot[data-tone="danger"] {
   box-shadow: 0 0 6px color-mix(in oklab, var(--danger) 55%, transparent);
 }
@@ -206,12 +621,25 @@
   background: transparent;
   border-color: var(--danger);
   color: var(--danger);
-  box-shadow: 0 0 12px color-mix(in oklab, var(--danger) 40%, transparent);
+  box-shadow: 0 0 12px -2px color-mix(in oklab, var(--danger) 40%, transparent);
 }
 :root[data-style="cyberpunk"] .btn[data-variant="danger"]:hover {
   color: var(--danger-hover);
   border-color: var(--danger-hover);
-  box-shadow: 0 0 18px color-mix(in oklab, var(--danger) 55%, transparent);
+  box-shadow: 0 0 18px -2px color-mix(in oklab, var(--danger) 55%, transparent);
+}
+/* 印刷态：危险是实心品红块，和主按钮一样是墨 */
+:root[data-style="cyberpunk"]:not([data-theme="dark"]) .btn[data-variant="danger"] {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: var(--on-danger);
+  box-shadow: 3px 3px 0 var(--fg);
+}
+:root[data-style="cyberpunk"]:not([data-theme="dark"]) .btn[data-variant="danger"]:hover {
+  background: var(--danger-hover);
+  border-color: var(--danger-hover);
+  color: var(--on-danger);
+  box-shadow: 3px 3px 0 var(--fg);
 }
 :root[data-style="cyberpunk"] .tag[data-tone="danger"],
 :root[data-style="cyberpunk"] .tag[data-tone="ok"] {
@@ -227,6 +655,50 @@
 :root[data-style="cyberpunk"] .badge[data-tone="ok"] {
   box-shadow: 0 0 10px color-mix(in oklab, var(--success) 40%, transparent);
 }
+/* 印刷态标签：实心墨块，不发光 */
+:root[data-style="cyberpunk"]:not([data-theme="dark"]) .tag[data-tone="danger"] {
+  background: var(--danger);
+  color: var(--on-danger);
+  box-shadow: none;
+}
+:root[data-style="cyberpunk"]:not([data-theme="dark"]) .tag[data-tone="ok"] {
+  background: var(--success);
+  color: var(--on-accent);
+  box-shadow: none;
+}
+
+/* 骨架：终端是单列流。统计卡两列（4 张必然成两行），主分栏取消，
+   两个区块上下叠成同一条「日志流」。 */
+:root[data-style="cyberpunk"] .main {
+  padding: var(--s-5) var(--s-6) var(--s-7);
+}
+:root[data-style="cyberpunk"] .view {
+  gap: var(--s-5);
+}
+@media (min-width: 1181px) {
+  :root[data-style="cyberpunk"] .stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--s-3);
+  }
+  :root[data-style="cyberpunk"] .dash-split {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--s-4);
+  }
+  /* 卡片做成终端窗口：左上角一个荧光标题栏，进度感靠右对齐的元信息 */
+  :root[data-style="cyberpunk"] .dash-split > .card {
+    padding: var(--s-4) var(--s-5) var(--s-5);
+  }
+  :root[data-style="cyberpunk"] .dash-split > .card > .card__head {
+    padding-bottom: var(--s-2);
+    border-bottom: 1px solid var(--line-1);
+  }
+  /* 这条卡片的顶内边距是 --s-4，印刷态墨条的负边距要跟着换，
+     否则会向上溢出卡片 8px。 */
+  :root[data-style="cyberpunk"]:not([data-theme="dark"]) .dash-split > .card > .card__head {
+    margin-top: calc(var(--s-4) * -1);
+    padding-top: var(--s-2);
+  }
+}
 
 /* --------------------------------------------------------------------------
    3. CONSTRAINT
@@ -240,17 +712,41 @@
   letter-spacing: 0.01em;
 }
 
-/* 循环动画在 reduced-motion 下必须停 */
+/* 纸张不发光：浅色下取消所有荧光扩散，只留墨与线 */
+:root[data-style="cyberpunk"]:not([data-theme="dark"]) .dot,
+:root[data-style="cyberpunk"]:not([data-theme="dark"]) .tag,
+:root[data-style="cyberpunk"]:not([data-theme="dark"]) .badge {
+  box-shadow: none;
+}
+
+/* 循环动画在 reduced-motion 下必须停：扫描带、状态点、光标闪烁 */
 @media (prefers-reduced-motion: reduce) {
   :root[data-style="cyberpunk"] .dot { animation: none !important; }
+  :root[data-style="cyberpunk"] body::after { animation: none !important; opacity: 0 !important; }
   :root[data-style="cyberpunk"] * { transition-duration: 0.01ms !important; }
+}
+
+/* 提高对比度时先牺牲纹理与辉光：扫描线、网点、通道分离全部退出 */
+@media (prefers-contrast: more) {
+  :root[data-style="cyberpunk"] body::before { display: none; }
+  :root[data-style="cyberpunk"] body::after { display: none; }
+  :root[data-style="cyberpunk"] .view-head h1 { text-shadow: none; }
+  :root[data-style="cyberpunk"] .card,
+  :root[data-style="cyberpunk"] .stat { border-color: var(--fg); }
 }
 
 /* 切角在 forced-colors 下会被吃掉，退回实边 */
 @media (forced-colors: active) {
   :root[data-style="cyberpunk"] .card,
-  :root[data-style="cyberpunk"] .surface { clip-path: none; border: 1px solid CanvasText !important; }
+  :root[data-style="cyberpunk"] .surface,
+  :root[data-style="cyberpunk"] .stat,
+  :root[data-style="cyberpunk"] .btn { clip-path: none; border: 1px solid CanvasText !important; }
+  :root[data-style="cyberpunk"] .card::before,
+  :root[data-style="cyberpunk"] .card::after,
+  :root[data-style="cyberpunk"] .stat::before,
+  :root[data-style="cyberpunk"] .stat::after { display: none; }
 }
 
 /* 不允许玻璃、不允许大圆角 */
 :root[data-style="cyberpunk"] .glass { backdrop-filter: none; }
+
