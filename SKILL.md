@@ -253,9 +253,9 @@ selfReview: { philosophy: N, …, weakest: "<最低分轴>", note: "<≥20 字>"
 
 完整规格见 `references/rules/00-non-negotiable.md`。分级：**MUST** / **SHOULD** / **ADVISORY** / **REFLEX**。
 
-**REFLEX 不是错，是模型的默认手**——看起来合理，但通常没经过判断。不做要给理由，并在 `alignment-report.md` 的 Reflex 区登记，不走 overrides 九字段。
+**REFLEX 不是错，是模型的默认手**——看起来合理，但通常没经过判断。不做要给理由，并在 `alignment-report.md` 的 Reflex 区登记，不走 overrides 十字段。
 
-用户可覆盖任何一条，但覆盖必须登记 `decisions.json.overrides`（九字段缺一不可），且不能直接产生最终"通过"。
+用户可覆盖任何一条，但覆盖必须登记 `decisions.json.overrides`（十字段缺一不可，含可复算的 `guard`），且不能直接产生最终"通过"。
 
 | # | 规则 | 级别 | 要点 |
 |---|---|---|---|

@@ -6,6 +6,20 @@
 
 ---
 
+## 安装
+
+```bash
+# 装到当前项目（写进 .claude/skills/，随仓库一起走）
+npx skills add mogenga/aesthetic --skill aesthetic
+
+# 或全局安装，所有项目可用
+npx skills add mogenga/aesthetic --skill aesthetic -g
+```
+
+也可以直接克隆到 `~/.claude/skills/aesthetic/`。技能名是 `aesthetic`（由 `SKILL.md` 的 frontmatter 决定），装完重启会话即可用。目录页：<https://www.skills.sh/mogenga/aesthetic>。
+
+---
+
 ## 风格预览
 
 10 张逻辑风格卡 / 12 个 CSS 变体。同一套内容、同一套结构，只换变体 CSS——所以差别全部来自风格本身，不来自页面内容。
@@ -26,6 +40,10 @@
 | **毛玻璃**<br>背景被糊掉，边缘靠双 inset 伪造厚度 | **液态玻璃**<br>边缘折射并弯曲背后的内容（仅 Chromium 真渲染） |
 
 每张卡在 `references/styles/*.md` 里有签名特征、代价与适用场景。完整清单见 `assets/studio/styles/style-index.json`（渲染时唯一计数源）。
+
+除了组件外观，12 个变体在**字族、字号阶梯、侧栏宽度、统计卡排布**上也各不相同——换风格不是换一层皮肤。`dark-tech` 是暗色专属（索引里标 `"theme": "dark-only"`），不产出白色版本。
+
+每张卡还带 **3 套适配该风格的配色方案**（玻璃 4 套）。每套同时定义强调色和中性色的色相 / 染色浓度，换方案时整页冷暖都会变，而不只是按钮颜色。方案数据在 `assets/studio/styles/palettes.json`。
 
 ---
 
@@ -58,7 +76,7 @@ flowchart LR
 | 编译层 | 本 skill | token 表、非协商项取值、注入块、合同 |
 | 验收层 | 本 skill | L1 token / L2 几何 / L3 知觉 |
 
-两个导演都不在时，本 skill 自导：上面那 10 张卡 + 3 个玻璃变体。
+两个导演都不在时，本 skill 自导：上面那 10 张卡 / 12 个变体。
 
 ---
 
@@ -96,9 +114,11 @@ flowchart LR
 
 | 模式 | 做什么 |
 |---|---|
-| **画廊** | 12 个变体并排等比缩略，可放大看整页，选中即写进 `decisions.json` |
-| **调色** | 色相环 + C×L 平面、吸管、hex/rgb/hsl/oklch 四格式；七项设计参数全部控件驱动，每项配真实值渲染的样本 |
+| **画廊** | 12 个变体并排等比缩略，可放大看整页；选中即换掉预览的样式与配色基线 |
+| **调色** | 先选**预设配色方案**（每张卡 3 套，玻璃 4 套），再进高级微调：色相环 + C×L 平面、吸管、hex/rgb/hsl/oklch 四格式、中性色浓度。七项设计参数全部控件驱动，每项配真实值渲染的样本 |
 | **组件实验室** | 在**当前项目的 token + 当前风格**下看组件真实渲染；可把某一屏的计算样式固化成 CSS 片段写进项目 |
+
+默认路径是「选方案 → 微调」，不是「从色相环开始」：多数人只需要在一组成品配色里挑一个。预置的方案卡会显示该方案的页面底 / 强调色 / 正文三个色点，点进去看到的就是整页效果。
 
 零依赖、原生 ESM、无构建。所有写回端点都要求一次性 token，且只监听 `127.0.0.1`。
 
@@ -107,6 +127,9 @@ flowchart LR
 ## 快速开始
 
 ```bash
+# 0. 动手前先录基线（链接、字段、表单、事件处理器、选择器）
+node scripts/baseline.mjs --project /path/to/your-app --record
+
 # 1. 生成产物（decisions.json → tokens.* + contract.md）
 node scripts/build.mjs --project /path/to/your-app
 
@@ -122,7 +145,12 @@ node scripts/check-tokens.mjs --project /path/to/your-app
 # 5. 打开工作台（调色 + 转写表 + 组件实验室）
 node scripts/studio.mjs --project /path/to/your-app --open
 # 脚本会打印带一次性 token 的 URL；把它贴到对话里，等用户确认打开再往下
+
+# 6. 改完对回基线：hard 项（链接 / 字段 / 表单 / 处理器 / id / 选择器）丢失即失败
+node scripts/baseline.mjs --project /path/to/your-app --check
 ```
+
+基线的 hard 项是源码里作者已经写下的接线；重设计只该换样子，不该把它们弄丢。soft 项（标题、图片、字数）只告警。豁免写在代码注释里，理由不足 12 字无效。
 
 跑通见 `assets/examples/minimal-operate/`。
 
@@ -138,6 +166,7 @@ node scripts/studio.mjs --project /path/to/your-app --open
     ├── contract.md            # 十段合同（派生）
     ├── tokens.css             # 令牌（派生）
     ├── tokens.json            # 机读（派生）
+    ├── baseline.json          # 重设计前的「不许丢东西」基线
     ├── alignment-report.md    # 对齐报告
     └── shots/approved-*.png
 ```
@@ -168,7 +197,9 @@ decisions.json → tokens.json / tokens.css → contract.md → 注入块
 | R8 | 设置页 | 左名右控件；无外层卡片；删除独立成组 |
 | R9 | 表单页 | 标签在上；输入区全宽 |
 
-规则分 MUST / SHOULD / ADVISORY。用户可覆盖任何一条，但必须登记 override（九字段）。
+规则分 **MUST / SHOULD / ADVISORY**，另有一条与强度无关的 **REFLEX** 轴——它管的不是「这样做对不对」，而是「这是不是模型想都没想就会做的默认手」（替用户做决定、把发出当收到、不知道就编、专家控件摆主路径……）。命中 REFLEX 不需要 override，但要在对齐报告里登记为什么这次判断优先于惯性，清单见 `references/reflex.md`。
+
+用户可覆盖任何一条，但必须登记 override（十字段缺一不可，含脚本能重算的 `guard`）。`reason` 写「设计需要」这类套话会被拒；`guard` 写成 `contrast: fg/bg >= 4.5` 这样的断言，由 `check-tokens.mjs` 重新推导，不达标报 `OV1`–`OV4`。
 
 完整规格见 `references/rules/`。
 
@@ -186,19 +217,20 @@ aesthetic/
 │   ├── translation.md      # 散文 → 数字
 │   ├── injection.md        # 注入块
 │   ├── layout-patterns.md  # 页型线框
-│   ├── reflex.md           # 模型的默认手清单
+│   ├── motion.md           # 动效语汇
+│   ├── reflex.md           # 模型的默认手清单（X1–X9）
 │   ├── rules/              # R1–R9 全文
 │   └── styles/             # 10 张风格卡（自导模式）
 ├── schemas/                # decisions / tokens JSON Schema
 ├── scripts/                # build·inject·check·shoot·audit·studio·baseline
 ├── assets/
-│   ├── studio/             # 工作台 UI + 夹具 + 12 个变体 CSS
+│   ├── studio/             # 工作台 UI + 夹具 + 12 个变体 CSS + 配色方案
 │   ├── readme/             # README 用的风格预览图
 │   ├── templates/          # contract / 注入块 / 对齐报告模板
 │   ├── examples/           # 端到端样例
 │   ├── recipes/            # 组件片段（只读模板）
 │   └── vendor/             # hyalite（MIT）
-└── tests/run.mjs           # 38 项自测，零依赖
+└── tests/                  # run / css-check / baseline，零依赖
 ```
 
 ---
@@ -206,8 +238,9 @@ aesthetic/
 ## 自测
 
 ```bash
-node tests/run.mjs        # 38 项：OKLCH 数学、Schema、哈希、marker 幂等、生成链、lint、路径越界
+node tests/run.mjs        # 56 项：OKLCH 数学、Schema、哈希、marker 幂等、生成链、lint、guard 复算、路径越界
 node tests/css-check.mjs  # 12 个变体的结构检查 + 双索引交叉校验
+node tests/baseline.mjs   # 19 项：基线录制、hard 丢失、软项告警、豁免语法
 ```
 
 ---
@@ -225,7 +258,8 @@ node tests/css-check.mjs  # 12 个变体的结构检查 + 双索引交叉校验
 - `backdrop-filter: url(#svg)` **只有 Chromium 真渲染**（Safari WebKit bug 245510、Firefox bug 1787623）。液态玻璃必须写三级降级链。
 - `CSS.supports('backdrop-filter','url(#x)')` 在三大引擎都返回 true，不能做特性检测。
 - 目标 `DESIGN.md` 若属于 `impeccable`，它的 `document` 会重生成该文件，注入块会消失——这是预期行为，重跑 `inject.mjs` 即可。
-- 单主题**深色**暂不支持：Schema 要求 `color.light` 必填，`commit` 端点与 `check-tokens` 都会拒绝。目前只有「单主题 · 浅」与「浅 + 深」两种。
+- **项目级**单主题深色暂不支持：Schema 要求 `color.light` 必填，`commit` 端点与 `check-tokens` 都会拒绝。项目只有「单主题 · 浅」与「浅 + 深」两种。
+  （**变体级**暗色专属是支持的：`dark-tech` 在索引里标 `"theme": "dark-only"`，只有一套深色 token，Studio 会锁住浅色预览。）
 
 ---
 
