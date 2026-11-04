@@ -21,7 +21,7 @@
 | ![渐变·弥散光](assets/readme/styles/gradient-aurora.jpg) | ![黑色科技极简](assets/readme/styles/dark-tech-dark.jpg) |
 | **渐变 · 弥散光**<br>大色斑做氛围底，表面半透 | **黑色科技极简**<br>近黑底、极细同宽线、单点高光 |
 | ![赛博朋克](assets/readme/styles/cyberpunk-dark.jpg) | ![透明玻璃](assets/readme/styles/glass-transparent.jpg) |
-| **赛博朋克**<br>暗底荧光、切角、等宽字、扫描线 | **透明玻璃**<br>不模糊，只染色，靠亮边立形 |
+| **赛博朋克**<br>品红霓虹、扫描线、切角、等宽字 | **透明玻璃**<br>不模糊，只染色，靠亮边立形 |
 | ![毛玻璃](assets/readme/styles/glass-frosted.jpg) | ![液态玻璃](assets/readme/styles/glass-liquid.jpg) |
 | **毛玻璃**<br>背景被糊掉，边缘靠双 inset 伪造厚度 | **液态玻璃**<br>边缘折射并弯曲背后的内容（仅 Chromium 真渲染） |
 

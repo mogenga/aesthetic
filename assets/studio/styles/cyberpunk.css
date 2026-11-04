@@ -2,8 +2,9 @@
    cyberpunk.css —— 赛博朋克 · 变体 04/12
    --------------------------------------------------------------------------
    签名：同一个视觉语言的两种载体。
-     暗色 = 荧光显像管：蓝紫黑底 + 40px 青网格 + 3px 扫描线 + 下移扫描带，
-            切角、终端角标、标题/数值的 RGB 通道分离、只在活跃元素上发光。
+     暗色 = 荧光显像管：蓝紫黑底 + 40px 荧光网格 + 3px 扫描线 + 下移扫描带，
+            品红主荧光 + 青副荧光、切角、终端角标、标题/数值的 RGB 通道分离、
+            只在活跃元素上发光。
      浅色 = 印刷的终端：米青纸底 + 半调网点、深紫墨字、实心墨块按钮、
             套准角标、硬边套印偏移——纸不会发光，所以这里没有辉光。
 
@@ -30,18 +31,19 @@
   --surface-sunken: oklch(0.938 0.010 200);
   --fg: oklch(0.220 0.030 280);              /* #181928  15.5:1 */
   --fg-muted: oklch(0.435 0.050 280);        /* #4B4E6D  7.2:1 */
-  --accent: oklch(0.520 0.190 330);          /* #A1319B  品红墨，5.5:1 */
-  --accent-hover: oklch(0.470 0.195 330);
-  --accent-2: oklch(0.560 0.090 200);        /* #188489  青墨，只做装饰 */
+  --accent: oklch(0.520 0.230 330);          /* #AB0FA5  荧光品红墨，5.6:1 */
+  --accent-hover: oklch(0.470 0.210 330);    /* #950891 */
+  --accent-2: oklch(0.500 0.085 195);        /* #017272  青墨，只做套印副版 */
   --accent-soft: color-mix(in oklab, var(--accent) 12%, transparent);
   /* 实心墨块上的字用纸色；纸与墨是一对，白与墨不是 */
   --on-accent: oklch(0.960 0.010 200);
-  /* 状态色：danger 用品红墨，success 用主青墨，warning 用荧光黄墨 */
-  --danger: oklch(0.520 0.190 330);          /* #A1319B  5.5:1 vs bg */
-  --danger-hover: oklch(0.475 0.195 330);
+  /* 状态色：danger 换朱红，避免与品红主色混为一谈；
+     success 用青墨（副光），warning 用荧光黄墨 */
+  --danger: oklch(0.500 0.180 27);           /* #B32322  5.9:1 vs bg */
+  --danger-hover: oklch(0.450 0.180 27);     /* #A20711 */
   --danger-soft: color-mix(in oklab, var(--danger) 14%, transparent);
   --on-danger: oklch(0.960 0.010 200);       /* 5.9:1 vs danger */
-  --success: oklch(0.480 0.083 190);         /* #006C68  5.6:1 vs bg */
+  --success: oklch(0.480 0.090 155);         /* #2C6C47  5.6:1 vs bg */
   --warning: oklch(0.494 0.102 80);          /* #805A01  5.6:1 vs bg */
   --line-1: oklch(0.700 0.080 200);          /* #5CAEB2 */
   --line-2: oklch(0.560 0.060 280);
@@ -99,28 +101,36 @@
 :root[data-style="cyberpunk"][data-theme="dark"] {
   color-scheme: dark;
 
-  /* 屏幕态：H 280 / C 0.020 蓝紫黑；L 0.145，低于卡片声明的 0.18 上限 */
-  --bg: oklch(0.145 0.020 280);              /* #080912 */
-  --surface-1: oklch(0.168 0.020 280);       /* #0D0E18  ΔL 0.023 */
-  --surface-2: oklch(0.192 0.020 280);       /* #12131D  ΔL 0.024 */
-  --surface-3: oklch(0.217 0.020 280);       /* #181923  ΔL 0.025 */
-  --surface-sunken: oklch(0.128 0.020 280);
+  /* 屏幕态：H 290 / C 0.028 蓝紫黑；L 0.145，低于卡片声明的 0.18 上限。
+     浓度从 0.020 提到 0.028：底色必须带一点紫，品红荧光才像"照着这个
+     房间"，否则霓虹是浮在纯黑上的一层贴纸。 */
+  --bg: oklch(0.145 0.028 290);              /* #0A0815 */
+  --surface-1: oklch(0.168 0.028 290);       /* #0F0D1A  ΔL 0.023 */
+  --surface-2: oklch(0.192 0.028 290);       /* #141220  ΔL 0.024 */
+  --surface-3: oklch(0.217 0.028 290);       /* #1A1826  ΔL 0.025 */
+  --surface-sunken: oklch(0.128 0.028 290);  /* #070511 */
   --fg: oklch(0.950 0.020 190);              /* #E0F3F1  17.3:1 */
-  --fg-muted: oklch(0.780 0.040 210);        /* #9BBFC6  10.0:1 */
-  --accent: oklch(0.855 0.135 190);          /* #40EBE3  主荧光青，13.4:1 */
-  --accent-hover: oklch(0.900 0.125 190);
-  --accent-2: oklch(0.720 0.180 330);        /* #E364DB  次荧光品红，只做通道分离 */
+  --fg-muted: oklch(0.780 0.040 210);        /* #9BBFC6  10.1:1 */
+  /* 主荧光是品红，不是青：霓虹招牌里最先被看见的是它。
+     彩度必须顶到 C 0.26（L 0.72 的色域上限是 0.286，留一点余量给
+     Gamut 舍入）——低于 0.20 的品红在暗底上会读成"紫灰"，这正是它
+     不像霓虹的原因；青色反而要退到副光，只在通道分离与套印里出现。 */
+  --accent: oklch(0.720 0.260 330);          /* #F852F0  主荧光品红，7.0:1 */
+  --accent-hover: oklch(0.790 0.180 330);    /* #F98CF1 */
+  --accent-2: oklch(0.870 0.145 195);        /* #20F1F2  副荧光青，只做通道分离 */
   --accent-soft: color-mix(in oklab, var(--accent) 16%, transparent);
-  --on-accent: oklch(0.145 0.020 280);       /* 亮青底上压深色字 */
-  /* 暗色状态色：danger 落在品红荧光上，三者 L 都在 0.85 附近 */
-  --danger: oklch(0.854 0.129 330);          /* #FFB0F7  12.1:1 vs bg */
-  --danger-hover: oklch(0.900 0.119 330);
+  --on-accent: oklch(0.145 0.028 290);       /* 亮品红底上压深色字 */
+  /* 状态色：danger 必须离开品红——主色现在是品红，两者同色就分不出
+     "这是一个按钮"还是"这里出错了"。改用朱红，H 27 与品红 330 相距足够远 */
+  --danger: oklch(0.700 0.190 27);           /* #FF655A  6.9:1 vs bg */
+  --danger-hover: oklch(0.760 0.140 27);     /* #FE8C80 */
   --danger-soft: color-mix(in oklab, var(--danger) 16%, transparent);
-  --on-danger: oklch(0.145 0.020 280);
-  --success: oklch(0.854 0.147 190);         /* #06EDE4  13.4:1 vs bg */
-  --warning: oklch(0.854 0.141 80);          /* #FFC458  12.5:1 vs bg */
-  --line-1: oklch(0.430 0.100 300);          /* #59417E */
-  --line-2: oklch(0.520 0.110 300);
+  --on-danger: oklch(0.145 0.028 290);
+  --success: oklch(0.854 0.140 190);         /* #06EDE4  13.4:1 vs bg */
+  --warning: oklch(0.854 0.130 80);          /* #FCC564  12.6:1 vs bg */
+  /* 描边跟着主荧光走：原来的暗紫线在品红旁边会读成"没上色" */
+  --line-1: oklch(0.520 0.120 320);          /* #875093  3.4:1 vs bg */
+  --line-2: oklch(0.600 0.120 320);          /* #A067AC  4.8:1 vs bg */
   --line-inset: color-mix(in oklab, var(--accent) 55%, transparent);
 
   /* 辉光取代实心阴影：只在描边与活跃元素上出现 */
@@ -557,7 +567,7 @@
   box-shadow: 3px 3px 0 var(--accent);
 }
 
-/* 选中：屏幕态是荧光青底深字；印刷态是品红墨块 */
+/* 选中：屏幕态是荧光品红底深字；印刷态是品红墨块 */
 :root[data-style="cyberpunk"]::selection,
 :root[data-style="cyberpunk"] ::selection {
   background: var(--accent);
@@ -628,7 +638,8 @@
   border-color: var(--danger-hover);
   box-shadow: 0 0 18px -2px color-mix(in oklab, var(--danger) 55%, transparent);
 }
-/* 印刷态：危险是实心品红块，和主按钮一样是墨 */
+/* 印刷态：危险是实心朱红块，和主按钮一样是墨。
+   朱红与品红主色是两个色相，一眼能分开——同色的话危险色就等于主色。 */
 :root[data-style="cyberpunk"]:not([data-theme="dark"]) .btn[data-variant="danger"] {
   background: var(--danger);
   border-color: var(--danger);
